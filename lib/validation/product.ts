@@ -33,7 +33,7 @@ const optionalPercent = z
   .string()
   .trim()
   .transform((v) => (v === "" ? null : v))
-  .refine((v) => v === null || /^\d{1,2}(\.\d{1,2})?$/.test(v), "ส่วนลดต้องเป็นตัวเลข")
+  .refine((v) => v === null || /^\d{1,3}(\.\d{1,2})?$/.test(v), "ส่วนลดต้องเป็นตัวเลข (ทศนิยมไม่เกิน 2 ตำแหน่ง)")
   .refine((v) => v === null || (Number(v) > 0 && Number(v) < 100), "ส่วนลดต้องมากกว่า 0 และน้อยกว่า 100");
 
 /** `datetime-local` value interpreted as Asia/Bangkok. */

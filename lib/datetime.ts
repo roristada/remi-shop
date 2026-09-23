@@ -24,7 +24,8 @@ export function toBangkokDateTimeLocal(date: Date | null | undefined): string {
 }
 
 /** Human-readable Bangkok date/time for display. */
-export function formatBangkokDateTime(date: Date | null | undefined, locale = "th-TH"): string {
+/** Defaults to Thai with Gregorian years, matching the admin date picker. */
+export function formatBangkokDateTime(date: Date | null | undefined, locale = "th-TH-u-ca-gregory"): string {
   if (!date) return "-";
   return new Intl.DateTimeFormat(locale, {
     timeZone: BUSINESS_TIMEZONE,

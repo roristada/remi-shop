@@ -59,11 +59,18 @@ export async function createVersion(
   const duplicate = await prisma.productVersion.count({ where: { productId, versionNumber: data.versionNumber } });
   if (duplicate > 0) return fail(DUPLICATE_VERSION, { versionNumber: DUPLICATE_VERSION });
 
+  let deferredLatest = false;
   try {
     await prisma.$transaction(async (tx) => {
-      const existing = await tx.productVersion.count({ where: { productId } });
+      const [existing, product] = await Promise.all([
+        tx.productVersion.count({ where: { productId } }),
+        tx.product.findUnique({ where: { id: productId }, select: { publishStatus: true } }),
+      ]);
       // The first version is always the latest; later ones only when asked.
-      const makeLatest = existing === 0 || setLatest;
+      // A new version has no files yet, so a published product keeps its current
+      // latest until files are uploaded and the admin promotes it (setLatestVersion).
+      deferredLatest = existing > 0 && setLatest && product?.publishStatus === "PUBLISHED";
+      const makeLatest = existing === 0 || (setLatest && !deferredLatest);
       if (makeLatest) {
         await tx.productVersion.updateMany({ where: { productId, isLatest: true }, data: { isLatest: false } });
       }
@@ -80,7 +87,12 @@ export async function createVersion(
 
   console.info("[products] version created", { productId, versionNumber: data.versionNumber });
   revalidateCatalog();
-  return ok(undefined, "เพิ่มเวอร์ชันแล้ว");
+  return ok(
+    undefined,
+    deferredLatest
+      ? `เพิ่ม v${data.versionNumber} แล้ว — อัปโหลดไฟล์ แล้วกด “ตั้งเป็นล่าสุด”`
+      : "เพิ่มเวอร์ชันแล้ว",
+  );
 }
 
 export async function updateVersion(
@@ -203,11 +215,10 @@ export async function confirmFileUpload(
   if (!version) return fail("ไม่พบเวอร์ชัน");
 
   const fileName = displayFileName(input.fileName);
-  if (
-    !fileName ||
-    !isProductFilePath(input.path, version.productId, version.id) ||
-    getExtension(input.path) !== getExtension(fileName)
-  ) {
+  if (!isProductFilePath(input.path, version.productId, version.id)) return fail("คำขอไม่ถูกต้อง");
+  if (!fileName || getExtension(input.path) !== getExtension(fileName)) {
+    // The key is one we issued for this version, so the uploaded object is safe to discard.
+    await removeObjects(BUCKETS.digitalFiles, [input.path]);
     return fail("คำขอไม่ถูกต้อง");
   }
 
