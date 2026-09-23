@@ -18,6 +18,7 @@ Stack: Next.js 16 (App Router, `proxy.ts`) · TypeScript strict · Tailwind v4 �
 | --- | --- |
 | `dev` / `build` / `start` | Next.js |
 | `typecheck` | `tsc --noEmit` |
+| `test` | Unit tests (`node:test` via tsx) — `lib/**/*.test.ts` |
 | `lint` | ESLint |
 | `db:deploy` / `db:status` / `db:diff` / `db:studio` | Prisma (see Database workflow) |
 
@@ -28,7 +29,11 @@ Stack: Next.js 16 (App Router, `proxy.ts`) · TypeScript strict · Tailwind v4 �
 - `lib/supabase/` — `client` (browser), `server` (cookies), `admin` (service role, server only), `proxy` (session refresh)
 - `lib/prisma/` — lazy Prisma client
 - `lib/auth/guards.ts` — `requireUser`, `requireAdmin` (role read from `profiles`)
-- `lib/storage/` — bucket names, limits, filename sanitizing
+- `lib/storage/` — bucket names, limits, filename sanitizing, file-type allowlists + magic bytes (`file-types.ts`), signed uploads (`product-storage.ts`)
+- `lib/products/` — derived status (`status.ts`), admin queries, server actions (product / image / version+file)
+- `lib/pricing/` — `calculateProductPrice()` in integer satang (server authoritative)
+- `lib/categories/` — category server actions
+- `components/admin/` — admin forms, managers, dialogs
 - `locales/{th,en}/*.json` — UI strings
 - `prisma/schema.prisma` — manages the `public` schema only; never touch `auth`/`storage`
 
@@ -59,6 +64,13 @@ Migrations so far:
   (token-hash links → `/auth/confirm`, work across devices)
 - **Providers → Email** → minimum password length 8
 - First admin: sign up, then `npm run role:set -- you@example.com ADMIN`
+
+## Product uploads
+
+Files go browser → Supabase Storage with a one-time signed upload token (Vercel caps function
+request bodies at 4.5 MB). The server issues the object key, then re-checks the stored object
+(real size ≤ 5 MB, extension allowlist, magic bytes) and deletes it if invalid. Buckets also
+enforce the 5 MB limit. `storagePath` is never sent to the browser.
 
 ## Security notes
 

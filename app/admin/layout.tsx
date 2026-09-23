@@ -42,7 +42,21 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
             ))}
           </nav>
         </aside>
-        <main className="flex-1 p-4 md:p-8">{children}</main>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <nav aria-label="Admin" className="flex gap-1 overflow-x-auto border-b bg-sidebar px-2 py-2 md:hidden">
+            {ADMIN_NAV.map(({ href, label, icon: Icon }) => (
+              <Link
+                key={href}
+                href={href}
+                className="flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm hover:bg-sidebar-accent"
+              >
+                <Icon className="size-4" aria-hidden />
+                {label}
+              </Link>
+            ))}
+          </nav>
+          <main className="flex-1 p-4 md:p-8">{children}</main>
+        </div>
         <Toaster />
       </body>
     </html>

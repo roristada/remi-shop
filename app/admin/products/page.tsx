@@ -1,0 +1,164 @@
+import Image from "next/image";
+import Link from "next/link";
+import { ImageOff, Plus, Search } from "lucide-react";
+import { requireAdmin } from "@/lib/auth/guards";
+import { listAdminProducts, listCategoryOptions } from "@/lib/products/admin-queries";
+import { getProductStatus } from "@/lib/products/status";
+import { calculateProductPrice, formatTHB } from "@/lib/pricing/calculate";
+import { formatBangkokDateTime } from "@/lib/datetime";
+import { previewImageUrl } from "@/lib/storage/public-url";
+import { idSchema } from "@/lib/validation/product";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ProductStatusBadge } from "@/components/admin/product-status-badge";
+import { AdminPagination } from "@/components/admin/pagination";
+import { FlashToast } from "@/components/admin/flash-toast";
+import type { PublishStatus } from "@/lib/generated/prisma/enums";
+
+const PUBLISH_FILTERS: { value: PublishStatus; label: string }[] = [
+  { value: "DRAFT", label: "ฉบับร่าง" },
+  { value: "PUBLISHED", label: "เผยแพร่" },
+  { value: "DISABLED", label: "ปิดการขาย" },
+];
+
+function one(v: string | string[] | undefined) {
+  return typeof v === "string" ? v : undefined;
+}
+
+export default async function AdminProductsPage({ searchParams }: PageProps<"/admin/products">) {
+  await requireAdmin();
+  const sp = await searchParams;
+
+  // Filters come from the URL — validate before they reach the query.
+  const q = one(sp.q)?.trim().slice(0, 100) || undefined;
+  const categoryId = idSchema.safeParse(one(sp.category)).success ? one(sp.category) : undefined;
+  const status = PUBLISH_FILTERS.find((f) => f.value === one(sp.status))?.value;
+  const page = Math.max(1, Math.min(10_000, Number.parseInt(one(sp.page) ?? "1", 10) || 1));
+
+  const [{ items, total, pageCount }, categories] = await Promise.all([
+    listAdminProducts({ q, categoryId, publishStatus: status, page }),
+    listCategoryOptions(),
+  ]);
+  const now = new Date();
+  const params = { q, category: categoryId, status };
+
+  return (
+    <div className="mx-auto max-w-6xl space-y-6">
+      {one(sp.deleted) && <FlashToast message="ลบสินค้าแล้ว" />}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">สินค้า</h1>
+          <p className="text-sm text-muted-foreground">ทั้งหมด {total.toLocaleString("th-TH")} รายการ</p>
+        </div>
+        <Button asChild className="h-10 rounded-full px-5">
+          <Link href="/admin/products/new">
+            <Plus aria-hidden /> เพิ่มสินค้า
+          </Link>
+        </Button>
+      </div>
+
+      <form className="flex flex-wrap gap-2 rounded-2xl border bg-card p-3 shadow-soft" role="search">
+        <label className="relative min-w-48 flex-1">
+          <span className="sr-only">ค้นหา</span>
+          <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          <Input name="q" defaultValue={q} placeholder="ค้นหาชื่อหรือ slug" className="h-10 rounded-xl pl-9" />
+        </label>
+        <label>
+          <span className="sr-only">หมวดหมู่</span>
+          <select name="category" defaultValue={categoryId ?? ""} className="h-10 rounded-xl border bg-transparent px-3 text-sm">
+            <option value="">ทุกหมวดหมู่</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nameTH}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span className="sr-only">สถานะ</span>
+          <select name="status" defaultValue={status ?? ""} className="h-10 rounded-xl border bg-transparent px-3 text-sm">
+            <option value="">ทุกสถานะ</option>
+            {PUBLISH_FILTERS.map((f) => (
+              <option key={f.value} value={f.value}>
+                {f.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <Button type="submit" variant="secondary" className="h-10 rounded-xl px-4">
+          กรอง
+        </Button>
+      </form>
+
+      {items.length === 0 ? (
+        <div className="rounded-2xl border border-dashed bg-card p-12 text-center">
+          <p className="font-medium">ไม่พบสินค้า</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {q || categoryId || status ? "ลองเปลี่ยนตัวกรอง" : "เริ่มจากเพิ่มสินค้าชิ้นแรก"}
+          </p>
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-2xl border bg-card shadow-soft">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-16">
+                  <span className="sr-only">รูป</span>
+                </TableHead>
+                <TableHead>สินค้า</TableHead>
+                <TableHead className="hidden md:table-cell">หมวดหมู่</TableHead>
+                <TableHead className="text-right">ราคา</TableHead>
+                <TableHead>สถานะ</TableHead>
+                <TableHead className="hidden lg:table-cell">แก้ไขล่าสุด</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {items.map((p) => {
+                const price = calculateProductPrice(p, now);
+                const image = p.images[0];
+                return (
+                  <TableRow key={p.id}>
+                    <TableCell>
+                      <div className="relative size-12 overflow-hidden rounded-lg bg-muted">
+                        {image ? (
+                          <Image src={previewImageUrl(image.imagePath)} alt="" fill sizes="48px" className="object-cover" />
+                        ) : (
+                          <ImageOff className="absolute inset-0 m-auto size-4 text-muted-foreground" aria-hidden />
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="max-w-72">
+                      <Link href={`/admin/products/${p.id}`} className="font-medium hover:underline">
+                        {p.nameTH}
+                      </Link>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {p.nameEN}
+                        {p.versions[0] ? ` · v${p.versions[0].versionNumber}` : " · ยังไม่มีเวอร์ชัน"}
+                      </p>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">{p.category.nameTH}</TableCell>
+                    <TableCell className="text-right whitespace-nowrap">
+                      {price.isDiscounted && (
+                        <span className="mr-1 text-xs text-muted-foreground line-through">{formatTHB(price.unitPrice)}</span>
+                      )}
+                      {formatTHB(price.finalPrice)}
+                    </TableCell>
+                    <TableCell>
+                      <ProductStatusBadge status={getProductStatus(p, now)} />
+                    </TableCell>
+                    <TableCell className="hidden text-xs text-muted-foreground lg:table-cell">
+                      {formatBangkokDateTime(p.updatedAt)}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      <AdminPagination page={page} pageCount={pageCount} params={params} basePath="/admin/products" />
+    </div>
+  );
+}

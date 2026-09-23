@@ -1,0 +1,129 @@
+"use client";
+
+import { useEffect, useId, useRef, type ComponentProps, type ReactNode } from "react";
+import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
+import type { ActionResult } from "@/lib/actions/result";
+
+type ShellProps = {
+  label: string;
+  error?: string;
+  hint?: string;
+  className?: string;
+  children: (a11y: { id: string; "aria-invalid"?: true; "aria-describedby"?: string }) => ReactNode;
+};
+
+/** Label + control + error/hint, wired up for screen readers. Admin messages are plain Thai strings. */
+export function FieldShell({ label, error, hint, className, children }: ShellProps) {
+  const id = useId();
+  const describedBy = error ? `${id}-error` : hint ? `${id}-hint` : undefined;
+  return (
+    <div className={cn("space-y-1.5", className)}>
+      <Label htmlFor={id}>{label}</Label>
+      {children({ id, "aria-invalid": error ? true : undefined, "aria-describedby": describedBy })}
+      {error ? (
+        <p id={`${id}-error`} className="text-xs text-destructive">
+          {error}
+        </p>
+      ) : hint ? (
+        <p id={`${id}-hint`} className="text-xs text-muted-foreground">
+          {hint}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+type Common = { label: string; error?: string; hint?: string; wrapperClassName?: string };
+
+export function TextInput({ label, error, hint, wrapperClassName, className, ...props }: Common & ComponentProps<"input">) {
+  return (
+    <FieldShell label={label} error={error} hint={hint} className={wrapperClassName}>
+      {(a11y) => <Input {...a11y} className={cn("h-10 rounded-xl", className)} {...props} />}
+    </FieldShell>
+  );
+}
+
+export function TextArea({ label, error, hint, wrapperClassName, className, ...props }: Common & ComponentProps<"textarea">) {
+  return (
+    <FieldShell label={label} error={error} hint={hint} className={wrapperClassName}>
+      {(a11y) => <Textarea {...a11y} className={cn("min-h-24 rounded-xl", className)} {...props} />}
+    </FieldShell>
+  );
+}
+
+/** Native select: accessible, works without JS, and posts with the form. */
+export function SelectInput({
+  label,
+  error,
+  hint,
+  wrapperClassName,
+  className,
+  children,
+  ...props
+}: Common & ComponentProps<"select">) {
+  return (
+    <FieldShell label={label} error={error} hint={hint} className={wrapperClassName}>
+      {(a11y) => (
+        <select
+          {...a11y}
+          className={cn(
+            "h-10 w-full rounded-xl border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive",
+            className,
+          )}
+          {...props}
+        >
+          {children}
+        </select>
+      )}
+    </FieldShell>
+  );
+}
+
+export function FormSection({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+  return (
+    <section className="space-y-4 rounded-2xl border bg-card p-4 shadow-soft md:p-6">
+      <div>
+        <h2 className="font-semibold">{title}</h2>
+        {description && <p className="text-sm text-muted-foreground">{description}</p>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/** Toasts the result of a form action once per new result. */
+export function useResultToast(state: ActionResult<unknown> | null) {
+  const last = useRef<typeof state>(null);
+  useEffect(() => {
+    if (!state || state === last.current) return;
+    last.current = state;
+    if (state.ok) {
+      if (state.message) toast.success(state.message);
+    } else {
+      toast.error(state.error);
+    }
+  }, [state]);
+}
+
+/** Runs a one-off action and toasts its result. Returns true on success. */
+export async function runWithToast(action: () => Promise<ActionResult<unknown>>): Promise<boolean> {
+  try {
+    const result = await action();
+    if (result.ok) {
+      if (result.message) toast.success(result.message);
+      return true;
+    }
+    toast.error(result.error);
+  } catch (error) {
+    // redirect() inside an action surfaces as a thrown control-flow error — let Next handle it.
+    if (error && typeof error === "object" && "digest" in error && String(error.digest).startsWith("NEXT_REDIRECT")) {
+      throw error;
+    }
+    toast.error("เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง");
+  }
+  return false;
+}
