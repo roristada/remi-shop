@@ -19,6 +19,7 @@ import {
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { runWithToast, TextArea, TextInput } from "@/components/admin/form-controls";
 import { useDirectUpload } from "@/components/admin/use-direct-upload";
+import { DateTimeInput } from "@/components/admin/date-time-input";
 import {
   confirmFileUpload,
   createVersion,
@@ -302,13 +303,7 @@ function VersionDialog({
               defaultValue={values?.versionNumber}
               error={err("versionNumber")}
             />
-            <TextInput
-              label="วันที่ออก"
-              name="releaseDate"
-              type="datetime-local"
-              defaultValue={values?.releaseDate}
-              error={err("releaseDate")}
-            />
+            <DateTimeInput label="วันที่ออก" name="releaseDate" defaultValue={values?.releaseDate} error={err("releaseDate")} />
           </div>
           <TextArea label="Release notes (ไทย)" name="releaseNotesTH" rows={3} defaultValue={values?.releaseNotesTH} error={err("releaseNotesTH")} />
           <TextArea label="Release notes (English)" name="releaseNotesEN" rows={3} defaultValue={values?.releaseNotesEN} error={err("releaseNotesEN")} />

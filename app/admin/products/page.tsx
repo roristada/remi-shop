@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ProductStatusBadge } from "@/components/admin/product-status-badge";
 import { AdminPagination } from "@/components/admin/pagination";
 import { FlashToast } from "@/components/admin/flash-toast";
+import { SelectInput } from "@/components/admin/form-controls";
 import type { PublishStatus } from "@/lib/generated/prisma/enums";
 
 const PUBLISH_FILTERS: { value: PublishStatus; label: string }[] = [
@@ -64,28 +65,23 @@ export default async function AdminProductsPage({ searchParams }: PageProps<"/ad
           <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
           <Input name="q" defaultValue={q} placeholder="ค้นหาชื่อหรือ slug" className="h-10 rounded-xl pl-9" />
         </label>
-        <label>
-          <span className="sr-only">หมวดหมู่</span>
-          <select name="category" defaultValue={categoryId ?? ""} className="h-10 rounded-xl border bg-transparent px-3 text-sm">
-            <option value="">ทุกหมวดหมู่</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nameTH}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span className="sr-only">สถานะ</span>
-          <select name="status" defaultValue={status ?? ""} className="h-10 rounded-xl border bg-transparent px-3 text-sm">
-            <option value="">ทุกสถานะ</option>
-            {PUBLISH_FILTERS.map((f) => (
-              <option key={f.value} value={f.value}>
-                {f.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        {/* "all" is a sentinel: it fails the validation above, i.e. "no filter". */}
+        <SelectInput
+          label="หมวดหมู่"
+          hideLabel
+          name="category"
+          defaultValue={categoryId ?? "all"}
+          options={[{ value: "all", label: "ทุกหมวดหมู่" }, ...categories.map((c) => ({ value: c.id, label: c.nameTH }))]}
+          wrapperClassName="w-44 space-y-0"
+        />
+        <SelectInput
+          label="สถานะ"
+          hideLabel
+          name="status"
+          defaultValue={status ?? "all"}
+          options={[{ value: "all", label: "ทุกสถานะ" }, ...PUBLISH_FILTERS]}
+          wrapperClassName="w-36 space-y-0"
+        />
         <Button type="submit" variant="secondary" className="h-10 rounded-xl px-4">
           กรอง
         </Button>

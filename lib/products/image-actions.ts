@@ -1,5 +1,6 @@
 "use server";
 
+import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma/client";
 import { isUniqueViolation } from "@/lib/prisma/errors";
@@ -48,7 +49,10 @@ export async function confirmImageUpload(
   await requireAdmin();
   if (!idSchema.safeParse(productId).success) return fail("คำขอไม่ถูกต้อง");
   // The path must be one we issued for this product, with the extension the checks run against.
-  if (!isProductImagePath(input.path, productId) || getExtension(input.path) !== getExtension(input.fileName)) {
+  if (!isProductImagePath(input.path, productId)) return fail("คำขอไม่ถูกต้อง");
+  if (getExtension(input.path) !== getExtension(input.fileName)) {
+    // The key is one we issued for this product, so the uploaded object is safe to discard.
+    await removeObjects(BUCKETS.productPreviews, [input.path]);
     return fail("คำขอไม่ถูกต้อง");
   }
 
@@ -110,28 +114,26 @@ export async function setPrimaryImage(imageId: string): Promise<ActionResult> {
   return ok(undefined, "ตั้งเป็นรูปหลักแล้ว");
 }
 
-export async function moveImage(imageId: string, direction: "up" | "down"): Promise<ActionResult> {
+/** Saves a full new order. The id list must be exactly this product's images. */
+export async function reorderImages(productId: string, orderedIds: string[]): Promise<ActionResult> {
   await requireAdmin();
-  const image = await findImage(imageId);
-  if (!image || (direction !== "up" && direction !== "down")) return fail("ไม่พบรูปภาพ");
+  const ids = z.array(idSchema).max(MAX_IMAGES_PER_PRODUCT).safeParse(orderedIds);
+  if (!idSchema.safeParse(productId).success || !ids.success || new Set(ids.data).size !== ids.data.length) {
+    return fail("คำขอไม่ถูกต้อง");
+  }
 
-  // Normalize to 0..n-1 then swap with the neighbour, all in one transaction.
-  await prisma.$transaction(async (tx) => {
-    const images = await tx.productImage.findMany({
-      where: { productId: image.productId },
-      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-      select: { id: true },
-    });
-    const ids = images.map((i) => i.id);
-    const from = ids.indexOf(image.id);
-    const to = direction === "up" ? from - 1 : from + 1;
-    if (from < 0 || to < 0 || to >= ids.length) return;
-    [ids[from], ids[to]] = [ids[to], ids[from]];
-    await Promise.all(ids.map((id, i) => tx.productImage.update({ where: { id }, data: { sortOrder: i } })));
-  });
+  const current = await prisma.productImage.findMany({ where: { productId }, select: { id: true } });
+  const known = new Set(current.map((i) => i.id));
+  if (current.length !== ids.data.length || !ids.data.every((id) => known.has(id))) {
+    return fail("รายการรูปเปลี่ยนไปแล้ว กรุณาโหลดหน้าใหม่");
+  }
+
+  await prisma.$transaction(
+    ids.data.map((id, sortOrder) => prisma.productImage.update({ where: { id }, data: { sortOrder } })),
+  );
 
   revalidateCatalog();
-  return ok(undefined);
+  return ok(undefined, "บันทึกลำดับรูปแล้ว");
 }
 
 export async function updateImageAlt(

@@ -4,6 +4,7 @@ import { useRef, useState, useTransition, type FormEvent } from "react";
 import { Loader2, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FormSection, SelectInput, TextArea, TextInput, useResultToast } from "@/components/admin/form-controls";
+import { DateTimeInput } from "@/components/admin/date-time-input";
 import type { ActionResult } from "@/lib/actions/result";
 
 export type ProductFormValues = {
@@ -112,7 +113,7 @@ export function ProductForm({
             required
             error={err("nameEN")}
           />
-          <div className="flex items-end gap-2">
+          <div className="relative">
             <TextInput
               ref={slugRef}
               label="Slug (URL)"
@@ -120,14 +121,15 @@ export function ProductForm({
               defaultValue={values.slug}
               maxLength={100}
               required
-              wrapperClassName="flex-1"
               error={err("slug")}
               hint="a-z, 0-9 และ - เช่น watercolor-brush-pack"
             />
+            {/* Sits in the label row so the input keeps its full width. */}
             <Button
               type="button"
-              variant="outline"
-              className="mb-6 h-10"
+              variant="ghost"
+              size="xs"
+              className="absolute -top-1 right-0 text-muted-foreground"
               onClick={() => {
                 if (slugRef.current && nameENRef.current) slugRef.current.value = slugify(nameENRef.current.value);
               }}
@@ -135,15 +137,14 @@ export function ProductForm({
               <Wand2 aria-hidden /> สร้างจากชื่อ EN
             </Button>
           </div>
-          <SelectInput label="หมวดหมู่" name="categoryId" defaultValue={values.categoryId} required error={err("categoryId")}>
-            <option value="">— เลือกหมวดหมู่ —</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nameTH}
-                {c.status === "HIDDEN" ? " (ซ่อน)" : ""}
-              </option>
-            ))}
-          </SelectInput>
+          <SelectInput
+            label="หมวดหมู่"
+            name="categoryId"
+            defaultValue={values.categoryId}
+            placeholder="— เลือกหมวดหมู่ —"
+            options={categories.map((c) => ({ value: c.id, label: c.status === "HIDDEN" ? `${c.nameTH} (ซ่อน)` : c.nameTH }))}
+            error={err("categoryId")}
+          />
           <TextArea label="รายละเอียด (ไทย)" name="descriptionTH" defaultValue={values.descriptionTH} rows={6} error={err("descriptionTH")} />
           <TextArea label="รายละเอียด (English)" name="descriptionEN" defaultValue={values.descriptionEN} rows={6} error={err("descriptionEN")} />
         </div>
@@ -160,15 +161,15 @@ export function ProductForm({
             error={err("discountPercent")}
             hint="เว้นว่างถ้าไม่มีส่วนลด"
           />
-          <TextInput label="เริ่มส่วนลด" name="discountStartAt" type="datetime-local" defaultValue={values.discountStartAt} error={err("discountStartAt")} />
-          <TextInput label="สิ้นสุดส่วนลด" name="discountEndAt" type="datetime-local" defaultValue={values.discountEndAt} error={err("discountEndAt")} />
+          <DateTimeInput label="เริ่มส่วนลด" name="discountStartAt" defaultValue={values.discountStartAt} error={err("discountStartAt")} />
+          <DateTimeInput label="สิ้นสุดส่วนลด" name="discountEndAt" defaultTime="23:59" defaultValue={values.discountEndAt} error={err("discountEndAt")} />
         </div>
       </FormSection>
 
       <FormSection title="ช่วงเวลาขาย" description="เว้นว่าง = ขายได้ทันที / ไม่มีวันสิ้นสุด (เวลาไทย)">
         <div className="grid gap-4 md:grid-cols-2">
-          <TextInput label="เริ่มขาย" name="saleStartAt" type="datetime-local" defaultValue={values.saleStartAt} error={err("saleStartAt")} />
-          <TextInput label="สิ้นสุดการขาย" name="saleEndAt" type="datetime-local" defaultValue={values.saleEndAt} error={err("saleEndAt")} />
+          <DateTimeInput label="เริ่มขาย" name="saleStartAt" defaultValue={values.saleStartAt} error={err("saleStartAt")} />
+          <DateTimeInput label="สิ้นสุดการขาย" name="saleEndAt" defaultTime="23:59" defaultValue={values.saleEndAt} error={err("saleEndAt")} />
         </div>
       </FormSection>
 
@@ -189,13 +190,14 @@ export function ProductForm({
             label="จำกัดจำนวนครั้งดาวน์โหลด"
             name="downloadLimitMode"
             value={limitMode}
-            onChange={(e) => setLimitMode(e.target.value as ProductFormValues["downloadLimitMode"])}
-          >
-            <option value="unlimited">ไม่จำกัด</option>
-            <option value="5">5 ครั้ง</option>
-            <option value="10">10 ครั้ง</option>
-            <option value="custom">กำหนดเอง</option>
-          </SelectInput>
+            onValueChange={(v) => setLimitMode(v as ProductFormValues["downloadLimitMode"])}
+            options={[
+              { value: "unlimited", label: "ไม่จำกัด" },
+              { value: "5", label: "5 ครั้ง" },
+              { value: "10", label: "10 ครั้ง" },
+              { value: "custom", label: "กำหนดเอง" },
+            ]}
+          />
           {limitMode === "custom" && (
             <TextInput
               label="จำนวนครั้ง"

@@ -185,10 +185,16 @@ function CategoryDialog({ title, trigger, category }: { title: string; trigger: 
           </div>
           <TextArea label="คำอธิบาย (ไทย)" name="descriptionTH" rows={2} maxLength={500} defaultValue={category?.descriptionTH} error={err("descriptionTH")} />
           <TextArea label="คำอธิบาย (English)" name="descriptionEN" rows={2} maxLength={500} defaultValue={category?.descriptionEN} error={err("descriptionEN")} />
-          <SelectInput label="สถานะ" name="status" defaultValue={category?.status ?? "ACTIVE"} error={err("status")}>
-            <option value="ACTIVE">แสดง</option>
-            <option value="HIDDEN">ซ่อน</option>
-          </SelectInput>
+          <SelectInput
+            label="สถานะ"
+            name="status"
+            defaultValue={category?.status ?? "ACTIVE"}
+            options={[
+              { value: "ACTIVE", label: "แสดง" },
+              { value: "HIDDEN", label: "ซ่อน" },
+            ]}
+            error={err("status")}
+          />
           <DialogFooter>
             <Button type="submit" disabled={pending} aria-busy={pending}>
               {pending && <Loader2 className="animate-spin" aria-hidden />}

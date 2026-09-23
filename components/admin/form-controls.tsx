@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { ActionResult } from "@/lib/actions/result";
 
@@ -13,16 +14,19 @@ type ShellProps = {
   error?: string;
   hint?: string;
   className?: string;
+  hideLabel?: boolean;
   children: (a11y: { id: string; "aria-invalid"?: true; "aria-describedby"?: string }) => ReactNode;
 };
 
 /** Label + control + error/hint, wired up for screen readers. Admin messages are plain Thai strings. */
-export function FieldShell({ label, error, hint, className, children }: ShellProps) {
+export function FieldShell({ label, error, hint, className, hideLabel = false, children }: ShellProps) {
   const id = useId();
   const describedBy = error ? `${id}-error` : hint ? `${id}-hint` : undefined;
   return (
     <div className={cn("space-y-1.5", className)}>
-      <Label htmlFor={id}>{label}</Label>
+      <Label htmlFor={id} className={cn(hideLabel && "sr-only")}>
+        {label}
+      </Label>
       {children({ id, "aria-invalid": error ? true : undefined, "aria-describedby": describedBy })}
       {error ? (
         <p id={`${id}-error`} className="text-xs text-destructive">
@@ -55,29 +59,50 @@ export function TextArea({ label, error, hint, wrapperClassName, className, ...p
   );
 }
 
-/** Native select: accessible, works without JS, and posts with the form. */
+export type SelectOption = { value: string; label: string };
+
+/**
+ * Styled select (Radix). With `name` it posts with the form like a native select.
+ * Radix forbids "" as an item value: leave the value empty to show the placeholder.
+ */
 export function SelectInput({
   label,
   error,
   hint,
   wrapperClassName,
   className,
-  children,
-  ...props
-}: Common & ComponentProps<"select">) {
+  name,
+  options,
+  defaultValue,
+  value,
+  onValueChange,
+  placeholder = "— เลือก —",
+  hideLabel = false,
+}: Common & {
+  name?: string;
+  options: SelectOption[];
+  defaultValue?: string;
+  value?: string;
+  onValueChange?: (value: string) => void;
+  placeholder?: string;
+  className?: string;
+  hideLabel?: boolean;
+}) {
   return (
-    <FieldShell label={label} error={error} hint={hint} className={wrapperClassName}>
+    <FieldShell label={label} error={error} hint={hint} className={wrapperClassName} hideLabel={hideLabel}>
       {(a11y) => (
-        <select
-          {...a11y}
-          className={cn(
-            "h-10 w-full rounded-xl border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive",
-            className,
-          )}
-          {...props}
-        >
-          {children}
-        </select>
+        <Select name={name} defaultValue={defaultValue || undefined} value={value} onValueChange={onValueChange}>
+          <SelectTrigger {...a11y} className={cn("h-10! w-full rounded-xl", className)}>
+            <SelectValue placeholder={placeholder} />
+          </SelectTrigger>
+          <SelectContent position="popper" className="max-h-72">
+            {options.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       )}
     </FieldShell>
   );
