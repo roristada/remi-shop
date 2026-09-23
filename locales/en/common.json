@@ -1,0 +1,38 @@
+{
+  "brand": "Remi Shop",
+  "nav": {
+    "home": "Home",
+    "shop": "Shop",
+    "categories": "Categories",
+    "about": "About",
+    "faq": "FAQ",
+    "contact": "Contact"
+  },
+  "header": {
+    "search": "Search products",
+    "searchPlaceholder": "Search brushes, textures, fonts...",
+    "wishlist": "Wishlist",
+    "account": "My account",
+    "cart": "Cart",
+    "menu": "Menu",
+    "language": "Language"
+  },
+  "footer": {
+    "tagline": "Digital files for artists. Download right after payment.",
+    "shop": "Shop",
+    "help": "Help",
+    "legal": "Policies",
+    "terms": "Terms of Service",
+    "privacy": "Privacy Policy",
+    "refund": "Refund Policy",
+    "rights": "All rights reserved"
+  },
+  "state": {
+    "loading": "Loading...",
+    "empty": "Nothing here yet",
+    "error": "Something went wrong. Please try again.",
+    "retry": "Try again",
+    "notFound": "We couldn't find that page",
+    "backHome": "Back to home"
+  }
+}

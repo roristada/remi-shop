@@ -1,0 +1,25 @@
+{
+  "title": "My account",
+  "greeting": "Hi {name}",
+  "nav": {
+    "overview": "Overview",
+    "profile": "Profile",
+    "orders": "Orders",
+    "downloads": "Downloads",
+    "wishlist": "Wishlist"
+  },
+  "overview": {
+    "ordersDesc": "View order history and status",
+    "downloadsDesc": "Download the files you've purchased",
+    "wishlistDesc": "Products you've saved",
+    "profileDesc": "Edit your name and account details"
+  },
+  "profile": {
+    "title": "Profile",
+    "emailHint": "Email can't be changed at the moment",
+    "save": "Save",
+    "saved": "Profile saved",
+    "changePassword": "Change password",
+    "changePasswordDesc": "We'll email you a link to set a new password"
+  }
+}

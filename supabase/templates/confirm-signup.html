@@ -1,0 +1,31 @@
+<!--
+  Supabase → Authentication → Emails → Templates → "Confirm sign up"
+  Subject: ยืนยันอีเมลของคุณ | Confirm your email — Remi Shop
+  {{ .RedirectTo }} is our /auth/confirm?next=... URL (must be in Redirect URLs allowlist).
+-->
+<div style="margin:0;padding:32px 16px;background:#fefeff;font-family:Arial,Helvetica,sans-serif;color:#333333">
+  <div style="max-width:480px;margin:0 auto;background:#ffffff;border:1px solid #ebebef;border-radius:20px;padding:32px">
+    <p style="margin:0 0 24px;font-size:20px;font-weight:bold">Remi Shop</p>
+
+    <p style="margin:0 0 8px;font-size:16px;font-weight:bold">ยืนยันอีเมลของคุณ</p>
+    <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#555555">
+      ขอบคุณที่สมัครสมาชิก กรุณากดปุ่มด้านล่างเพื่อยืนยันอีเมลและเปิดใช้งานบัญชี
+    </p>
+
+    <p style="margin:0 0 24px;text-align:center">
+      <a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email"
+         style="display:inline-block;background:#f5bfd4;color:#333333;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 28px;border-radius:999px">
+        ยืนยันอีเมล · Confirm email
+      </a>
+    </p>
+
+    <p style="margin:0 0 24px;font-size:13px;line-height:1.6;color:#757575">
+      Thanks for signing up! Click the button above to confirm your email and activate your account.
+    </p>
+
+    <hr style="border:none;border-top:1px solid #ebebef;margin:0 0 16px" />
+    <p style="margin:0;font-size:12px;line-height:1.6;color:#757575">
+      หากคุณไม่ได้สมัครสมาชิก สามารถเพิกเฉยอีเมลนี้ได้ · If you didn't sign up, you can ignore this email.
+    </p>
+  </div>
+</div>

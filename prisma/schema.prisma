@@ -1,0 +1,404 @@
+// Prisma manages ONLY the `public` application schema.
+// Never run `prisma db pull` / `migrate reset` against Supabase-owned schemas (auth, storage).
+// Supabase-specific SQL (auth trigger, RLS, grants, partial indexes) lives in hand-written
+// migrations — see prisma/migrations/*_supabase_*.
+//
+// Conventions: UUID PKs, snake_case tables/columns, money = Decimal(10,2) in THB,
+// timestamps = timestamptz (stored UTC, displayed Asia/Bangkok).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────────── Enums ─────────────────────────────
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum CategoryStatus {
+  ACTIVE
+  HIDDEN
+}
+
+/// Admin-controlled publication state. The customer-facing status
+/// (DRAFT/SCHEDULED/ACTIVE/DISABLED/ENDED) is DERIVED server-side from this
+/// plus saleStartAt/saleEndAt — see lib/products/status.ts.
+enum PublishStatus {
+  DRAFT
+  PUBLISHED
+  DISABLED
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  WAITING_REVIEW
+  PAYMENT_REJECTED
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  WAITING
+  REVIEWING
+  APPROVED
+  REJECTED
+}
+
+// ───────────────────────────── Users ─────────────────────────────
+
+/// 1:1 with auth.users (id = auth.users.id). Created by trigger on signup.
+model Profile {
+  id          String   @id @db.Uuid
+  email       String   @unique
+  displayName String?  @map("display_name")
+  avatarPath  String?  @map("avatar_path")
+  role        Role     @default(CUSTOMER)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  cart             Cart?
+  wishlist         Wishlist[]
+  orders           Order[]
+  downloads        Download[]
+  reviewedPayments Payment[]  @relation("PaymentReviewer")
+
+  @@map("profiles")
+}
+
+// ──────────────────────────── Catalog ────────────────────────────
+
+model Category {
+  id            String         @id @default(uuid(7)) @db.Uuid
+  slug          String         @unique
+  nameTH        String         @map("name_th")
+  nameEN        String         @map("name_en")
+  descriptionTH String?        @map("description_th")
+  descriptionEN String?        @map("description_en")
+  imagePath     String?        @map("image_path")
+  status        CategoryStatus @default(ACTIVE)
+  sortOrder     Int            @default(0) @map("sort_order")
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  products Product[]
+
+  @@index([status, sortOrder])
+  @@map("categories")
+}
+
+model Product {
+  id            String @id @default(uuid(7)) @db.Uuid
+  slug          String @unique
+  nameTH        String @map("name_th")
+  nameEN        String @map("name_en")
+  descriptionTH String @default("") @map("description_th")
+  descriptionEN String @default("") @map("description_en")
+
+  categoryId String @map("category_id") @db.Uuid
+
+  price           Decimal  @db.Decimal(10, 2)
+  /// 0 < discountPercent < 100. Applies only within [discountStartAt, discountEndAt].
+  discountPercent Decimal? @map("discount_percent") @db.Decimal(5, 2)
+
+  saleStartAt     DateTime? @map("sale_start_at") @db.Timestamptz(6)
+  saleEndAt       DateTime? @map("sale_end_at") @db.Timestamptz(6)
+  discountStartAt DateTime? @map("discount_start_at") @db.Timestamptz(6)
+  discountEndAt   DateTime? @map("discount_end_at") @db.Timestamptz(6)
+
+  publishStatus PublishStatus @default(DRAFT) @map("publish_status")
+  publishedAt   DateTime?     @map("published_at") @db.Timestamptz(6)
+
+  // Software compatibility
+  software         String? // e.g. "Clip Studio Paint"
+  supportedVersion String? @map("supported_version") // e.g. "PRO / EX 2.0+"
+  fileFormat       String? @map("file_format") // e.g. ".sut"
+  license          String? // e.g. "Personal Use"
+  requirementsTH   String? @map("requirements_th")
+  requirementsEN   String? @map("requirements_en")
+
+  /// null = unlimited downloads
+  downloadLimit Int? @map("download_limit")
+
+  // SEO
+  seoTitleTH        String? @map("seo_title_th")
+  seoTitleEN        String? @map("seo_title_en")
+  metaDescriptionTH String? @map("meta_description_th")
+  metaDescriptionEN String? @map("meta_description_en")
+  ogImagePath       String? @map("og_image_path")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  category   Category         @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  images     ProductImage[]
+  versions   ProductVersion[]
+  wishlist   Wishlist[]
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+  downloads  Download[]
+
+  @@index([categoryId])
+  @@index([publishStatus, publishedAt(sort: Desc)])
+  @@index([publishStatus, saleStartAt, saleEndAt])
+  // Trigram search. pg_trgm is in the `extensions` schema (on Supabase search_path).
+  @@index([nameTH(ops: raw("gin_trgm_ops"))], map: "products_name_th_trgm", type: Gin)
+  @@index([nameEN(ops: raw("gin_trgm_ops"))], map: "products_name_en_trgm", type: Gin)
+  @@index([software(ops: raw("gin_trgm_ops"))], map: "products_software_trgm", type: Gin)
+  @@index([fileFormat(ops: raw("gin_trgm_ops"))], map: "products_file_format_trgm", type: Gin)
+  @@map("products")
+}
+
+model ProductImage {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  imagePath String   @map("image_path")
+  altTextTH String?  @map("alt_text_th")
+  altTextEN String?  @map("alt_text_en")
+  sortOrder Int      @default(0) @map("sort_order")
+  /// At most one primary per product (partial unique index in SQL migration).
+  isPrimary Boolean  @default(false) @map("is_primary")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, sortOrder])
+  @@map("product_images")
+}
+
+model ProductVersion {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  productId      String   @map("product_id") @db.Uuid
+  versionNumber  String   @map("version_number")
+  releaseDate    DateTime @default(now()) @map("release_date") @db.Timestamptz(6)
+  releaseNotesTH String?  @map("release_notes_th")
+  releaseNotesEN String?  @map("release_notes_en")
+  /// Exactly one latest per product (partial unique index in SQL migration).
+  isLatest       Boolean  @default(false) @map("is_latest")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  product Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+  files   ProductVersionFile[]
+
+  @@unique([productId, versionNumber])
+  @@map("product_versions")
+}
+
+/// Metadata only — binaries live in the private `digital-files` bucket.
+model ProductVersionFile {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  versionId   String   @map("version_id") @db.Uuid
+  /// Original display name (shown to customer). Never used as a storage key.
+  fileName    String   @map("file_name")
+  /// Sanitized, server-generated object key inside `digital-files`.
+  storagePath String   @unique @map("storage_path")
+  /// Bytes, <= 5 MB (CHECK constraint in SQL migration).
+  fileSize    Int      @map("file_size")
+  fileType    String   @map("file_type")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  version   ProductVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  downloads Download[]
+
+  @@index([versionId, sortOrder])
+  @@map("product_version_files")
+}
+
+// ─────────────────────────── Shopping ────────────────────────────
+
+model Wishlist {
+  userId    String   @map("user_id") @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user    Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([userId, productId])
+  @@index([productId])
+  @@map("wishlists")
+}
+
+model Cart {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @unique @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user  Profile    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+
+  @@map("carts")
+}
+
+model CartItem {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  cartId    String   @map("cart_id") @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  /// Digital goods: always 1 (CHECK constraint in SQL migration).
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, productId])
+  @@index([productId])
+  @@map("cart_items")
+}
+
+// ──────────────────────────── Orders ─────────────────────────────
+
+/// Source of truth for payment state is the latest Payment row;
+/// Order.paymentStatus mirrors it and is updated in the same transaction.
+model Order {
+  id            String         @id @default(uuid(7)) @db.Uuid
+  orderNumber   String         @unique @map("order_number")
+  userId        String         @map("user_id") @db.Uuid
+  subtotal      Decimal        @db.Decimal(10, 2)
+  discount      Decimal        @default(0) @db.Decimal(10, 2)
+  total         Decimal        @db.Decimal(10, 2)
+  status        OrderStatus    @default(PENDING_PAYMENT)
+  /// null until the first slip is uploaded.
+  paymentStatus PaymentStatus? @map("payment_status")
+  /// PENDING_PAYMENT orders without a slip are cancelled after this time.
+  expiresAt     DateTime       @map("expires_at") @db.Timestamptz(6)
+  paidAt        DateTime?      @map("paid_at") @db.Timestamptz(6)
+  cancelledAt   DateTime?      @map("cancelled_at") @db.Timestamptz(6)
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user      Profile     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  items     OrderItem[]
+  payments  Payment[]
+  downloads Download[]
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([status, expiresAt])
+  @@map("orders")
+}
+
+/// Snapshot of what was bought — never recomputed from Product.
+model OrderItem {
+  id                     String  @id @default(uuid(7)) @db.Uuid
+  orderId                String  @map("order_id") @db.Uuid
+  productId              String  @map("product_id") @db.Uuid
+  productNameTHSnapshot  String  @map("product_name_th_snapshot")
+  productNameENSnapshot  String  @map("product_name_en_snapshot")
+  productVersionSnapshot String? @map("product_version_snapshot")
+  unitPrice              Decimal @map("unit_price") @db.Decimal(10, 2)
+  discount               Decimal @default(0) @db.Decimal(10, 2)
+  finalPrice             Decimal @map("final_price") @db.Decimal(10, 2)
+  quantity               Int     @default(1)
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  /// Restrict: products that were sold cannot be hard-deleted (disable instead).
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([orderId, productId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+/// One row per slip upload. Re-upload after rejection = new row.
+/// At most one non-REJECTED payment per order (partial unique index in SQL).
+model Payment {
+  id           String        @id @default(uuid(7)) @db.Uuid
+  orderId      String        @map("order_id") @db.Uuid
+  amount       Decimal       @db.Decimal(10, 2)
+  /// Object key inside the private `payment-slips` bucket.
+  slipPath     String        @map("slip_path")
+  status       PaymentStatus @default(WAITING)
+  reviewedById String?       @map("reviewed_by") @db.Uuid
+  reviewedAt   DateTime?     @map("reviewed_at") @db.Timestamptz(6)
+  rejectReason String?       @map("reject_reason")
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  reviewedBy Profile? @relation("PaymentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([orderId, createdAt(sort: Desc)])
+  @@index([status, createdAt])
+  @@map("payments")
+}
+
+/// Download event log. Also used for per-user rate limiting.
+model Download {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  orderId      String   @map("order_id") @db.Uuid
+  productId    String   @map("product_id") @db.Uuid
+  fileId       String?  @map("file_id") @db.Uuid
+  downloadedAt DateTime @default(now()) @map("downloaded_at") @db.Timestamptz(6)
+
+  user    Profile             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order   Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  file    ProductVersionFile? @relation(fields: [fileId], references: [id], onDelete: SetNull)
+
+  @@index([userId, downloadedAt(sort: Desc)])
+  @@index([orderId, productId])
+  @@map("downloads")
+}
+
+// ─────────────────────────── Content ─────────────────────────────
+
+model Announcement {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  titleTH       String    @map("title_th")
+  titleEN       String    @map("title_en")
+  descriptionTH String?   @map("description_th")
+  descriptionEN String?   @map("description_en")
+  imagePath     String?   @map("image_path")
+  link          String?
+  startAt       DateTime? @map("start_at") @db.Timestamptz(6)
+  endAt         DateTime? @map("end_at") @db.Timestamptz(6)
+  isActive      Boolean   @default(true) @map("is_active")
+  sortOrder     Int       @default(0) @map("sort_order")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([isActive, startAt, endAt])
+  @@map("announcements")
+}
+
+// ─────────────────────────── Settings ────────────────────────────
+// Singleton rows (id = 1, enforced by CHECK in SQL migration).
+
+model PaymentSetting {
+  id              Int      @id @default(1)
+  promptPayName   String   @default("") @map("promptpay_name")
+  promptPayNumber String   @default("") @map("promptpay_number")
+  /// Object key inside `product-previews` (public) — QR is not secret.
+  qrImagePath     String?  @map("qr_image_path")
+  instructionsTH  String?  @map("instructions_th")
+  instructionsEN  String?  @map("instructions_en")
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("payment_settings")
+}
+
+model StoreSetting {
+  id                         Int      @id @default(1)
+  storeName                  String   @default("Remi Shop") @map("store_name")
+  contactEmail               String?  @map("contact_email")
+  lineId                     String?  @map("line_id")
+  facebookUrl                String?  @map("facebook_url")
+  instagramUrl               String?  @map("instagram_url")
+  /// Unpaid (no slip) orders auto-cancel after this many minutes.
+  orderExpiryMinutes         Int      @default(60) @map("order_expiry_minutes")
+  /// Anti-spam: max download requests per user per minute.
+  downloadRateLimitPerMinute Int      @default(10) @map("download_rate_limit_per_minute")
+  updatedAt                  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("store_settings")
+}
