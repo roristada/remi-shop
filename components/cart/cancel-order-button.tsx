@@ -1,6 +1,6 @@
 "use client";
 
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
@@ -9,7 +9,6 @@ import { cancelOrder } from "@/lib/orders/actions";
 
 export function CancelOrderButton({ orderNumber }: { orderNumber: string }) {
   const t = useTranslations("cart.order");
-  const locale = useLocale();
   const router = useRouter();
   return (
     <ConfirmDialog
@@ -24,7 +23,7 @@ export function CancelOrderButton({ orderNumber }: { orderNumber: string }) {
       cancelLabel={t("keep")}
       destructive
       onConfirm={async () => {
-        const { ok } = await cancelOrder(locale, orderNumber);
+        const { ok } = await cancelOrder(orderNumber);
         if (ok) toast.success(t("cancelled"));
         else toast.error(t("cancelFailed"));
         router.refresh();

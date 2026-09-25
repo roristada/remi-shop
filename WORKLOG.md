@@ -13,8 +13,8 @@ setup and commands live in `README.md`. Newest entries first.
 | 4 | Products (admin product/category management) | Done, tested in browser |
 | 5 | Storefront (shop, category, product detail, SEO) | Done, tested in browser |
 | 6 | Cart + checkout (personal purchases) | Done, tested in browser |
-| 7 | Payment review (slip upload, approve/reject, payment settings) | **Next** |
-| 7b | Commercial license requests | Not started, rules confirmed below |
+| 7 | Payment review (slip upload, approve/reject, payment settings) | Done, tested in browser |
+| 7b | Commercial license requests | **Next**, rules confirmed below |
 | 8–12 | Downloads, account, admin, email, hardening | Not started |
 
 ## Confirmed decisions
@@ -41,6 +41,34 @@ Business rules agreed with the owner. Follow these over the defaults in `CLAUDE.
   Still open: does the product discount apply to license prices?
 - Uploads go browser → Supabase Storage using a signed upload token, then the server verifies
   the stored object. Vercel caps function request bodies at 4.5 MB, so files cannot pass through the server.
+
+## Phase 7: Payment Review (done)
+
+**Customer** (`/[locale]/orders/[orderNumber]`)
+- An unpaid order shows PromptPay details and a slip form: choose → preview → send (JPG/PNG/WEBP ≤ 5 MB).
+- Upload: the server issues a one-time token for a server-generated key in the private `payment-slips`
+  bucket (`{yyyy}/{mm}/{orderId}/{uuid}.{ext}`). The browser uploads, then the server checks the key belongs
+  to the caller's own order and verifies the real size and magic bytes. Invalid objects are deleted.
+- The slip is attached in one transaction (conditional order update + `Payment` row). The order moves to
+  `WAITING_REVIEW`. A second open payment is blocked by the partial unique index.
+- A slip can be sent before the unpaid deadline, or any time after a rejection (`lib/payments/rules.ts`).
+  A rejected order shows the reason and accepts a new slip; the customer can also cancel it.
+- Under review: the customer sees their own slip through a short-lived signed URL.
+
+**Admin**
+- `/admin/payments`: Pending (oldest first) / Approved / Rejected tabs. The slip and the order (customer,
+  items, amounts, attempt count) are shown side by side.
+- Approve → `Payment APPROVED` + `Order COMPLETED` (`paidAt`). Reject needs a reason (quick-pick
+  suggestions) → `PAYMENT_REJECTED`. Both use conditional updates in one transaction, so a double click or
+  two reviewers cannot decide twice.
+- `/admin/settings`: PromptPay name/number (10/13/15 digits), TH/EN instructions and the QR image
+  (public `product-previews/settings/promptpay-qr/…`; the old image is deleted on replace).
+
+**QA (2026-09-26)**: temporary customer and admin, all data removed afterwards (orders, payments, slip
+and QR objects, settings reset to empty). Covered: invalid PromptPay number, QR upload, HTML disguised as
+`.png` rejected and deleted from storage, slip sent → under review, empty reject reason blocked, reject
+with a reason → customer sees it → re-upload → approve with a double click (one approval, the second
+reports "already reviewed") → order completed, product shows as owned, a customer gets 404 on `/admin/payments`.
 
 ## Phase 6: Cart + Checkout (done)
 
@@ -143,7 +171,8 @@ Bugs found and fixed:
 ## Known gaps / follow-ups
 
 - No header cart count yet (it would add an auth lookup to every page).
-- Slip upload is a placeholder on the order page until Phase 7. There is no admin UI for `PaymentSetting` yet.
+- Emails (slip submitted / approved / rejected) come in Phase 11. The admin has no new-slip notification yet.
+- `Payment.status` REVIEWING is unused; a slip is WAITING until the admin decides.
 - Price sorting uses the base price; an active discount does not change the order.
 - Unknown product/category slugs return a soft 404 (HTTP 200 + `noindex`), because `loading.tsx`
   starts streaming before the page can call `notFound()`. Removing the skeleton would give a real 404.
@@ -157,9 +186,11 @@ Bugs found and fixed:
 - Dev tip: do not run `next build` while `next dev` is running. It left the dev server
   serving a stale page. Restart `npm run dev` if a page does not reflect code changes.
 
-## Next: Phase 7, Payment Review
+## Next: Phase 7b, Commercial license requests
 
-- Admin payment settings (PromptPay name/number, QR image, instructions).
-- Slip upload on the order page (private `payment-slips`, JPG/PNG/WEBP ≤ 5 MB, path from the server).
-- Admin review queue (pending/approved/rejected): approve → COMPLETED + paidAt; reject with a reason → re-upload.
-- Then Phase 7b: commercial license requests on the same Order/Payment flow.
+- Admin: usage type list; per-product license prices per type (on/off).
+- Customer: request form on the product page (buyer contact, artist contact, platform, usage types,
+  finished artwork image in a private bucket).
+- Admin review → approve creates an order with a 3-day payment window → the same slip flow as Phase 7.
+- Account page listing license requests and their status.
+- Open question: does the product discount apply to license prices?

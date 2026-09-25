@@ -21,6 +21,12 @@ export async function getOrderForUser(userId: string, orderNumber: string, now: 
       createdAt: true,
       cancelledAt: true,
       paidAt: true,
+      // Latest slip only: its state and reject reason drive the payment panel.
+      payments: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { status: true, rejectReason: true, slipPath: true, createdAt: true },
+      },
       items: {
         orderBy: { id: "asc" },
         select: {

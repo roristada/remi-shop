@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Clock3 } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { intlLocale, localized } from "@/i18n/localize";
 import { requireUser } from "@/lib/auth/guards";
@@ -11,6 +11,10 @@ import { formatTHB, toHundredths } from "@/lib/pricing/calculate";
 import { getOrderForUser, getPaymentSettings, type CustomerOrder } from "@/lib/orders/queries";
 import { orderNumberSchema } from "@/lib/orders/validation";
 import { previewImageUrl } from "@/lib/storage/public-url";
+import { BUCKETS } from "@/lib/storage/buckets";
+import { createSignedViewUrls } from "@/lib/storage/payment-storage";
+import { canUploadSlip } from "@/lib/payments/rules";
+import { SlipUpload } from "@/components/cart/slip-upload";
 import { OrderStatusBadge } from "@/components/cart/order-status-badge";
 import { CancelOrderButton } from "@/components/cart/cancel-order-button";
 import { CountdownTimer } from "@/components/shop/countdown-timer";
@@ -36,7 +40,8 @@ export default async function OrderPage({ params }: PageProps<"/[locale]/orders/
   const t = await getTranslations("cart");
   const fmt = intlLocale(locale);
   const money = (v: CustomerOrder["total"]) => formatTHB(toHundredths(v), fmt.number);
-  const awaitingPayment = order.status === "PENDING_PAYMENT" && order.paymentStatus === null;
+  const canPay = canUploadSlip(order, now);
+  const showPanel = canPay || order.status === "WAITING_REVIEW";
   const discount = toHundredths(order.discount);
 
   return (
@@ -57,7 +62,7 @@ export default async function OrderPage({ params }: PageProps<"/[locale]/orders/
 
       <StatusNotice order={order} t={t} />
 
-      <div className={awaitingPayment ? "grid gap-8 lg:grid-cols-[minmax(0,1fr)_24rem]" : "grid gap-8"}>
+      <div className={showPanel ? "grid gap-8 lg:grid-cols-[minmax(0,1fr)_24rem]" : "grid gap-8"}>
         <section aria-labelledby="items-heading" className="space-y-4">
           <h2 id="items-heading" className="text-lg">
             {t("order.items")}
@@ -107,7 +112,8 @@ export default async function OrderPage({ params }: PageProps<"/[locale]/orders/
           </dl>
         </section>
 
-        {awaitingPayment && <PaymentPanel order={order} locale={locale} now={now} />}
+        {canPay && <PaymentPanel order={order} locale={locale} now={now} />}
+        {order.status === "WAITING_REVIEW" && <ReviewPanel order={order} locale={locale} />}
       </div>
     </div>
   );
@@ -118,7 +124,8 @@ type T = Awaited<ReturnType<typeof getTranslations<"cart">>>;
 function StatusNotice({ order, t }: { order: CustomerOrder; t: T }) {
   let text: string | null = null;
   if (order.status === "CANCELLED") {
-    const expired = order.cancelledAt && order.cancelledAt >= order.expiresAt;
+    // Auto-cancelled at the unpaid deadline (never had a slip), as opposed to cancelled by the customer.
+    const expired = order.paymentStatus === null && order.cancelledAt && order.cancelledAt >= order.expiresAt;
     text = expired ? t("order.expiredNotice") : t("order.cancelledNotice");
   } else if (order.status === "COMPLETED") {
     text = t("order.completedNotice");
@@ -132,7 +139,12 @@ function StatusNotice({ order, t }: { order: CustomerOrder; t: T }) {
 }
 
 async function PaymentPanel({ order, locale, now }: { order: CustomerOrder; locale: string; now: Date }) {
-  const [t, settings] = await Promise.all([getTranslations("cart.order"), getPaymentSettings()]);
+  const [t, tSlip, settings] = await Promise.all([
+    getTranslations("cart.order"),
+    getTranslations("cart.slip"),
+    getPaymentSettings(),
+  ]);
+  const rejected = order.status === "PAYMENT_REJECTED" ? order.payments[0] : undefined;
   const fmt = intlLocale(locale);
   const hasPaymentInfo = Boolean(settings && (settings.qrImagePath || settings.promptPayNumber));
   const instructions = settings ? localized(locale, settings.instructionsTH, settings.instructionsEN) : null;
@@ -142,15 +154,25 @@ async function PaymentPanel({ order, locale, now }: { order: CustomerOrder; loca
       <h2 id="pay-heading" className="text-lg">
         {t("payTitle")}
       </h2>
-      <CountdownTimer
-        endsAt={order.expiresAt.toISOString()}
-        serverNow={now.toISOString()}
-        label={t("timeLeft")}
-        endedLabel={t("expiredNotice")}
-      />
-      <p className="text-sm text-foreground/70">
-        {t("payBefore", { date: formatBangkokDateTime(order.expiresAt, fmt.date) })}
-      </p>
+      {rejected ? (
+        <div role="alert" className="space-y-1 rounded-2xl bg-destructive/10 px-4 py-3 text-sm">
+          <p className="font-semibold text-destructive">{tSlip("rejectedTitle")}</p>
+          {rejected.rejectReason && <p>{tSlip("rejectedReason", { reason: rejected.rejectReason })}</p>}
+          <p className="text-foreground/70">{tSlip("rejectedHint")}</p>
+        </div>
+      ) : (
+        <>
+          <CountdownTimer
+            endsAt={order.expiresAt.toISOString()}
+            serverNow={now.toISOString()}
+            label={t("timeLeft")}
+            endedLabel={t("expiredNotice")}
+          />
+          <p className="text-sm text-foreground/70">
+            {t("payBefore", { date: formatBangkokDateTime(order.expiresAt, fmt.date) })}
+          </p>
+        </>
+      )}
 
       {hasPaymentInfo && settings ? (
         <div className="space-y-4">
@@ -193,13 +215,45 @@ async function PaymentPanel({ order, locale, now }: { order: CustomerOrder; loca
         </p>
       )}
 
-      {/* Phase 7 replaces this with the slip upload form. */}
-      <p className="rounded-xl border border-dashed border-foreground/20 px-3 py-3 text-center text-sm text-foreground/70">
-        {t("slipSoon")}
-      </p>
+      {hasPaymentInfo && <SlipUpload orderNumber={order.orderNumber} />}
       <div className="flex justify-center">
         <CancelOrderButton orderNumber={order.orderNumber} />
       </div>
+    </aside>
+  );
+}
+
+/** Slip under review: show what was sent; nothing to do until the store decides. */
+async function ReviewPanel({ order, locale }: { order: CustomerOrder; locale: string }) {
+  const t = await getTranslations("cart.slip");
+  const slip = order.payments[0];
+  const urls = slip ? await createSignedViewUrls(BUCKETS.paymentSlips, [slip.slipPath]) : new Map<string, string>();
+  const url = slip ? urls.get(slip.slipPath) : undefined;
+
+  return (
+    <aside aria-labelledby="review-heading" className="h-fit space-y-4 rounded-3xl bg-secondary/45 p-5 sm:p-6">
+      <div className="flex items-start gap-3">
+        <Clock3 className="mt-0.5 size-5 shrink-0 text-brand-strong" aria-hidden />
+        <div className="space-y-1">
+          <h2 id="review-heading" className="text-lg">
+            {t("reviewTitle")}
+          </h2>
+          <p className="text-sm text-foreground/70">{t("reviewBody")}</p>
+          {slip && (
+            <p className="text-xs text-foreground/70">
+              {t("reviewSentAt", { date: formatBangkokDateTime(slip.createdAt, intlLocale(locale).date) })}
+            </p>
+          )}
+        </div>
+      </div>
+      {url && (
+        <figure className="space-y-1.5">
+          {/* Short-lived signed URL to this customer's own slip in the private bucket. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={url} alt={t("yourSlip")} className="max-h-80 w-full rounded-xl border bg-background object-contain" />
+          <figcaption className="text-xs text-foreground/70">{t("yourSlip")}</figcaption>
+        </figure>
+      )}
     </aside>
   );
 }

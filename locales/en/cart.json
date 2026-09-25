@@ -75,7 +75,6 @@
     "promptPay": "PromptPay",
     "qrAlt": "Payment QR code",
     "noPaymentInfo": "The store hasn't set up payment details yet. Please contact the store.",
-    "slipSoon": "Slip upload is coming soon.",
     "cancel": "Cancel order",
     "cancelTitle": "Cancel this order?",
     "cancelBody": "The products in this order can be ordered again. This can't be undone.",
@@ -86,5 +85,32 @@
     "expiredNotice": "This order was cancelled because it wasn't paid in time.",
     "cancelledNotice": "This order has been cancelled.",
     "completedNotice": "Payment confirmed. Download your files from the downloads page."
+  },
+  "slip": {
+    "title": "Attach your transfer slip",
+    "hint": "JPG, PNG or WEBP, up to 5 MB",
+    "choose": "Choose slip image",
+    "change": "Change image",
+    "submit": "Send slip",
+    "uploading": "Uploading...",
+    "submitted": "Slip sent. The store will check it as soon as possible.",
+    "preview": "Selected slip preview",
+    "reviewTitle": "Slip received",
+    "reviewBody": "The store is checking your payment. You can download your files as soon as it is confirmed.",
+    "reviewSentAt": "Sent {date}",
+    "yourSlip": "Your slip",
+    "rejectedTitle": "Your slip was not accepted",
+    "rejectedReason": "Reason: {reason}",
+    "rejectedHint": "Attach a new slip, or cancel the order.",
+    "errors": {
+      "LOGIN_REQUIRED": "Please sign in first.",
+      "NOT_ALLOWED": "A slip can no longer be attached to this order. Please refresh the page.",
+      "ERROR": "Upload failed. Please try again.",
+      "not_found": "The uploaded file was not found. Please try again.",
+      "unsupported_type": "Only JPG, PNG or WEBP images are supported.",
+      "too_large": "The file must be 5 MB or smaller.",
+      "empty": "The file is empty.",
+      "signature_mismatch": "This file is not a valid image."
+    }
   }
 }

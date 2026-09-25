@@ -99,19 +99,27 @@ export async function checkout(localeInput: string, expectedTotal: number): Prom
   redirect(`/${locale}/orders/${orderNumber}`);
 }
 
-/** Customer cancels their own unpaid order (no slip uploaded yet). */
-export async function cancelOrder(localeInput: string, orderNumberInput: string): Promise<{ ok: boolean }> {
-  const locale = toLocale(localeInput);
+/** Customer cancels their own unpaid order: no slip yet (before the deadline) or the last slip was rejected. */
+export async function cancelOrder(orderNumberInput: string): Promise<{ ok: boolean }> {
   const user = await getCurrentUser();
   const parsed = orderNumberSchema.safeParse(orderNumberInput);
   if (!user || !parsed.success) return { ok: false };
+  const now = new Date();
 
   const { count } = await prisma.order.updateMany({
-    where: { orderNumber: parsed.data, userId: user.id, status: "PENDING_PAYMENT", paymentStatus: null },
-    data: { status: "CANCELLED", cancelledAt: new Date() },
+    where: {
+      orderNumber: parsed.data,
+      userId: user.id,
+      // Same states as canCustomerCancel(); a slip under review cannot be cancelled from here.
+      OR: [
+        { status: "PAYMENT_REJECTED" },
+        { status: "PENDING_PAYMENT", paymentStatus: null, expiresAt: { gt: now } },
+      ],
+    },
+    data: { status: "CANCELLED", cancelledAt: now },
   });
   if (count === 0) return { ok: false };
   console.info("Order cancelled by customer", { orderNumber: parsed.data, userId: user.id });
-  revalidatePath(`/${locale}/orders/${parsed.data}`);
+  revalidatePath("/[locale]/orders/[orderNumber]", "page");
   return { ok: true };
 }
