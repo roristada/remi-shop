@@ -6,10 +6,12 @@ import { Clock } from "lucide-react";
 import { useRouter } from "@/i18n/navigation";
 
 type Props = {
-  /** ISO timestamp when the discount ends (inclusive). */
+  /** ISO timestamp of the deadline. */
   endsAt: string;
   /** Server time at render, used to correct for a wrong browser clock. */
   serverNow: string;
+  label: string;
+  endedLabel: string;
 };
 
 function split(ms: number) {
@@ -20,10 +22,10 @@ function split(ms: number) {
 const pad = (n: number) => String(n).padStart(2, "0");
 
 /**
- * Display only. Whether the discount applies is decided server-side; when the countdown
- * reaches zero the page refreshes so the server can recalculate the price.
+ * Display only. Deadlines (discount end, payment window) are enforced server-side; when the
+ * countdown reaches zero the page refreshes so the server can re-evaluate.
  */
-export function CountdownTimer({ endsAt, serverNow }: Props) {
+export function CountdownTimer({ endsAt, serverNow, label, endedLabel }: Props) {
   const t = useTranslations("shop.countdown");
   const router = useRouter();
   const end = new Date(endsAt).getTime();
@@ -49,14 +51,14 @@ export function CountdownTimer({ endsAt, serverNow }: Props) {
   if (remaining === null) return <div className="h-9" aria-hidden />;
 
   if (remaining < 0) {
-    return <p className="text-sm text-muted-foreground">{t("ended")}</p>;
+    return <p className="text-sm text-muted-foreground">{endedLabel}</p>;
   }
 
   const { days, h, m, s } = split(remaining);
   return (
     <p className="inline-flex h-9 items-center gap-2 rounded-full bg-accent px-3 text-sm">
       <Clock className="size-4 text-brand-strong" aria-hidden />
-      <span>{t("endsIn")}</span>
+      <span>{label}</span>
       {/* Screen readers get the text once; the ticking value is not announced every second. */}
       <span className="font-semibold tabular-nums" aria-live="off">
         {days > 0 && `${t("days", { count: days })} `}

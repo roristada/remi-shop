@@ -1,0 +1,90 @@
+{
+  "meta": {
+    "cart": "Cart",
+    "orders": "My orders",
+    "order": "Order {orderNumber}"
+  },
+  "add": {
+    "button": "Add to cart",
+    "added": "Added to cart",
+    "inCart": "In your cart",
+    "viewCart": "View cart",
+    "owned": "You already own this product",
+    "ownedHint": "Download it from your downloads page.",
+    "inOrder": "This product is in an order awaiting payment",
+    "viewOrders": "View orders",
+    "loginHint": "Sign in to add products to your cart."
+  },
+  "errors": {
+    "LOGIN_REQUIRED": "Please sign in first.",
+    "UNAVAILABLE": "This product is not on sale right now.",
+    "OWNED": "You already own this product.",
+    "IN_ORDER": "This product is in an order that is not finished yet.",
+    "EMPTY": "Your cart is empty.",
+    "CART_CHANGED": "Some items in your cart can no longer be bought. Remove them before paying.",
+    "PRICE_CHANGED": "Prices have changed. Please check the new total.",
+    "ERROR": "Something went wrong. Please try again."
+  },
+  "cart": {
+    "title": "Cart",
+    "itemCount": "{count, plural, one {# item} other {# items}}",
+    "empty": "Your cart is empty",
+    "emptyHint": "Pick brushes, textures or other files you like from the shop.",
+    "browse": "Go to the shop",
+    "remove": "Remove {name} from cart",
+    "removeLabel": "Remove",
+    "summary": "Summary",
+    "subtotal": "Products",
+    "discount": "Discount",
+    "total": "Total",
+    "checkout": "Place order and pay",
+    "checkoutHint": "Pay with a PromptPay QR, then attach your slip on the order page.",
+    "problem": {
+      "UNAVAILABLE": "No longer on sale",
+      "OWNED": "You already own this",
+      "IN_ORDER": "In another unfinished order"
+    },
+    "problemNotice": "Remove the items that can't be bought to place your order."
+  },
+  "status": {
+    "PENDING_PAYMENT": "Awaiting payment",
+    "WAITING_REVIEW": "Payment under review",
+    "PAYMENT_REJECTED": "Payment not accepted",
+    "COMPLETED": "Completed",
+    "CANCELLED": "Cancelled"
+  },
+  "orders": {
+    "title": "My orders",
+    "empty": "No orders yet",
+    "number": "Order number",
+    "date": "Date",
+    "items": "{count, plural, one {# item} other {# items}}",
+    "total": "Total",
+    "view": "View details"
+  },
+  "order": {
+    "back": "All orders",
+    "placedAt": "Placed {date}",
+    "items": "Items",
+    "version": "Version {version}",
+    "payTitle": "Pay with PromptPay",
+    "payBefore": "Please pay and attach your slip before {date}.",
+    "timeLeft": "Time left",
+    "amount": "Amount to transfer",
+    "accountName": "Account name",
+    "promptPay": "PromptPay",
+    "qrAlt": "Payment QR code",
+    "noPaymentInfo": "The store hasn't set up payment details yet. Please contact the store.",
+    "slipSoon": "Slip upload is coming soon.",
+    "cancel": "Cancel order",
+    "cancelTitle": "Cancel this order?",
+    "cancelBody": "The products in this order can be ordered again. This can't be undone.",
+    "cancelConfirm": "Cancel order",
+    "keep": "Keep order",
+    "cancelled": "Order cancelled",
+    "cancelFailed": "This order can't be cancelled. It may already be paid or expired.",
+    "expiredNotice": "This order was cancelled because it wasn't paid in time.",
+    "cancelledNotice": "This order has been cancelled.",
+    "completedNotice": "Payment confirmed. Download your files from the downloads page."
+  }
+}

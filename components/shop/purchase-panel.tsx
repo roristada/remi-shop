@@ -1,6 +1,8 @@
 import { useLocale, useTranslations } from "next-intl";
 import { CalendarClock, Download, RefreshCw, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AddToCartButton } from "@/components/cart/add-to-cart-button";
+import type { PurchaseState } from "@/lib/cart/queries";
 import { intlLocale } from "@/i18n/localize";
 import { formatBangkokDateTime } from "@/lib/datetime";
 import type { ProductPrice as Price } from "@/lib/pricing/calculate";
@@ -15,11 +17,14 @@ type Props = {
   saleStartAt: Date | null;
   saleEndAt: Date | null;
   now: Date;
+  product: { id: string; slug: string };
+  purchaseState: PurchaseState;
 };
 
 /** Price, sale state and the buy action. Every value here is computed server-side. */
-export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now }: Props) {
+export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now, product, purchaseState }: Props) {
   const t = useTranslations("shop.product");
+  const tCountdown = useTranslations("shop.countdown");
   const dateLocale = intlLocale(useLocale()).date;
   const purchasable = status === "ACTIVE";
 
@@ -31,7 +36,12 @@ export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now }: Pr
       </div>
 
       {purchasable && price.isDiscounted && price.discountEndsAt && (
-        <CountdownTimer endsAt={price.discountEndsAt.toISOString()} serverNow={now.toISOString()} />
+        <CountdownTimer
+          endsAt={price.discountEndsAt.toISOString()}
+          serverNow={now.toISOString()}
+          label={tCountdown("endsIn")}
+          endedLabel={tCountdown("ended")}
+        />
       )}
 
       {status === "SCHEDULED" && saleStartAt && (
@@ -57,19 +67,13 @@ export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now }: Pr
         </p>
       )}
 
-      {/* Wired up in Phase 6 (cart). The server will re-check availability and price. */}
-      <div className="space-y-1.5">
-        <Button size="lg" className="h-12 w-full rounded-full text-base" disabled
-          aria-describedby={purchasable ? "cart-soon" : undefined}
-        >
+      {purchasable ? (
+        <AddToCartButton productId={product.id} productSlug={product.slug} initialState={purchaseState} />
+      ) : (
+        <Button size="lg" className="h-12 w-full rounded-full text-base" disabled>
           <ShoppingBag aria-hidden /> {t("addToCart")}
         </Button>
-        {purchasable && (
-          <p id="cart-soon" className="text-center text-xs text-foreground/70">
-            {t("cartSoon")}
-          </p>
-        )}
-      </div>
+      )}
 
       <ul className="space-y-1.5 border-t border-foreground/10 pt-4 text-sm text-foreground/70">
         <li className="flex items-center gap-2">

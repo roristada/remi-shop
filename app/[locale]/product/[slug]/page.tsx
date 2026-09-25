@@ -6,6 +6,8 @@ import { ChevronRight } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { localized } from "@/i18n/localize";
 import { publicEnv } from "@/lib/env";
+import { getCurrentUser } from "@/lib/auth/guards";
+import { getPurchaseState } from "@/lib/cart/queries";
 import { calculateProductPrice, fromHundredths } from "@/lib/pricing/calculate";
 import { getProductStatus } from "@/lib/products/status";
 import { schemaAvailability } from "@/lib/products/storefront";
@@ -89,7 +91,11 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
     alt: localized(locale, img.altTextTH, img.altTextEN) || name,
   }));
 
-  const related = await listRelatedProducts(product.categoryId, product.id, locale, now);
+  const [related, user] = await Promise.all([
+    listRelatedProducts(product.categoryId, product.id, locale, now),
+    getCurrentUser(),
+  ]);
+  const purchaseState = await getPurchaseState(user?.id ?? null, product.id, now);
 
   const details = [
     { label: t("software"), value: product.software },
@@ -175,6 +181,8 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
             saleStartAt={product.saleStartAt}
             saleEndAt={product.saleEndAt}
             now={now}
+            product={{ id: product.id, slug: product.slug }}
+            purchaseState={purchaseState}
           />
 
           {details.length > 0 && (

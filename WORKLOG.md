@@ -12,8 +12,10 @@ setup and commands live in `README.md`. Newest entries first.
 | 3 | Authentication (register, login, verify, reset, account) | Done |
 | 4 | Products (admin product/category management) | Done, tested in browser |
 | 5 | Storefront (shop, category, product detail, SEO) | Done, tested in browser |
-| 6 | Cart + checkout | **Next** |
-| 7–12 | Payment review, downloads, account, admin, email, hardening | Not started |
+| 6 | Cart + checkout (personal purchases) | Done, tested in browser |
+| 7 | Payment review (slip upload, approve/reject, payment settings) | **Next** |
+| 7b | Commercial license requests | Not started, rules confirmed below |
+| 8–12 | Downloads, account, admin, email, hardening | Not started |
 
 ## Confirmed decisions
 
@@ -28,8 +30,43 @@ Business rules agreed with the owner. Follow these over the defaults in `CLAUDE.
 - One order can have many payments: re-uploading after a rejection creates a new `Payment` row.
 - Digital files: an extension allowlist of art formats plus a magic-byte check where the format has one.
 - Files in versions that have buyers can still be added or deleted, behind a confirm that shows the buyer count.
+- The cart requires login. Personal purchases are once per product; new orders can be created any time.
+- Commercial license: an option on a product, buyable many times, rights only (no extra files, no prior
+  personal purchase needed). The request form collects buyer contact, artist contact, platform, usage types
+  and the finished artwork image. Usage types are an admin-managed global list; each product sets its own
+  price per type (or turns it off). One request can pick several types; the price is their sum.
+  Flow: submit form → admin approves → customer is notified and shown payment details (3-day window,
+  configurable) → slip → admin verifies. It does not use the cart. After payment the account shows the status,
+  order number, product, usage types, buyer/artist and approval date, and an email is sent. There is no license number.
+  Still open: does the product discount apply to license prices?
 - Uploads go browser → Supabase Storage using a signed upload token, then the server verifies
   the stored object. Vercel caps function request bodies at 4.5 MB, so files cannot pass through the server.
+
+## Phase 6: Cart + Checkout (done)
+
+**Rules** (`lib/orders/rules.ts`, unit-tested)
+- The cart requires login. Personal purchases are once per customer per product.
+- A product is blocked from cart/checkout when the customer owns it (COMPLETED order) or it is in an
+  open order (awaiting payment, under review, or payment rejected). Otherwise it could be paid for twice.
+  New orders can always be created for other products.
+- A `PENDING_PAYMENT` order with no slip is cancelled once `expiresAt` passes (`orderExpiryMinutes`,
+  default 60). No scheduled job yet: `cancelExpiredOrders()` runs whenever the customer's orders are read or created.
+- Order number: `RS` + Bangkok yymmdd + `-` + 6 Crockford base32 characters (`RS260926-7K3QX9`).
+
+**Checkout** (`lib/orders/actions.ts`): one transaction with a per-customer advisory lock. It re-reads the
+cart, re-validates and re-prices every line, and refuses when the total differs from the total the
+customer saw (`PRICE_CHANGED`) or a line is no longer purchasable (`CART_CHANGED`). It creates `Order` +
+`OrderItem` snapshots (names TH/EN, latest version, unit/discount/final price), then empties the cart.
+
+**Pages**: `/[locale]/cart`, `/[locale]/orders` (paginated), `/[locale]/orders/[orderNumber]`
+(items, totals, payment window countdown, PromptPay QR/name/number from `PaymentSetting`, cancel).
+The product page buy button shows add / in cart / owned / in an open order. Another customer's order
+number returns 404.
+
+**QA (2026-09-26)**: temporary customer, all orders and the account removed afterwards.
+Guest → login → back to the product; add; price raised mid-checkout → `PRICE_CHANGED`; order created
+with correct snapshots and an empty cart; product blocked while the order is open; expiry → cancelled
+and buyable again; cancel via dialog; triple-click checkout → one order; unknown/bad order numbers → 404.
 
 ## Phase 5: Storefront (done)
 
@@ -105,7 +142,8 @@ Bugs found and fixed:
 
 ## Known gaps / follow-ups
 
-- "Add to cart" is rendered disabled until Phase 6.
+- No header cart count yet (it would add an auth lookup to every page).
+- Slip upload is a placeholder on the order page until Phase 7. There is no admin UI for `PaymentSetting` yet.
 - Price sorting uses the base price; an active discount does not change the order.
 - Unknown product/category slugs return a soft 404 (HTTP 200 + `noindex`), because `loading.tsx`
   starts streaming before the page can call `notFound()`. Removing the skeleton would give a real 404.
@@ -119,9 +157,9 @@ Bugs found and fixed:
 - Dev tip: do not run `next build` while `next dev` is running. It left the dev server
   serving a stale page. Restart `npm run dev` if a page does not reflect code changes.
 
-## Next: Phase 6, Cart + Checkout
+## Next: Phase 7, Payment Review
 
-- Add/remove cart items (quantity 1, no duplicates), cart page.
-- Checkout revalidates every item server-side (exists, purchasable, sale window, current price).
-- Create `Order` + `OrderItem` snapshots in one transaction; `expiresAt` from `orderExpiryMinutes`.
-- QR payment page (PaymentSetting), then slip upload in Phase 7.
+- Admin payment settings (PromptPay name/number, QR image, instructions).
+- Slip upload on the order page (private `payment-slips`, JPG/PNG/WEBP ≤ 5 MB, path from the server).
+- Admin review queue (pending/approved/rejected): approve → COMPLETED + paidAt; reject with a reason → re-upload.
+- Then Phase 7b: commercial license requests on the same Order/Payment flow.
