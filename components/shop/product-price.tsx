@@ -12,7 +12,7 @@ export function ProductPrice({ price, size = "sm", className }: Props) {
   return (
     <p className={cn("flex flex-wrap items-baseline gap-x-2", className)}>
       <span className="sr-only">{t("current")}</span>
-      <span className={cn("font-bold", size === "lg" ? "text-3xl" : "text-base", price.isDiscounted && "text-brand-strong")}>
+      <span className={cn("font-semibold tabular-nums", size === "lg" ? "text-3xl" : "text-base", price.isDiscounted && "text-brand-strong")}>
         {formatTHB(price.finalPrice, locale)}
       </span>
       {price.isDiscounted && (

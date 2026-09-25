@@ -15,7 +15,7 @@ export function ProductGallery({ images }: { images: GalleryImage[] }) {
 
   if (!current) {
     return (
-      <div className="grid aspect-square place-items-center rounded-2xl bg-muted text-sm text-muted-foreground">
+      <div className="grid aspect-[4/3] place-items-center rounded-3xl bg-secondary/50 text-sm text-muted-foreground">
         <span className="flex flex-col items-center gap-2">
           <ImageOff className="size-6" aria-hidden />
           {t("noImage")}
@@ -26,7 +26,7 @@ export function ProductGallery({ images }: { images: GalleryImage[] }) {
 
   return (
     <section aria-label={t("gallery")} className="space-y-3">
-      <div className="relative aspect-square overflow-hidden rounded-2xl border bg-muted">
+      <div className="relative aspect-[4/3] overflow-hidden rounded-3xl bg-secondary/50">
         <Image
           key={current.id}
           src={current.url}

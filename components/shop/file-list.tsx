@@ -17,7 +17,7 @@ export function FileList({ files }: { files: FileListItem[] }) {
   const locale = intlLocale(useLocale()).number;
   return (
     <div className="space-y-2">
-      <h3 className="text-sm font-semibold">
+      <h3 className="text-sm">
         {t("files")} <span className="font-normal text-muted-foreground">({t("fileCount", { count: files.length })})</span>
       </h3>
       <ul className="divide-y rounded-xl border">

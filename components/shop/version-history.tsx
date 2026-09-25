@@ -25,7 +25,7 @@ export function VersionHistory({ versions }: { versions: VersionHistoryItem[] })
           <li key={v.id} className="relative">
             <span aria-hidden className="absolute top-1.5 -left-[27px] size-3 rounded-full border-2 border-background bg-primary" />
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="font-semibold">v{v.versionNumber}</h3>
+              <h3 className="font-sans font-semibold tabular-nums">v{v.versionNumber}</h3>
               {v.isLatest && <Badge variant="secondary">{t("latest")}</Badge>}
               <time dateTime={v.releaseDate.toISOString()} className="text-xs text-muted-foreground">
                 {t("released", { date: dateFormat.format(v.releaseDate) })}

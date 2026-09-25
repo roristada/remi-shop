@@ -28,7 +28,7 @@ export function ShopFilterForm({ filters, action, categories }: Props) {
       action={`/${locale}${action}`}
       role="search"
       aria-label={t("label")}
-      className="flex flex-wrap items-end gap-2 rounded-2xl border bg-card p-3 shadow-soft"
+      className="flex flex-wrap items-end gap-2 rounded-3xl bg-secondary/45 p-2.5"
     >
       <label className="relative min-w-52 flex-[2_1_16rem]">
         <span className="sr-only">{t("search")}</span>
@@ -39,7 +39,7 @@ export function ShopFilterForm({ filters, action, categories }: Props) {
           defaultValue={filters.q}
           placeholder={t("searchPlaceholder")}
           maxLength={100}
-          className="h-10 rounded-xl pl-9"
+          className="h-10 rounded-xl border-transparent bg-background pl-9"
         />
       </label>
       {categories && (
@@ -53,6 +53,7 @@ export function ShopFilterForm({ filters, action, categories }: Props) {
             ...categories.map((c) => ({ value: c.slug, label: c.name })),
           ]}
           wrapperClassName="min-w-40 flex-1 space-y-0"
+          className="border-transparent bg-background"
         />
       )}
       <SelectInput
@@ -67,8 +68,9 @@ export function ShopFilterForm({ filters, action, categories }: Props) {
           { value: "name", label: t("sortName") },
         ]}
         wrapperClassName="min-w-40 flex-1 space-y-0"
+        className="border-transparent bg-background"
       />
-      <label className="flex h-10 cursor-pointer items-center gap-2 rounded-xl border px-3 text-sm">
+      <label className="flex h-10 cursor-pointer items-center gap-2 rounded-xl bg-background px-3 text-sm">
         <input
           type="checkbox"
           name="sale"

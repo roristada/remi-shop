@@ -24,7 +24,7 @@ export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now }: Pr
   const purchasable = status === "ACTIVE";
 
   return (
-    <div className="space-y-4 rounded-2xl border bg-card p-4 shadow-soft sm:p-5">
+    <div className="space-y-4 rounded-3xl bg-secondary/45 p-5 sm:p-6">
       <div className="flex flex-wrap items-center gap-3">
         <ProductPrice price={price} size="lg" />
         {price.isDiscounted && <DiscountBadge percent={price.discountPercent} />}
@@ -65,13 +65,13 @@ export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now }: Pr
           <ShoppingBag aria-hidden /> {t("addToCart")}
         </Button>
         {purchasable && (
-          <p id="cart-soon" className="text-center text-xs text-muted-foreground">
+          <p id="cart-soon" className="text-center text-xs text-foreground/70">
             {t("cartSoon")}
           </p>
         )}
       </div>
 
-      <ul className="space-y-1.5 border-t pt-4 text-sm text-muted-foreground">
+      <ul className="space-y-1.5 border-t border-foreground/10 pt-4 text-sm text-foreground/70">
         <li className="flex items-center gap-2">
           <Download className="size-4 shrink-0" aria-hidden /> {t("instantDownload")}
         </li>

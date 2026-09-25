@@ -4,13 +4,12 @@
     "description": "Brushes, textures, presets, patterns, fonts and templates for digital art."
   },
   "hero": {
-    "eyebrow": "Digital Art Resources",
     "title": "Small tools that make your art shine",
     "subtitle": "Quality brushes, textures, presets and assets — ready to use in your favorite drawing software.",
     "cta": "Browse the shop",
     "secondary": "View categories"
   },
-  "comingSoon": "Products are coming soon",
   "newArrivals": "New arrivals",
-  "viewAll": "View all products"
+  "viewAll": "View all products",
+  "browseByType": "Browse by type"
 }

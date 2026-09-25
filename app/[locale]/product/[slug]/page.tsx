@@ -166,7 +166,7 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
             >
               {categoryName}
             </Link>
-            <h1 className="text-2xl leading-tight font-bold text-balance sm:text-3xl">{name}</h1>
+            <h1 className="font-sans text-2xl leading-snug font-semibold text-balance sm:text-[2rem]">{name}</h1>
           </div>
 
           <PurchasePanel
@@ -179,7 +179,7 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
 
           {details.length > 0 && (
             <section aria-labelledby="details-heading" className="space-y-3">
-              <h2 id="details-heading" className="text-lg font-semibold">
+              <h2 id="details-heading" className="text-lg">
                 {t("details")}
               </h2>
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
@@ -199,7 +199,7 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
 
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
         <section aria-labelledby="description-heading" className="space-y-3">
-          <h2 id="description-heading" className="text-xl font-semibold">
+          <h2 id="description-heading" className="text-xl">
             {t("description")}
           </h2>
           <div className="text-base leading-relaxed whitespace-pre-line">
@@ -207,7 +207,7 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
           </div>
           {requirements && (
             <div className="space-y-1 pt-2">
-              <h3 className="font-semibold">{t("requirements")}</h3>
+              <h3>{t("requirements")}</h3>
               <p className="text-sm whitespace-pre-line text-muted-foreground">{requirements}</p>
             </div>
           )}
@@ -215,7 +215,7 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
 
         {versions.length > 0 && (
           <section aria-labelledby="versions-heading" className="space-y-4">
-            <h2 id="versions-heading" className="text-xl font-semibold">
+            <h2 id="versions-heading" className="text-xl">
               {t("versions")}
             </h2>
             <VersionHistory versions={versions} />
@@ -225,7 +225,7 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
 
       {related.length > 0 && (
         <section aria-labelledby="related-heading" className="space-y-4">
-          <h2 id="related-heading" className="text-xl font-semibold">
+          <h2 id="related-heading" className="text-xl">
             {t("related")}
           </h2>
           <ProductGrid products={related} />

@@ -6,11 +6,12 @@ import { ProductPrice } from "./product-price";
 import { DiscountBadge } from "./discount-badge";
 import { ProductStatusTag } from "./product-status-tag";
 
+/** Gallery-style tile: the preview image is the card; text sits below it without a frame. */
 export function ProductCard({ product, priority = false }: { product: ProductCardData; priority?: boolean }) {
   const { price } = product;
   return (
-    <article className="group relative flex w-full flex-col overflow-hidden rounded-2xl border bg-card shadow-soft transition-shadow hover:shadow-md">
-      <div className="relative aspect-square overflow-hidden bg-muted">
+    <article className="group relative flex w-full flex-col gap-3">
+      <div className="relative aspect-square overflow-hidden rounded-2xl bg-secondary/60 ring-1 ring-black/5 ring-inset">
         {product.image ? (
           <Image
             src={product.image.url}
@@ -18,31 +19,28 @@ export function ProductCard({ product, priority = false }: { product: ProductCar
             fill
             sizes="(min-width: 1024px) 280px, (min-width: 768px) 33vw, 50vw"
             loading={priority ? "eager" : "lazy"}
-            className="object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:transition-none"
+            className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04] motion-reduce:transition-none"
           />
         ) : (
           <ImageOff className="absolute inset-0 m-auto size-6 text-muted-foreground" aria-hidden />
         )}
-        <div className="absolute top-2 left-2 flex flex-wrap gap-1">
+        <div className="absolute top-2.5 left-2.5 flex flex-wrap gap-1">
           {price.isDiscounted && <DiscountBadge percent={price.discountPercent} />}
           <ProductStatusTag status={product.status} />
         </div>
       </div>
-      <div className="flex flex-1 flex-col gap-1 p-3 sm:p-4">
-        <p className="truncate text-xs text-muted-foreground">
-          {product.categoryName}
-          {product.software ? ` · ${product.software}` : ""}
-        </p>
-        <h3 className="line-clamp-2 text-sm leading-snug font-semibold sm:text-base">
-          {/* Stretched link: the whole card is clickable, with one link in the tab order. */}
+      <div className="flex flex-1 flex-col gap-1 px-0.5">
+        <p className="truncate text-xs text-muted-foreground">{product.categoryName}</p>
+        <h3 className="line-clamp-2 font-sans text-[0.95rem] leading-snug font-semibold sm:text-base">
+          {/* Stretched link: the whole tile is clickable, with one link in the tab order. */}
           <Link
             href={`/product/${product.slug}`}
-            className="rounded-sm after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:rounded-2xl focus-visible:after:ring-2 focus-visible:after:ring-ring"
+            className="after:absolute after:inset-0 after:rounded-2xl after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring focus-visible:after:ring-offset-4"
           >
             {product.name}
           </Link>
         </h3>
-        <ProductPrice price={price} className="mt-auto pt-1" />
+        <ProductPrice price={price} className="mt-auto" />
       </div>
     </article>
   );

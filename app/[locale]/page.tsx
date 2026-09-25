@@ -1,75 +1,75 @@
-import { getTranslations, setRequestLocale } from "next-intl/server";
-import { Brush, Layers, Palette, Sparkles } from "lucide-react";
-import { Link } from "@/i18n/navigation";
 import { connection } from "next/server";
+import { getTranslations, setRequestLocale } from "next-intl/server";
+import { Link } from "@/i18n/navigation";
+import { localized } from "@/i18n/localize";
 import { Button } from "@/components/ui/button";
 import { ProductGrid } from "@/components/shop/product-grid";
-import { listNewestProducts } from "@/lib/products/storefront-queries";
+import { SwatchStack } from "@/components/shop/swatch-stack";
+import { listNewestProducts, listShopCategories } from "@/lib/products/storefront-queries";
 
 export default async function HomePage({ params }: PageProps<"/[locale]">) {
   const { locale } = await params;
   setRequestLocale(locale);
   await connection(); // Prices and sale state depend on the current time.
-  const [t, products] = await Promise.all([getTranslations("home"), listNewestProducts(locale)]);
+  const now = new Date();
+  const [t, products, categories] = await Promise.all([
+    getTranslations("home"),
+    listNewestProducts(locale, 8, now),
+    listShopCategories(now),
+  ]);
+  const shownCategories = categories.filter((c) => c._count.products > 0);
 
   return (
     <>
-      <section className="relative overflow-hidden">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_50%_at_20%_10%,var(--secondary),transparent),radial-gradient(50%_45%_at_85%_20%,var(--accent),transparent)]"
-        />
-        <div className="relative mx-auto flex max-w-6xl flex-col items-center gap-6 px-4 py-20 text-center sm:py-28">
-          <span className="inline-flex items-center gap-1.5 rounded-full border bg-background/70 px-3 py-1 text-xs font-medium text-muted-foreground backdrop-blur">
-            <Sparkles className="size-3.5 text-brand-strong" aria-hidden />
-            {t("hero.eyebrow")}
-          </span>
-          <h1 className="max-w-2xl text-3xl leading-tight font-bold text-balance sm:text-5xl">
-            {t("hero.title")}
-          </h1>
-          <p className="max-w-xl text-base text-pretty text-muted-foreground sm:text-lg">
+      <section className="mx-auto grid max-w-6xl items-center gap-10 px-4 pt-10 pb-14 sm:pt-16 md:grid-cols-[1.05fr_1fr] md:gap-12 md:pb-12">
+        <div className="space-y-6">
+          <h1 className="text-[2rem] leading-[1.25] text-balance sm:text-5xl sm:leading-[1.2]">{t("hero.title")}</h1>
+          <p className="max-w-md text-base leading-relaxed text-pretty text-muted-foreground sm:text-lg">
             {t("hero.subtitle")}
           </p>
-          <div className="flex flex-wrap justify-center gap-3">
-            <Button asChild size="lg" className="h-11 rounded-full px-6 shadow-soft">
+          <div className="flex flex-wrap gap-3">
+            <Button asChild size="lg" className="h-12 rounded-full px-7 text-base">
               <Link href="/shop">{t("hero.cta")}</Link>
             </Button>
-            <Button asChild size="lg" variant="secondary" className="h-11 rounded-full px-6">
+            <Button asChild size="lg" variant="ghost" className="h-12 rounded-full px-5 text-base">
               <Link href="/category">{t("hero.secondary")}</Link>
             </Button>
           </div>
         </div>
+        <SwatchStack products={products} />
       </section>
 
-      {products.length > 0 ? (
-        <section aria-labelledby="new-arrivals" className="mx-auto max-w-6xl space-y-5 px-4 pb-20">
-          <div className="flex items-end justify-between gap-3">
-            <h2 id="new-arrivals" className="text-xl font-bold sm:text-2xl">
-              {t("newArrivals")}
-            </h2>
-            <Link href="/shop" className="text-sm font-medium text-brand-strong hover:underline">
+      {shownCategories.length > 0 && (
+        <nav aria-label={t("browseByType")} className="mx-auto max-w-6xl px-4 pb-12">
+          <ul className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
+            {shownCategories.map((c) => (
+              <li key={c.id} className="shrink-0">
+                <Link
+                  href={`/category/${c.slug}`}
+                  className="inline-flex h-11 items-center gap-2 rounded-full border bg-background px-4 text-sm transition-colors hover:border-foreground/20 hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                >
+                  {localized(locale, c.nameTH, c.nameEN)}
+                  <span className="text-xs text-muted-foreground tabular-nums">{c._count.products}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
+
+      <section aria-labelledby="new-arrivals" className="mx-auto max-w-6xl space-y-6 px-4 pb-20">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 id="new-arrivals" className="text-2xl sm:text-3xl">
+            {t("newArrivals")}
+          </h2>
+          {products.length > 0 && (
+            <Link href="/shop" className="text-sm font-medium text-brand-strong underline-offset-4 hover:underline">
               {t("viewAll")}
             </Link>
-          </div>
-          <ProductGrid products={products} />
-        </section>
-      ) : (
-        <section className="mx-auto max-w-6xl px-4 pb-20">
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            {[Brush, Layers, Palette, Sparkles].map((Icon, i) => (
-              <div
-                key={i}
-                className="flex aspect-[4/3] flex-col items-center justify-center gap-3 rounded-2xl border bg-card shadow-soft"
-              >
-                <span className="grid size-12 place-items-center rounded-full bg-secondary">
-                  <Icon className="size-5" aria-hidden />
-                </span>
-                <span className="text-sm text-muted-foreground">{t("comingSoon")}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+          )}
+        </div>
+        <ProductGrid products={products} />
+      </section>
     </>
   );
 }
