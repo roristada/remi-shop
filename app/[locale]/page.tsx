@@ -1,12 +1,16 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Brush, Layers, Palette, Sparkles } from "lucide-react";
 import { Link } from "@/i18n/navigation";
+import { connection } from "next/server";
 import { Button } from "@/components/ui/button";
+import { ProductGrid } from "@/components/shop/product-grid";
+import { listNewestProducts } from "@/lib/products/storefront-queries";
 
 export default async function HomePage({ params }: PageProps<"/[locale]">) {
   const { locale } = await params;
   setRequestLocale(locale);
-  const t = await getTranslations("home");
+  await connection(); // Prices and sale state depend on the current time.
+  const [t, products] = await Promise.all([getTranslations("home"), listNewestProducts(locale)]);
 
   return (
     <>
@@ -37,21 +41,35 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 pb-20">
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          {[Brush, Layers, Palette, Sparkles].map((Icon, i) => (
-            <div
-              key={i}
-              className="flex aspect-[4/3] flex-col items-center justify-center gap-3 rounded-2xl border bg-card shadow-soft"
-            >
-              <span className="grid size-12 place-items-center rounded-full bg-secondary">
-                <Icon className="size-5" aria-hidden />
-              </span>
-              <span className="text-sm text-muted-foreground">{t("comingSoon")}</span>
-            </div>
-          ))}
-        </div>
-      </section>
+      {products.length > 0 ? (
+        <section aria-labelledby="new-arrivals" className="mx-auto max-w-6xl space-y-5 px-4 pb-20">
+          <div className="flex items-end justify-between gap-3">
+            <h2 id="new-arrivals" className="text-xl font-bold sm:text-2xl">
+              {t("newArrivals")}
+            </h2>
+            <Link href="/shop" className="text-sm font-medium text-brand-strong hover:underline">
+              {t("viewAll")}
+            </Link>
+          </div>
+          <ProductGrid products={products} />
+        </section>
+      ) : (
+        <section className="mx-auto max-w-6xl px-4 pb-20">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            {[Brush, Layers, Palette, Sparkles].map((Icon, i) => (
+              <div
+                key={i}
+                className="flex aspect-[4/3] flex-col items-center justify-center gap-3 rounded-2xl border bg-card shadow-soft"
+              >
+                <span className="grid size-12 place-items-center rounded-full bg-secondary">
+                  <Icon className="size-5" aria-hidden />
+                </span>
+                <span className="text-sm text-muted-foreground">{t("comingSoon")}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </>
   );
 }

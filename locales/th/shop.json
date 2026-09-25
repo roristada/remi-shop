@@ -1,0 +1,96 @@
+{
+  "meta": {
+    "shopTitle": "ร้านค้า",
+    "shopDescription": "เลือกซื้อแปรง เท็กซ์เจอร์ พรีเซ็ต ฟอนต์ และไฟล์ดิจิทัลสำหรับนักวาด",
+    "categoriesTitle": "หมวดหมู่สินค้า",
+    "categoriesDescription": "เลือกดูไฟล์ดิจิทัลตามหมวดหมู่",
+    "searchTitle": "ผลการค้นหา \"{q}\""
+  },
+  "shop": {
+    "title": "ร้านค้า",
+    "subtitle": "ไฟล์ดิจิทัลสำหรับงาน Digital Art",
+    "resultCount": "{count, plural, other {# รายการ}}",
+    "searchResults": "ผลการค้นหา \"{q}\""
+  },
+  "filters": {
+    "label": "ตัวกรองสินค้า",
+    "search": "ค้นหา",
+    "searchPlaceholder": "ค้นหาชื่อสินค้า, โปรแกรม, นามสกุลไฟล์...",
+    "category": "หมวดหมู่",
+    "allCategories": "ทุกหมวดหมู่",
+    "sort": "เรียงตาม",
+    "sortNewest": "มาใหม่",
+    "sortPriceAsc": "ราคา: ต่ำไปสูง",
+    "sortPriceDesc": "ราคา: สูงไปต่ำ",
+    "sortName": "ชื่อ (ก–ฮ)",
+    "onSale": "เฉพาะสินค้าลดราคา",
+    "apply": "ค้นหา",
+    "clear": "ล้างตัวกรอง"
+  },
+  "empty": {
+    "title": "ไม่พบสินค้า",
+    "filtered": "ลองเปลี่ยนคำค้นหาหรือตัวกรอง",
+    "none": "ยังไม่มีสินค้าในขณะนี้ แวะมาใหม่เร็ว ๆ นี้"
+  },
+  "pagination": {
+    "label": "แบ่งหน้า",
+    "previous": "ก่อนหน้า",
+    "next": "ถัดไป",
+    "page": "หน้า {page} / {pageCount}"
+  },
+  "categories": {
+    "title": "หมวดหมู่สินค้า",
+    "subtitle": "เลือกดูไฟล์ตามประเภทที่คุณต้องการ",
+    "productCount": "{count, plural, other {# รายการ}}",
+    "empty": "ยังไม่มีหมวดหมู่"
+  },
+  "badge": {
+    "discount": "ลด {percent}%",
+    "comingSoon": "เร็ว ๆ นี้",
+    "saleEnded": "สิ้นสุดการขาย",
+    "unavailable": "ไม่เปิดขาย"
+  },
+  "price": {
+    "original": "ราคาปกติ",
+    "current": "ราคา"
+  },
+  "countdown": {
+    "endsIn": "ส่วนลดสิ้นสุดใน",
+    "days": "{count} วัน",
+    "ended": "ส่วนลดสิ้นสุดแล้ว"
+  },
+  "product": {
+    "breadcrumb": "เส้นทาง",
+    "home": "หน้าแรก",
+    "gallery": "รูปตัวอย่างสินค้า",
+    "showImage": "แสดงรูปที่ {index}",
+    "noImage": "ไม่มีรูปตัวอย่าง",
+    "addToCart": "เพิ่มลงตะกร้า",
+    "cartSoon": "ระบบตะกร้าสินค้ากำลังจะเปิดให้ใช้งานเร็ว ๆ นี้",
+    "opensAt": "เปิดขาย {date}",
+    "endsAt": "ขายถึง {date}",
+    "saleEnded": "สินค้านี้สิ้นสุดการขายแล้ว",
+    "unavailable": "สินค้านี้ยังไม่เปิดขาย",
+    "instantDownload": "ดาวน์โหลดได้หลังชำระเงินได้รับการยืนยัน",
+    "lifetimeUpdates": "อัปเดตเวอร์ชันใหม่ฟรีตลอดอายุสินค้า",
+    "description": "รายละเอียดสินค้า",
+    "noDescription": "ยังไม่มีรายละเอียด",
+    "details": "ข้อมูลไฟล์",
+    "software": "โปรแกรม",
+    "supportedVersion": "เวอร์ชันที่รองรับ",
+    "fileFormat": "รูปแบบไฟล์",
+    "license": "สัญญาอนุญาต",
+    "requirements": "ความต้องการของระบบ",
+    "downloadLimit": "จำนวนครั้งที่ดาวน์โหลดได้",
+    "unlimited": "ไม่จำกัด",
+    "times": "{count} ครั้ง",
+    "currentVersion": "เวอร์ชันปัจจุบัน",
+    "files": "ไฟล์ที่จะได้รับ",
+    "fileCount": "{count, plural, other {# ไฟล์}}",
+    "versions": "ประวัติเวอร์ชัน",
+    "latest": "ล่าสุด",
+    "released": "เผยแพร่ {date}",
+    "noNotes": "ไม่มีบันทึกการเปลี่ยนแปลง",
+    "related": "สินค้าอื่นในหมวดนี้"
+  }
+}

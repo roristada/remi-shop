@@ -3,7 +3,7 @@
 Progress notes for the Remi Shop digital file store. Engineering rules live in `CLAUDE.md`;
 setup and commands live in `README.md`. Newest entries first.
 
-## Status (2026-09-24)
+## Status (2026-09-26)
 
 | Phase | Scope | Status |
 | --- | --- | --- |
@@ -11,8 +11,9 @@ setup and commands live in `README.md`. Newest entries first.
 | 2 | Database + Supabase (Prisma schema, RLS, storage buckets) | Done |
 | 3 | Authentication (register, login, verify, reset, account) | Done |
 | 4 | Products (admin product/category management) | Done, tested in browser |
-| 5 | Storefront (shop, category, product detail, SEO) | **Next** |
-| 6–12 | Cart/checkout, payment review, downloads, account, admin, email, hardening | Not started |
+| 5 | Storefront (shop, category, product detail, SEO) | Done, tested in browser |
+| 6 | Cart + checkout | **Next** |
+| 7–12 | Payment review, downloads, account, admin, email, hardening | Not started |
 
 ## Confirmed decisions
 
@@ -29,6 +30,37 @@ Business rules agreed with the owner. Follow these over the defaults in `CLAUDE.
 - Files in versions that have buyers can still be added or deleted, behind a confirm that shows the buyer count.
 - Uploads go browser → Supabase Storage using a signed upload token, then the server verifies
   the stored object. Vercel caps function request bodies at 4.5 MB, so files cannot pass through the server.
+
+## Phase 5: Storefront (done)
+
+**Routes** (all dynamic: price, discount and sale state depend on the current time)
+- `/[locale]` home: new arrivals grid (falls back to the placeholder when there are no products).
+- `/[locale]/shop`: search (name TH/EN, software, file format), category, sort, on-sale filter, 12 per page.
+  Plain GET form, works without JavaScript. `/[locale]/search?q=` redirects here.
+- `/[locale]/category` and `/[locale]/category/[slug]`.
+- `/[locale]/product/[slug]`: gallery, price/discount, countdown, sale state, file details,
+  files of the latest version (name + size only), version history, related products.
+- `app/sitemap.ts` and `app/robots.ts`.
+
+**Listing rules** (`lib/products/storefront.ts`, unit-tested)
+- Listed: `PUBLISHED`, category `ACTIVE`, sale not ended. Scheduled products are listed with a "coming soon" tag.
+- Ended products drop out of listings, but their detail page stays up with "สิ้นสุดการขาย".
+- A product in a hidden category 404s on the storefront.
+- A version created after the current latest is hidden until the admin sets it as latest.
+
+**Components** (`components/shop/`): `ProductCard`, `ProductGrid`, `ProductPrice`, `DiscountBadge`,
+`ProductStatusTag`, `CountdownTimer`, `ProductGallery`, `PurchasePanel`, `FileList`, `VersionHistory`,
+`ShopFilterForm`, `ShopPagination`. The admin pagination moved to `components/shared/pagination.tsx`
+with translatable labels.
+- The countdown corrects for browser clock skew with the server time and calls `router.refresh()`
+  at zero so the server recalculates the price. It never decides the price.
+
+**SEO**: per-page title/description, canonical + `hreflang`, Open Graph image (primary preview),
+Product JSON-LD (`<` escaped), filtered/search pages `noindex, follow`.
+
+**QA (2026-09-26)**: tested on the dev server with the `test` product, temporarily changed in the DB and
+restored afterwards: 20% discount + countdown expiring live (the price reverted after refresh),
+scheduled, ended, TH/EN, 375 px mobile, invalid query params, unknown slugs.
 
 ## Phase 4: Products (done)
 
@@ -73,6 +105,11 @@ Bugs found and fixed:
 
 ## Known gaps / follow-ups
 
+- "Add to cart" is rendered disabled until Phase 6.
+- Price sorting uses the base price; an active discount does not change the order.
+- Unknown product/category slugs return a soft 404 (HTTP 200 + `noindex`), because `loading.tsx`
+  starts streaming before the page can call `notFound()`. Removing the skeleton would give a real 404.
+- `ogImagePath` exists in the schema but the admin UI has no field for it; OG uses the primary image.
 - Hard delete of a product that has orders, and the buyer-count warning, can only be tested
   once orders exist (Phase 6–7).
 - Server actions have no automated tests yet; only the pure logic is unit-tested.
@@ -82,15 +119,9 @@ Bugs found and fixed:
 - Dev tip: do not run `next build` while `next dev` is running. It left the dev server
   serving a stale page. Restart `npm run dev` if a page does not reflect code changes.
 
-## Next: Phase 5, Storefront
+## Next: Phase 6, Cart + Checkout
 
-- `/shop` with filters, search, sort and pagination
-- `/category/[slug]`
-- `/product/[slug]` with:
-  - gallery
-  - price, discount and a countdown (the countdown is UI only)
-  - a "Sale Ended" state
-  - compatibility details and version history
-- Reusable components: `ProductCard`, `ProductPrice`, `DiscountBadge`, `CountdownTimer`, `ProductGallery`
-- SEO: metadata, Open Graph, canonical URL, JSON-LD
-- Show published products only. Status and price are always computed server-side.
+- Add/remove cart items (quantity 1, no duplicates), cart page.
+- Checkout revalidates every item server-side (exists, purchasable, sale window, current price).
+- Create `Order` + `OrderItem` snapshots in one transaction; `expiresAt` from `orderExpiryMinutes`.
+- QR payment page (PaymentSetting), then slip upload in Phase 7.

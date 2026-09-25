@@ -1,0 +1,96 @@
+{
+  "meta": {
+    "shopTitle": "Shop",
+    "shopDescription": "Brushes, textures, presets, fonts and other digital files for artists.",
+    "categoriesTitle": "Categories",
+    "categoriesDescription": "Browse digital files by category.",
+    "searchTitle": "Results for \"{q}\""
+  },
+  "shop": {
+    "title": "Shop",
+    "subtitle": "Digital files for digital art",
+    "resultCount": "{count, plural, one {# item} other {# items}}",
+    "searchResults": "Results for \"{q}\""
+  },
+  "filters": {
+    "label": "Product filters",
+    "search": "Search",
+    "searchPlaceholder": "Search products, software, file types...",
+    "category": "Category",
+    "allCategories": "All categories",
+    "sort": "Sort by",
+    "sortNewest": "Newest",
+    "sortPriceAsc": "Price: low to high",
+    "sortPriceDesc": "Price: high to low",
+    "sortName": "Name (A–Z)",
+    "onSale": "On sale only",
+    "apply": "Search",
+    "clear": "Clear filters"
+  },
+  "empty": {
+    "title": "No products found",
+    "filtered": "Try a different search or filter.",
+    "none": "No products yet. Check back soon."
+  },
+  "pagination": {
+    "label": "Pagination",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page {page} of {pageCount}"
+  },
+  "categories": {
+    "title": "Categories",
+    "subtitle": "Browse files by type",
+    "productCount": "{count, plural, one {# item} other {# items}}",
+    "empty": "No categories yet."
+  },
+  "badge": {
+    "discount": "{percent}% off",
+    "comingSoon": "Coming soon",
+    "saleEnded": "Sale ended",
+    "unavailable": "Unavailable"
+  },
+  "price": {
+    "original": "Regular price",
+    "current": "Price"
+  },
+  "countdown": {
+    "endsIn": "Discount ends in",
+    "days": "{count, plural, one {# day} other {# days}}",
+    "ended": "Discount has ended"
+  },
+  "product": {
+    "breadcrumb": "Breadcrumb",
+    "home": "Home",
+    "gallery": "Product preview images",
+    "showImage": "Show image {index}",
+    "noImage": "No preview image",
+    "addToCart": "Add to cart",
+    "cartSoon": "The shopping cart is coming soon.",
+    "opensAt": "On sale from {date}",
+    "endsAt": "On sale until {date}",
+    "saleEnded": "This product is no longer on sale.",
+    "unavailable": "This product is not on sale yet.",
+    "instantDownload": "Download after your payment is confirmed",
+    "lifetimeUpdates": "Free updates to every future version",
+    "description": "Description",
+    "noDescription": "No description yet.",
+    "details": "File details",
+    "software": "Software",
+    "supportedVersion": "Supported version",
+    "fileFormat": "File format",
+    "license": "License",
+    "requirements": "Requirements",
+    "downloadLimit": "Download limit",
+    "unlimited": "Unlimited",
+    "times": "{count, plural, one {# time} other {# times}}",
+    "currentVersion": "Current version",
+    "files": "Files included",
+    "fileCount": "{count, plural, one {# file} other {# files}}",
+    "versions": "Version history",
+    "latest": "Latest",
+    "released": "Released {date}",
+    "noNotes": "No release notes.",
+    "related": "More in this category"
+  }
+}

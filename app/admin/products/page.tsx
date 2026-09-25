@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ProductStatusBadge } from "@/components/admin/product-status-badge";
-import { AdminPagination } from "@/components/admin/pagination";
+import { Pagination } from "@/components/shared/pagination";
 import { FlashToast } from "@/components/admin/flash-toast";
 import { SelectInput } from "@/components/admin/form-controls";
 import type { PublishStatus } from "@/lib/generated/prisma/enums";
@@ -154,7 +154,7 @@ export default async function AdminProductsPage({ searchParams }: PageProps<"/ad
         </div>
       )}
 
-      <AdminPagination page={page} pageCount={pageCount} params={params} basePath="/admin/products" />
+      <Pagination page={page} pageCount={pageCount} params={params} basePath="/admin/products" />
     </div>
   );
 }

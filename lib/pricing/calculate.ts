@@ -79,6 +79,7 @@ export function formatTHB(satang: number, locale = "th-TH"): string {
   return new Intl.NumberFormat(locale, {
     style: "currency",
     currency: "THB",
+    currencyDisplay: "narrowSymbol",
     minimumFractionDigits: satang % 100 === 0 ? 0 : 2,
     maximumFractionDigits: 2,
   }).format(satang / 100);
