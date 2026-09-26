@@ -7,9 +7,23 @@
     "title": "Small tools that make your art shine",
     "subtitle": "Quality brushes, textures, presets and assets — ready to use in your favorite drawing software.",
     "cta": "Browse the shop",
-    "secondary": "View categories"
+    "secondary": "View categories",
+    "caption": "Keep making beautiful art"
   },
   "newArrivals": "New arrivals",
   "viewAll": "View all products",
-  "browseByType": "Browse by type"
+  "browseByType": "Browse by type",
+  "trust": {
+    "secureFiles": "Files are stored privately and securely",
+    "verifiedPayment": "Every payment is checked by a real admin",
+    "lifetimeUpdates": "Free version updates for as long as the product exists",
+    "bilingual": "Available in Thai and English",
+    "label": "Why shop with us"
+  },
+  "banner": {
+    "label": "Store announcement",
+    "fallbackTitle": "Explore everything in the shop",
+    "fallbackBody": "Brushes, textures, presets and assets for digital art, updated regularly.",
+    "fallbackCta": "Go to shop"
+  }
 }

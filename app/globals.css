@@ -9,7 +9,9 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-anuphan), ui-sans-serif, system-ui, sans-serif;
   --font-heading: var(--font-mitr), var(--font-anuphan), ui-sans-serif, system-ui, sans-serif;
+  --font-script: var(--font-charmonman), cursive;
   --color-brand-strong: var(--brand-strong);
+  --color-logo-pink: var(--logo-pink);
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -73,6 +75,9 @@
   --warning: #a15c00;
   /* Pink dark enough for text/links on white (AA) */
   --brand-strong: #b0426b;
+  /* Bunny-mark pink. ~3.4–3.7:1 contrast: fine for the logo and large (>=24px) display
+     text, never for buttons, links or body text — brand-strong keeps that job. */
+  --logo-pink: #ec3a92;
   --border: #ebebef;
   --input: #e3e3e8;
   --ring: #b0426b; /* = brand-strong; used at /80 so focus rings clear 3:1 */
@@ -110,6 +115,30 @@
     font-family: var(--font-heading);
     font-weight: 500;
     line-height: 1.3;
+  }
+  /* Browser chrome we didn't draw still carries the palette. */
+  ::selection {
+    background-color: var(--primary);
+    color: var(--foreground);
+  }
+  input, textarea {
+    caret-color: var(--ring);
+  }
+  * {
+    scrollbar-color: var(--input) transparent;
+    scrollbar-width: thin;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--input);
+    border-radius: 9999px;
+    border: 2px solid var(--background);
   }
 }
 

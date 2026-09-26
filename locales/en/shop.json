@@ -157,5 +157,9 @@
       "empty": "The file is empty",
       "signature_mismatch": "This file is not a valid image"
     }
+  },
+  "rating": {
+    "count": "{count, plural, one {# review} other {# reviews}}",
+    "none": "No reviews yet"
   }
 }

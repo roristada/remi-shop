@@ -124,6 +124,22 @@ export async function listRelatedProducts(
   return rows.map((r) => toCard(r, locale, now));
 }
 
+/**
+ * The one home-page banner slot: the highest-priority live announcement, or null when none is
+ * running. Never render a discount here unless it is this real row's own content.
+ */
+export function getActiveAnnouncement(now: Date = new Date()) {
+  return prisma.announcement.findFirst({
+    where: {
+      isActive: true,
+      OR: [{ startAt: null }, { startAt: { lte: now } }],
+      AND: [{ OR: [{ endAt: null }, { endAt: { gt: now } }] }],
+    },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+    select: { titleTH: true, titleEN: true, descriptionTH: true, descriptionEN: true, imagePath: true, link: true },
+  });
+}
+
 /** Visible categories with the number of currently listed products. */
 export function listShopCategories(now: Date = new Date()) {
   return prisma.category.findMany({

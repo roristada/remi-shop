@@ -5,6 +5,7 @@ import type { ProductCardData } from "@/lib/products/storefront-queries";
 import { ProductPrice } from "./product-price";
 import { DiscountBadge } from "./discount-badge";
 import { ProductStatusTag } from "./product-status-tag";
+import { StarRating } from "./star-rating";
 
 /** Gallery-style tile: the preview image is the card; text sits below it without a frame. */
 export function ProductCard({ product, priority = false }: { product: ProductCardData; priority?: boolean }) {
@@ -44,6 +45,8 @@ export function ProductCard({ product, priority = false }: { product: ProductCar
             {product.name}
           </Link>
         </h3>
+        {/* No review system yet — every card honestly shows the same empty state, never a guessed number. */}
+        <StarRating average={0} count={0} />
         <ProductPrice price={price} className="mt-auto" />
       </div>
     </article>

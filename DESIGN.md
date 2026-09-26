@@ -1,9 +1,10 @@
 ---
 name: Remi Shop
-description: Thai-first store for digital-art files (brushes, textures, presets, fonts), styled as a soft swatch board.
+description: Thai-first store for digital-art files (brushes, textures, presets, fonts), styled as a soft swatch board with a bunny mark and a real, honest storefront hero.
 colors:
   sakura-pink: "#f5bfd4"
   cherry-ink: "#b0426b"
+  logo-pink: "#ec3a92"
   powder-sky: "#def1f6"
   blush-mist: "#fcebf2"
   paper-white: "#fefeff"
@@ -39,6 +40,11 @@ typography:
   label:
     fontFamily: "Anuphan, ui-sans-serif, system-ui, sans-serif"
     fontSize: "0.75rem"
+    fontWeight: 400
+    lineHeight: 1.4
+  script-accent:
+    fontFamily: "Charmonman, cursive"
+    fontSize: "clamp(1.5rem, 3vw, 2rem)"
     fontWeight: 400
     lineHeight: 1.4
 rounded:
@@ -94,6 +100,10 @@ components:
   product-tile:
     backgroundColor: "{colors.powder-sky}"
     rounded: "{rounded.2xl}"
+  hero-panel:
+    backgroundColor: "{colors.powder-sky}"
+    rounded: "{rounded.3xl}"
+    padding: "32px"
   link:
     textColor: "{colors.cherry-ink}"
 ---
@@ -104,51 +114,58 @@ components:
 
 **Creative North Star: "The Swatch Board"**
 
-Remi Shop reads like a clean board where an artist pins swatches of their brushes and palettes. The artwork is the loudest thing on every page; the interface is soft paper, quiet type and rounded tiles that hold the work without competing with it. The signature is the home hero's fanned swatch stack: preview tiles tilted like cards pinned to a board, one real preview on top.
+Remi Shop reads like a clean board where an artist pins swatches of their brushes and palettes. The artwork is the loudest thing on every page; the interface is soft paper, quiet type and rounded tiles that hold the work without competing with it. The signature is the home hero's fanned swatch stack: preview tiles tilted like cards pinned to a board, one real preview on top. A small pink bunny — the shop's mark — sits in the header and the favicon; it is a brand touch, not a mascot that appears throughout the UI.
 
-The mood is cute and gentle but still premium: pastel pink and powder blue on near-white paper, generous whitespace and friendly rounded Thai type. Cute comes from softness, roundness and small moments (a swatch fanning in, a check mark after copying), never from clutter, stickers or loud color. Thai is the primary language, so every decision is checked against Thai text first: tone marks, line height and word length.
+The mood is cute and gentle but still premium: pastel pink and powder blue on near-white paper, generous whitespace and friendly rounded Thai type. Cute comes from softness, roundness and small moments (a swatch fanning in, a check mark after copying, the bunny mark), never from clutter, stickers or loud color. Thai is the primary language, so every decision is checked against Thai text first: tone marks, line height and word length.
 
-The store is explicitly not a dense marketplace (no Shopee-style banner walls or shouting discount stamps), not generic corporate SaaS, and not a dark or neon gamer look. V1 is light theme only.
+The store is a boutique, single-seller shop, not a dense multi-vendor marketplace: no banner walls, no seller badges, no shouting discount stamps stacked on top of each other. It is allowed exactly one deliberate "hero" moment per page (the home hero panel, the sale/announcement slot) — a bounded, tasteful use of tinted background, not a habit. Not generic corporate SaaS, and not a dark or neon gamer look. V1 is light theme only.
+
+**Honesty is part of the identity, not a QA checklist.** Every number on the page must be real: no invented review counts or star averages, no discount badge without a real discount behind it, no "instant download" language (payment is always human-verified before download). A page that has to fake a number to look finished is not finished.
 
 **Key Characteristics:**
-- Artwork first: preview images carry the color; UI surfaces stay pale.
-- Pink is an accent, powder blue is the surface, graphite is the voice.
+- Artwork first: real product previews carry the color; UI surfaces stay pale.
+- Sakura pink is a small-mark accent, powder blue is the surface, graphite is the voice; the bunny's own logo-pink is reserved for the mark itself and large display accents.
 - Everything rounded: pills for actions and chips, 25–31px corners for tiles and panels.
 - Depth by tone (tinted panels on paper), with one soft shadow for lifted items.
-- Thai-first type: Mitr for titles, Anuphan for reading, no negative tracking.
+- Thai-first type: Mitr for titles, Anuphan for reading, an occasional Charmonman script line for warmth; no negative tracking anywhere.
 - 44px touch targets and AA contrast are part of the look, not an afterthought.
+- Real numbers only: ratings, discounts and "sold" language always trace back to actual data.
 
 ## Colors
 
-A pastel pair (pink accent, powder-blue surface) on cool paper, anchored by soft graphite text.
+A pastel pair (pink accent, powder-blue surface) on cool paper, anchored by soft graphite text, plus one saturated brand pink reserved for the logo.
 
 ### Primary
-- **Sakura Pink** (sakura-pink): the one brand accent. Fills primary buttons (add to cart, checkout, search), the logo mark and swatch placeholders. It is too light to carry text or icons on white (1.6:1), so it is only ever a fill with graphite text on it.
-- **Cherry Ink** (cherry-ink): the readable pink. Links ("view all"), the active step in the order stepper, category labels on product pages, checkbox accents and focus rings (at 80% opacity to stay ≥3:1). Use it whenever pink must be read.
+- **Sakura Pink** (sakura-pink): the one brand *fill* accent. Fills primary buttons (add to cart, checkout, search), swatch placeholders and the hero panel's own small highlights. It is too light to carry text or icons on white (1.6:1), so it is only ever a fill with graphite text on it.
+- **Cherry Ink** (cherry-ink): the readable pink. Links ("view all"), the active step in the order stepper, category labels on product pages, checkbox accents, filled star ratings and focus rings (at 80% opacity to stay ≥3:1). Use it whenever pink must be read at body/UI size.
+- **Logo Pink** (logo-pink): the bunny mark's own, more saturated pink (measured contrast: 3.7:1 for white-on-logo-pink, 3.4:1 for logo-pink-on-white/fog — enough for a large mark or ≥24px display text, not enough for body text, buttons or small icons). Reserved for: the bunny mark itself, and the Charmonman script accent line when it needs a color instead of graphite. Never used for button labels, links, small icons or any AA-body-text role — cherry-ink keeps that job.
 
 ### Secondary
-- **Powder Sky** (powder-sky): the working surface. Filter bar, purchase panel, payment panel, cart summary, footer and product image wells, usually at 40–60% opacity over paper. It groups content without borders.
+- **Powder Sky** (powder-sky): the working surface. Filter bar, purchase panel, payment panel, cart summary, footer, product image wells and the home hero panel, usually at 40–60% opacity over paper. It groups content without borders.
 - **Blush Mist** (blush-mist): the faint pink wash for hover rows, the countdown chip and small highlights.
 
 ### Neutral
 - **Paper White** (paper-white): page and card background. Slightly cool, never pure #fff.
 - **Graphite** (graphite): all body and heading text, the active chip fill, step numbers. Soft instead of black.
 - **Pencil Gray** (pencil-gray): secondary text (meta, counts, hints). Darkened from the brief's #777777 so it passes AA on paper *and* on powder-sky and fog surfaces.
-- **Fog** (fog): muted fills (skeletons, neutral badges, image-less tiles).
+- **Fog** (fog): muted fills (skeletons, neutral badges, image-less tiles, empty star outlines).
 - **Hairline** (hairline) and **Input Line** (input-line): dividers, dashed empty states, input strokes.
 - **Status**: error-red, success-green and warning-amber are used as text on a 10% tint of themselves, always with a text label.
 
 ### Named Rules
-**The Accent Not Wallpaper Rule.** Sakura pink covers only the primary action and small marks. If a screen has more than one pink-filled area besides the primary button, one of them is wrong.
+**The Accent Not Wallpaper Rule.** Sakura pink covers only the primary action and small marks. Outside the one hero panel a page is allowed, if a screen has more than one pink-filled area besides the primary button, one of them is wrong.
 
-**The Readable Pink Rule.** Pink that carries meaning as text, icon or outline is cherry-ink, never sakura-pink.
+**The Readable Pink Rule.** Pink that carries meaning as text, icon or outline at UI/body size is cherry-ink, never sakura-pink or logo-pink.
+
+**The Honest Number Rule.** A rating, a discount percentage, a countdown or a "N sold" claim is either computed from real data at render time, or it is not shown — never a placeholder number left in from a reference mockup.
 
 ## Typography
 
 **Display Font:** Mitr (with Anuphan, system sans)
 **Body Font:** Anuphan (with system sans)
+**Script Accent:** Charmonman (Thai + Latin coverage; used sparingly)
 
-**Character:** Mitr is a soft geometric Thai/Latin face with rounded terminals: friendly, a little cute, confident at size. Anuphan is a clean loopless Thai sans that stays legible at 12–14px. Together they give warmth in titles and calm in reading.
+**Character:** Mitr is a soft geometric Thai/Latin face with rounded terminals: friendly, a little cute, confident at size. Anuphan is a clean loopless Thai sans that stays legible at 12–14px. Charmonman is a genuine Thai calligraphic/cursive face (not a Latin-only script stretched over Thai) that adds a hand-written, personal warmth in one short line near the hero — never for anything a customer must scan quickly (labels, prices, buttons, body copy).
 
 ### Hierarchy
 - **Display** (Mitr 500, 2rem → 3rem, 1.2–1.25): the home hero title only, `text-balance`.
@@ -156,9 +173,12 @@ A pastel pair (pink accent, powder-blue surface) on cool paper, anchored by soft
 - **Title** (Mitr 500, 1.125–1.5rem, 1.3): section h2s (folder sections, "new arrivals", panel titles).
 - **Body** (Anuphan 400, 1rem, 1.5): descriptions and forms. Product-card names use Anuphan 600 at 0.95–1rem, 1.5 line height, clamped to 2 lines.
 - **Label** (Anuphan 400, 0.75rem): meta rows, counts, hints, captions; tabular numerals for prices, sizes and counters.
+- **Script Accent** (Charmonman 400, 1.5rem → 2rem, 1.4): one short line beside/under the home hero headline only (e.g. a small "made for artists" aside). Always at large size (≥24px) so its contrast clears AA-large; never the only carrier of information the heading doesn't already say.
 
 ### Named Rules
-**The Tone Mark Rule.** Thai text never gets line height under 1.3 in headings or 1.5 in clamped body text, and never negative letter-spacing; stacked vowels and tone marks must not be clipped.
+**The Tone Mark Rule.** Thai text never gets line height under 1.3 in headings or 1.5 in clamped body text, and never negative letter-spacing; stacked vowels and tone marks must not be clipped. This applies to Charmonman too, which needs *more* vertical room than Mitr for Thai tone marks, not less.
+
+**The One Script Line Rule.** Charmonman appears at most once per page. It is an accent, not a heading font — never used for anything below display size.
 
 ## Layout
 
@@ -179,7 +199,7 @@ Depth comes from tone first: powder-sky or fog panels on paper, image wells with
 
 ## Shapes
 
-Everything is rounded, from 14px base radius upward: pills for every button, chip and toggle; 20px for inputs; 25px for product tiles and image wells; 31px for panels and admin folder cards. Borders are hairlines (1px, hairline) or dashed for empty and drop zones. No sharp corners, no thick outlines, no colored side borders.
+Everything is rounded, from 14px base radius upward: pills for every button, chip and toggle; 20px for inputs; 25px for product tiles and image wells; 31px for panels, the hero panel and admin folder cards. Borders are hairlines (1px, hairline) or dashed for empty and drop zones. No sharp corners, no thick outlines, no colored side borders.
 
 ## Components
 
@@ -195,41 +215,62 @@ Soft, rounded and quietly confident.
 - **Style:** pill, 44px tall, paper fill, hairline border, graphite text. Hover darkens the border.
 - **State:** the active filter chip inverts to a graphite fill with paper text and `aria-current`.
 - **Segmented toggle** ("by folder" / "all"): powder-sky track, active segment on paper with the small shadow.
+- **Category tabs** (recommended-products rail): the same chip vocabulary, horizontally scrollable on phones, never wrapping into a grid.
 
 ### Cards / Containers
-- **Product tile:** frameless. The square image well (25px radius, powder-sky, inset ring) *is* the card; category, software, name and price sit below it with no box. The whole tile is one stretched link. Hovering scales the image 1.04 (disabled under reduced motion).
-- **Panels** (purchase, payment, cart summary, filters): powder-sky at about 45%, 31px radius, 20–24px padding, no border.
+- **Product tile:** frameless. The square image well (25px radius, powder-sky, inset ring) *is* the card; category, software, name, rating and price sit below it with no box. The whole tile is one stretched link. Hovering scales the image 1.04 (disabled under reduced motion).
+- **Panels** (purchase, payment, cart summary, filters, hero): powder-sky at about 45–60%, 31px radius, 24–32px padding, no border.
 - **Never nest cards:** inside a panel, group rows with a paper `dl` and dividers, not another card.
 
 ### Inputs / Fields
 - **Style:** 40px tall, 20px radius, paper fill (transparent border inside tinted bars), placeholder in pencil-gray.
 - **Focus:** cherry-ink ring. Errors show red text under the field with `aria-invalid`.
 - **Drop zone** (slip upload): dashed 2px hairline, 20px radius, icon plus label centered.
+- **Header search:** a real, submittable field (not decoration) — 40px pill, paper-on-blur, submits to `/search?q=`.
 
 ### Navigation
-- **Header:** sticky, translucent paper with blur, 64px tall, logo pill mark "R" plus the Mitr wordmark. Text links on desktop, a left sheet menu on phones (including the language switch). Icon controls are 44px circles.
+- **Header:** sticky, translucent paper with blur, 64px tall, the bunny mark plus the Mitr wordmark ("Remi Shop"), a search field, then icon controls. Text links on desktop, a left sheet menu on phones (including the language switch). Icon controls are 44px circles.
 - **Footer:** powder-sky at 40%, small graphite headings, pencil-gray links.
 
 ### Swatch Stack (signature)
-The home hero: three rounded preview tiles fanned at small rotations on a powder-sky board, the front one a real product image, the back ones painted pink/blue gradients or a pink stripe. They fan in once on load (600ms, `cubic-bezier(0.2, 0.8, 0.2, 1)`), with no animation under reduced motion.
+The home hero: real product-preview tiles fanned at small rotations on the hero panel, the front one an actual current product image (never an illustrated character or stock photo). They fan in once on load (600ms, `cubic-bezier(0.2, 0.8, 0.2, 1)`), with no animation under reduced motion.
+
+### Trust Bar
+Four short, true capabilities as icon + one line (e.g. real-time Thai support, private/secure files, human-verified payment, lifetime version updates) directly under the hero: 4-across on desktop, 2×2 on phones, plain graphite icons, no card shells.
+
+### Rating (honest by construction)
+- **Shape:** five small star glyphs, filled in cherry-ink up to the rounded average, the rest as a fog/hairline outline — never gold, keeping the mark on-brand instead of reaching for the generic marketplace star color.
+- **Data:** the component always takes `{ average, count }`; `count === 0` renders an outline-only row plus "ยังไม่มีรีวิว" / "No reviews yet" in pencil-gray, never a hidden component and never a guessed number.
+- **Placement:** under the product name on cards and the product detail price block, once the review system ships; until then this exact empty state is what renders everywhere a rating would go.
+
+### Banner / Announcement Slot
+One bounded slot on the home page (never more): an admin-authored `Announcement` when one is live, falling back to a plain rotation of real product preview images when none is. A discount percentage may only appear when a real, currently-active product discount backs it.
 
 ### Order Stepper & Payment Steps
 Three columns ("pay → store checks slip → download") marked by a top rule: graphite for done, cherry-ink for current, hairline for upcoming, each with a number or check disc. The payment panel repeats the sequence as numbered graphite discs (scan QR, transfer the exact amount with copy buttons, attach slip), since the order carries real meaning.
+
+## Logo
+
+A simple pink bunny face — two splayed rounded ears over an oval head, two closed "sleepy" eyes cut through to the background color. Hand-authored as SVG (`fill="currentColor"`, eyes as a background-color stroke) so it works in sakura-pink, logo-pink or graphite depending on where it sits; the static favicon (`app/icon.svg`) fixes it to logo-pink with paper-white eyes. It is a wordmark companion, not a mascot: it appears in the header and the favicon only, never scattered through the UI as decoration.
 
 ## Do's and Don'ts
 
 ### Do:
 - **Do** let product previews supply the color; keep surrounding UI in paper, powder-sky and graphite.
-- **Do** use cherry-ink (not sakura-pink) for any pink text, icon, link or focus ring.
+- **Do** use cherry-ink (not sakura-pink or logo-pink) for any pink text, icon, link or focus ring at body/UI size.
 - **Do** make every interactive target at least 44px on touch screens.
 - **Do** keep secondary text at pencil-gray or darker on any tinted surface (≥4.5:1).
-- **Do** give Thai text room: headings at 1.3 line height, clamped body at 1.5, no negative tracking.
+- **Do** give Thai text room: headings at 1.3 line height, clamped body at 1.5, no negative tracking — Charmonman gets even more room.
 - **Do** keep cuteness soft: rounded shapes, pastel tints and small, purposeful motion.
+- **Do** show a rating's honest empty state ("ยังไม่มีรีวิว") when there is no data, exactly like any other empty state.
 
 ### Don't:
-- **Don't** flood a screen with pink; it is an accent, not a wallpaper.
-- **Don't** build dense marketplace layouts (banner walls, starbursts, shouting sale stamps).
+- **Don't** flood a screen with pink; it is an accent, not a wallpaper — one hero panel per page is the whole budget.
+- **Don't** build dense marketplace layouts (banner walls, seller badges, starbursts, shouting sale stamps).
+- **Don't** show a rating number, review count, discount badge or "N sold" claim that isn't computed from real data.
+- **Don't** claim "instant download" anywhere; the store is always "download after payment is confirmed."
 - **Don't** drift into generic corporate SaaS: gray boxes, sharp corners, icon-card grids.
 - **Don't** ship dark or neon "gamer" styling; V1 is light theme only.
 - **Don't** nest cards or add colored side borders to cards and alerts.
 - **Don't** signal status by color alone; every badge carries its text label.
+- **Don't** use logo-pink for anything smaller than a large display line; it fails body-text contrast by design.

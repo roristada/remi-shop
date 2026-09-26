@@ -19,7 +19,7 @@ const PLACEHOLDERS = [
 // Real previews fill the front (middle) slot first, then the sides.
 const FILL_ORDER = [1, 0, 2] as const;
 
-export function SwatchStack({ products }: { products: ProductCardData[] }) {
+export function SwatchStack({ products, caption }: { products: ProductCardData[]; caption?: string }) {
   const withImages = products.filter((p) => p.image).slice(0, 3);
   const bySlot = FILL_ORDER.reduce<(ProductCardData | undefined)[]>((acc, slot, rank) => {
     acc[slot] = withImages[rank];
@@ -27,6 +27,17 @@ export function SwatchStack({ products }: { products: ProductCardData[] }) {
   }, []);
   return (
     <div className="relative aspect-[5/4] w-full rounded-[2rem] bg-secondary">
+      {/* The one Charmonman line the whole page gets (DESIGN.md § The One Script Line Rule) — a
+          hand-written aside pinned to the art itself, never a kicker sitting above the h1. */}
+      {caption && (
+        <span
+          aria-hidden
+          className="swatch-in absolute -bottom-3 left-[6%] z-20 -rotate-3 rounded-full bg-background px-4 py-1 font-script text-2xl text-foreground shadow-soft [--from:-8deg]"
+          style={{ animationDelay: "480ms" }}
+        >
+          {caption}
+        </span>
+      )}
       {SLOTS.map((slot, i) => {
         const p = bySlot[i];
         const tile = `swatch-in absolute aspect-[4/5] w-[42%] overflow-hidden rounded-2xl border-4 border-background shadow-[0_18px_40px_-18px_rgb(51_51_51/0.35)] ${slot}`;

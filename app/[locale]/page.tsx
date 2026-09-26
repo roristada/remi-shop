@@ -5,17 +5,20 @@ import { localized } from "@/i18n/localize";
 import { Button } from "@/components/ui/button";
 import { ProductGrid } from "@/components/shop/product-grid";
 import { SwatchStack } from "@/components/shop/swatch-stack";
-import { listNewestProducts, listShopCategories } from "@/lib/products/storefront-queries";
+import { TrustBar } from "@/components/shop/trust-bar";
+import { BannerSlot } from "@/components/shop/banner-slot";
+import { getActiveAnnouncement, listNewestProducts, listShopCategories } from "@/lib/products/storefront-queries";
 
 export default async function HomePage({ params }: PageProps<"/[locale]">) {
   const { locale } = await params;
   setRequestLocale(locale);
   await connection(); // Prices and sale state depend on the current time.
   const now = new Date();
-  const [t, products, categories] = await Promise.all([
+  const [t, products, categories, announcement] = await Promise.all([
     getTranslations("home"),
     listNewestProducts(locale, 8, now),
     listShopCategories(now),
+    getActiveAnnouncement(now),
   ]);
   const shownCategories = categories.filter((c) => c._count.products > 0);
 
@@ -36,7 +39,11 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
             </Button>
           </div>
         </div>
-        <SwatchStack products={products} />
+        <SwatchStack products={products} caption={t("hero.caption")} />
+      </section>
+
+      <section aria-label={t("trust.label")} className="mx-auto max-w-6xl px-4 pb-12">
+        <TrustBar />
       </section>
 
       {shownCategories.length > 0 && (
@@ -69,6 +76,10 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
           )}
         </div>
         <ProductGrid products={products} />
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 pb-20">
+        <BannerSlot announcement={announcement} fallbackProducts={products} />
       </section>
     </>
   );
