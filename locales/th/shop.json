@@ -10,7 +10,8 @@
     "title": "ร้านค้า",
     "subtitle": "ไฟล์ดิจิทัลสำหรับงาน Digital Art",
     "resultCount": "{count, plural, other {# รายการ}}",
-    "searchResults": "ผลการค้นหา \"{q}\""
+    "searchResults": "ผลการค้นหา \"{q}\"",
+    "products": "รายการสินค้า"
   },
   "filters": {
     "label": "ตัวกรองสินค้า",

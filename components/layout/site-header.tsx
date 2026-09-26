@@ -20,7 +20,7 @@ export async function SiteHeader() {
           <span className="text-lg">{t("brand")}</span>
         </Link>
 
-        <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
+        <nav aria-label={t("header.mainNav")} className="hidden items-center gap-1 md:flex">
           {NAV_LINKS.map((l) => (
             <Link
               key={l.href}

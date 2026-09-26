@@ -15,7 +15,10 @@
     "account": "My account",
     "cart": "Cart",
     "menu": "Menu",
-    "language": "Language"
+    "language": "Language",
+    "skipToContent": "Skip to content",
+    "mainNav": "Main",
+    "mobileNav": "Mobile menu"
   },
   "footer": {
     "tagline": "Digital files for artists. Download once your payment is confirmed.",

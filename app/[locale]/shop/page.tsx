@@ -95,6 +95,8 @@ export default async function ShopPage({ params, searchParams }: PageProps<"/[lo
         />
       )}
       <FilterForm locale={locale} filters={filters} view="all" now={now} />
+      {/* Keeps the outline h1 → h2 → card h3 in the flat grid (folder view has section h2s). */}
+      <h2 className="sr-only">{t("products")}</h2>
       <ProductGrid products={items} filtered={Boolean(filters.q || filters.category || filters.folder || filters.sale)} />
       <ShopPagination
         page={filters.page}

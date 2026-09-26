@@ -32,7 +32,7 @@ export function MobileNav() {
         <SheetHeader>
           <SheetTitle>{t("brand")}</SheetTitle>
         </SheetHeader>
-        <nav aria-label="Mobile" className="flex flex-col gap-1 px-4">
+        <nav aria-label={t("header.mobileNav")} className="flex flex-col gap-1 px-4">
           {links.map((l) => (
             <Link
               key={l.href}

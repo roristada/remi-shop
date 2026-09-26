@@ -28,6 +28,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
   const { locale } = await params;
   if (!hasLocale(routing.locales, locale)) notFound();
   setRequestLocale(locale);
+  const t = await getTranslations("common.header");
 
   return (
     <html lang={locale} className={`${fontVariables} h-full antialiased`}>
@@ -37,7 +38,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
             href="#main"
             className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:bg-primary focus:px-3 focus:py-2"
           >
-            Skip to content
+            {t("skipToContent")}
           </a>
           <SiteHeader />
           <main id="main" className="flex-1">

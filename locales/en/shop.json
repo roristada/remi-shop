@@ -10,7 +10,8 @@
     "title": "Shop",
     "subtitle": "Digital files for digital art",
     "resultCount": "{count, plural, one {# item} other {# items}}",
-    "searchResults": "Results for \"{q}\""
+    "searchResults": "Results for \"{q}\"",
+    "products": "Products"
   },
   "filters": {
     "label": "Product filters",

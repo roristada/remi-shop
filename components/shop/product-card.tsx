@@ -35,7 +35,7 @@ export function ProductCard({ product, priority = false }: { product: ProductCar
           {product.categoryName}
           {product.software && <span className="text-foreground/80"> · {product.software}</span>}
         </p>
-        <h3 className="line-clamp-2 font-sans text-[0.95rem] leading-snug font-semibold sm:text-base">
+        <h3 className="line-clamp-2 font-sans text-[0.95rem] leading-normal font-semibold sm:text-base">
           {/* Stretched link: the whole tile is clickable, with one link in the tab order. */}
           <Link
             href={`/product/${product.slug}`}
