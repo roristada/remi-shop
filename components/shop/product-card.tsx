@@ -30,7 +30,11 @@ export function ProductCard({ product, priority = false }: { product: ProductCar
         </div>
       </div>
       <div className="flex flex-1 flex-col gap-1 px-0.5">
-        <p className="truncate text-xs text-muted-foreground">{product.categoryName}</p>
+        {/* Which app a file is for is the buyer's first question, so it rides with the category. */}
+        <p className="truncate text-xs text-muted-foreground">
+          {product.categoryName}
+          {product.software && <span className="text-foreground/80"> · {product.software}</span>}
+        </p>
         <h3 className="line-clamp-2 font-sans text-[0.95rem] leading-snug font-semibold sm:text-base">
           {/* Stretched link: the whole tile is clickable, with one link in the tab order. */}
           <Link
