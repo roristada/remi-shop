@@ -63,8 +63,9 @@
   --secondary: #def1f6;
   --secondary-foreground: #333333;
   --muted: #f6f6f8;
-  /* #777777 is ~4.47:1 on white; #757575 passes WCAG AA with no visible change */
-  --muted-foreground: #757575;
+  /* Brief says #777777 (4.4:1 on white). #6b6b6b keeps AA (>=4.5:1) on white and on the
+     tinted secondary/muted surfaces the secondary text sits on. */
+  --muted-foreground: #6b6b6b;
   --accent: #fcebf2;
   --accent-foreground: #333333;
   --destructive: #c62828;
@@ -74,7 +75,7 @@
   --brand-strong: #b0426b;
   --border: #ebebef;
   --input: #e3e3e8;
-  --ring: #eaa2c0;
+  --ring: #b0426b; /* = brand-strong; used at /80 so focus rings clear 3:1 */
   --chart-1: #f5bfd4;
   --chart-2: #9fd3e2;
   --chart-3: #e58fb3;
@@ -93,7 +94,7 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-ring/80;
   }
   body {
     @apply bg-background text-foreground;

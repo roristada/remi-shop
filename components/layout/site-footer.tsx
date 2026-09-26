@@ -13,22 +13,8 @@ export async function SiteFooter() {
         { href: "/category", label: t("nav.categories") },
       ],
     },
-    {
-      title: t("footer.help"),
-      links: [
-        { href: "/faq", label: t("nav.faq") },
-        { href: "/contact", label: t("nav.contact") },
-        { href: "/about", label: t("nav.about") },
-      ],
-    },
-    {
-      title: t("footer.legal"),
-      links: [
-        { href: "/terms", label: t("footer.terms") },
-        { href: "/privacy", label: t("footer.privacy") },
-        { href: "/refund", label: t("footer.refund") },
-      ],
-    },
+    // Help (FAQ, contact, about) and legal (terms, privacy, refund) columns return
+    // once those pages exist; linking them now leads to 404s.
   ];
 
   return (

@@ -6,6 +6,7 @@ import { Languages } from "lucide-react";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import { routing, type Locale } from "@/i18n/routing";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,9 +15,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const LABELS: Record<Locale, string> = { th: "ไทย", en: "English" };
+export const LOCALE_LABELS: Record<Locale, string> = { th: "ไทย", en: "English" };
 
-export function LanguageSwitcher() {
+export function LanguageSwitcher({ className }: { className?: string }) {
   const t = useTranslations("common.header");
   const locale = useLocale();
   const router = useRouter();
@@ -36,8 +37,8 @@ export function LanguageSwitcher() {
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          size="icon-lg"
-          className="rounded-full"
+          size="icon-xl"
+          className={cn("rounded-full", className)}
           aria-label={t("language")}
           disabled={isPending}
         >
@@ -48,7 +49,7 @@ export function LanguageSwitcher() {
         <DropdownMenuRadioGroup value={locale} onValueChange={onChange}>
           {routing.locales.map((l) => (
             <DropdownMenuRadioItem key={l} value={l}>
-              {LABELS[l]}
+              {LOCALE_LABELS[l]}
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>

@@ -1,6 +1,5 @@
 export const NAV_LINKS = [
   { href: "/shop", key: "shop" },
   { href: "/category", key: "categories" },
-  { href: "/about", key: "about" },
-  { href: "/faq", key: "faq" },
+  // About / FAQ are linked again once those pages exist (they 404 today).
 ] as const;

@@ -253,7 +253,7 @@ function SortableFolder({
           ref={setActivatorNodeRef}
           type="button"
           aria-label={`ลากเพื่อย้ายโฟลเดอร์ ${folder.nameTH}`}
-          className="grid size-9 cursor-grab touch-none place-items-center rounded-full text-muted-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-50"
+          className="grid size-9 cursor-grab touch-none place-items-center rounded-full text-muted-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/80 active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-50"
           disabled={disabled}
           {...attributes}
           {...listeners}
@@ -401,7 +401,7 @@ function SortableProduct({
             ref={setActivatorNodeRef}
             type="button"
             aria-label={`ลากเพื่อย้าย ${product.name}`}
-            className="absolute top-2 right-2 grid size-9 cursor-grab touch-none place-items-center rounded-full bg-background/90 shadow-soft outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-50"
+            className="absolute top-2 right-2 grid size-9 cursor-grab touch-none place-items-center rounded-full bg-background/90 shadow-soft outline-none focus-visible:ring-3 focus-visible:ring-ring/80 active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-50"
             disabled={disabled}
             {...attributes}
             {...listeners}

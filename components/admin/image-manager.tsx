@@ -205,7 +205,7 @@ function SortableImageCard({
           ref={setActivatorNodeRef}
           type="button"
           aria-label={`ลากเพื่อย้ายรูปที่ ${index + 1}`}
-          className="absolute top-2 right-2 grid size-9 cursor-grab touch-none place-items-center rounded-full bg-background/90 shadow-soft outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-50"
+          className="absolute top-2 right-2 grid size-9 cursor-grab touch-none place-items-center rounded-full bg-background/90 shadow-soft outline-none focus-visible:ring-3 focus-visible:ring-ring/80 active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-50"
           disabled={disabled}
           {...attributes}
           {...listeners}
