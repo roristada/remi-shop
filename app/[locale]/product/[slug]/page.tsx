@@ -23,6 +23,8 @@ import { PurchasePanel } from "@/components/shop/purchase-panel";
 import { FileList } from "@/components/shop/file-list";
 import { VersionHistory } from "@/components/shop/version-history";
 import { ProductGrid } from "@/components/shop/product-grid";
+import { LicenseOfferPanel } from "@/components/shop/license-offer";
+import { getLicenseOffers } from "@/lib/licenses/queries";
 
 /** Published product in a visible category, or null. */
 async function loadProduct(slug: string): Promise<ShopProduct | null> {
@@ -91,9 +93,11 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
     alt: localized(locale, img.altTextTH, img.altTextEN) || name,
   }));
 
-  const [related, user] = await Promise.all([
+  const [related, user, licenseOffers] = await Promise.all([
     listRelatedProducts(product.categoryId, product.id, locale, now),
     getCurrentUser(),
+    // A license can be requested only while the product is on sale.
+    status === "ACTIVE" ? getLicenseOffers(product.id) : Promise.resolve([]),
   ]);
   const purchaseState = await getPurchaseState(user?.id ?? null, product.id, now);
 
@@ -202,6 +206,8 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
           )}
 
           {latest && latest.files.length > 0 && <FileList files={latest.files} />}
+
+          {licenseOffers.length > 0 && <LicenseOfferPanel offers={licenseOffers} productSlug={product.slug} />}
         </div>
       </div>
 

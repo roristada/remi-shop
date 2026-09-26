@@ -56,6 +56,8 @@ Migrations so far:
 - `..._init` — tables, enums, FKs, indexes (generated)
 - `..._supabase_security` — auth triggers, CHECKs, partial unique indexes, seeds, RLS, grants
 - `..._profiles_auth_delete_trigger` — replaces cross-schema FK with a delete trigger
+- `..._folders` — product folders
+- `..._commercial_license` — license tables, `Order.kind`, RLS, private `license-artworks` bucket
 
 ## Auth setup (Supabase dashboard)
 

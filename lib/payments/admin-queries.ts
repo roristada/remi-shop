@@ -35,11 +35,19 @@ export async function listPaymentsForReview(tab: PaymentTab, page: number) {
         order: {
           select: {
             orderNumber: true,
+            kind: true,
             total: true,
             createdAt: true,
             user: { select: { email: true, displayName: true } },
             items: {
               select: { id: true, productNameTHSnapshot: true, productVersionSnapshot: true, finalPrice: true },
+            },
+            licenseRequest: {
+              select: {
+                productNameTHSnapshot: true,
+                artistName: true,
+                items: { orderBy: { id: "asc" }, select: { id: true, nameTHSnapshot: true, price: true } },
+              },
             },
             _count: { select: { payments: true } },
           },

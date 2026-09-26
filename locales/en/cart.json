@@ -60,7 +60,8 @@
     "date": "Date",
     "items": "{count, plural, one {# item} other {# items}}",
     "total": "Total",
-    "view": "View details"
+    "view": "View details",
+    "license": "Commercial license"
   },
   "order": {
     "back": "All orders",
@@ -97,7 +98,11 @@
     "progressReview": "Store checks slip",
     "progressDownload": "Download files",
     "progressCurrent": "(current step)",
-    "progressDone": "(done)"
+    "progressDone": "(done)",
+    "licenseItems": "Commercial license",
+    "licenseFor": "Artist {artist} · {platform}",
+    "licenseCompletedNotice": "Payment confirmed. Your commercial license is active; see My licenses for details.",
+    "progressLicense": "License active"
   },
   "slip": {
     "title": "Attach your transfer slip",
@@ -124,6 +129,7 @@
       "too_large": "The file must be 5 MB or smaller.",
       "empty": "The file is empty.",
       "signature_mismatch": "This file is not a valid image."
-    }
+    },
+    "reviewBodyLicense": "The store is checking your payment. Your commercial license becomes active as soon as it is confirmed."
   }
 }

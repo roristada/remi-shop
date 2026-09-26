@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { ChevronRight, Download, Heart, Receipt, UserRound } from "lucide-react";
+import { BriefcaseBusiness, ChevronRight, Download, Heart, Receipt, UserRound } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { requireUser, getCurrentProfile } from "@/lib/auth/guards";
 import { FormMessage } from "@/components/auth/form-fields";
@@ -29,6 +29,7 @@ export default async function AccountPage({ params, searchParams }: PageProps<"/
   const cards = [
     { href: "/orders", icon: Receipt, title: t("nav.orders"), desc: t("overview.ordersDesc") },
     { href: "/downloads", icon: Download, title: t("nav.downloads"), desc: t("overview.downloadsDesc") },
+    { href: "/account/licenses", icon: BriefcaseBusiness, title: t("nav.licenses"), desc: t("overview.licensesDesc") },
     { href: "/wishlist", icon: Heart, title: t("nav.wishlist"), desc: t("overview.wishlistDesc") },
     { href: "/account/profile", icon: UserRound, title: t("nav.profile"), desc: t("overview.profileDesc") },
   ] as const;

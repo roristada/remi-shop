@@ -20,8 +20,8 @@ function currentStep(status: OrderStatus): number | null {
   }
 }
 
-/** Pay → store checks slip → download. Shows where the order is in the manual review flow. */
-export async function OrderProgress({ status }: { status: OrderStatus }) {
+/** Pay → store checks slip → download (or license active). Shows where the order is in the manual review flow. */
+export async function OrderProgress({ status, isLicense = false }: { status: OrderStatus; isLicense?: boolean }) {
   const current = currentStep(status);
   if (current === null) return null;
   const t = await getTranslations("cart.order");
@@ -53,7 +53,7 @@ export async function OrderProgress({ status }: { status: OrderStatus }) {
                 {done ? <Check className="size-3.5" /> : i + 1}
               </span>
               <span className={cn(active ? "font-semibold" : "text-muted-foreground")}>
-                {t(key)}
+                {t(isLicense && key === "progressDownload" ? "progressLicense" : key)}
                 <span className="sr-only"> {done ? t("progressDone") : active ? t("progressCurrent") : ""}</span>
               </span>
             </li>

@@ -5,7 +5,8 @@ import { formatBangkokDateTime } from "@/lib/datetime";
 import { formatTHB, toHundredths } from "@/lib/pricing/calculate";
 import { listPaymentsForReview, PAYMENT_TABS, type PaymentTab, type ReviewPayment } from "@/lib/payments/admin-queries";
 import { Pagination } from "@/components/shared/pagination";
-import { PaymentReviewActions } from "@/components/admin/payment-review-actions";
+import { ReviewActions } from "@/components/admin/review-actions";
+import { approvePayment, rejectPayment } from "@/lib/payments/admin-actions";
 import { cn } from "@/lib/utils";
 
 function one(v: string | string[] | undefined) {
@@ -65,6 +66,13 @@ export default async function AdminPaymentsPage({ searchParams }: PageProps<"/ad
     </div>
   );
 }
+
+const SLIP_REJECT_REASONS = [
+  "ยอดเงินไม่ตรงกับยอดคำสั่งซื้อ",
+  "สลิปไม่ชัดเจน อ่านข้อมูลไม่ได้",
+  "ไม่พบรายการโอนเข้าบัญชี",
+  "สลิปซ้ำกับคำสั่งซื้ออื่น",
+] as const;
 
 function PaymentCard({ payment: p, tab }: { payment: ReviewPayment; tab: PaymentTab }) {
   const amount = toHundredths(p.amount);
@@ -132,21 +140,55 @@ function PaymentCard({ payment: p, tab }: { payment: ReviewPayment; tab: Payment
           )}
         </dl>
 
-        <ul className="divide-y rounded-xl border text-sm">
-          {p.order.items.map((i) => (
-            <li key={i.id} className="flex justify-between gap-3 px-3 py-2">
-              <span className="min-w-0 truncate">
-                {i.productNameTHSnapshot}
-                {i.productVersionSnapshot && <span className="text-muted-foreground"> v{i.productVersionSnapshot}</span>}
-              </span>
-              <span className="shrink-0 tabular-nums">{formatTHB(toHundredths(i.finalPrice))}</span>
-            </li>
-          ))}
-        </ul>
+        {p.order.licenseRequest ? (
+          <div className="space-y-1.5">
+            <p className="text-sm">
+              <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium">Commercial license</span>{" "}
+              {p.order.licenseRequest.productNameTHSnapshot}
+              <span className="text-muted-foreground"> · ศิลปิน {p.order.licenseRequest.artistName}</span>
+            </p>
+            <ul className="divide-y rounded-xl border text-sm">
+              {p.order.licenseRequest.items.map((i) => (
+                <li key={i.id} className="flex justify-between gap-3 px-3 py-2">
+                  <span className="min-w-0 truncate">{i.nameTHSnapshot}</span>
+                  <span className="shrink-0 tabular-nums">{formatTHB(toHundredths(i.price))}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <ul className="divide-y rounded-xl border text-sm">
+            {p.order.items.map((i) => (
+              <li key={i.id} className="flex justify-between gap-3 px-3 py-2">
+                <span className="min-w-0 truncate">
+                  {i.productNameTHSnapshot}
+                  {i.productVersionSnapshot && <span className="text-muted-foreground"> v{i.productVersionSnapshot}</span>}
+                </span>
+                <span className="shrink-0 tabular-nums">{formatTHB(toHundredths(i.finalPrice))}</span>
+              </li>
+            ))}
+          </ul>
+        )}
 
         {tab === "pending" && (
           <div className="mt-auto">
-            <PaymentReviewActions paymentId={p.id} orderNumber={p.order.orderNumber} amountLabel={formatTHB(orderTotal)} />
+            <ReviewActions
+              approve={approvePayment.bind(null, p.id)}
+              reject={rejectPayment.bind(null, p.id)}
+              approveTitle={`อนุมัติคำสั่งซื้อ ${p.order.orderNumber}?`}
+              approveDescription={
+                <p>
+                  ยืนยันว่าได้รับเงิน {formatTHB(orderTotal)} แล้ว{" "}
+                  {p.order.kind === "LICENSE"
+                    ? "สิทธิ์เชิงพาณิชย์จะมีผลทันทีหลังอนุมัติ"
+                    : "ลูกค้าจะดาวน์โหลดไฟล์ได้ทันทีหลังอนุมัติ"}
+                </p>
+              }
+              rejectTitle={`ปฏิเสธสลิป ${p.order.orderNumber}`}
+              rejectDescription="ลูกค้าจะเห็นเหตุผลนี้และแนบสลิปใหม่ได้"
+              rejectLabel="ปฏิเสธสลิป"
+              quickReasons={SLIP_REJECT_REASONS}
+            />
           </div>
         )}
       </div>

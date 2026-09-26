@@ -46,7 +46,8 @@ export default async function OrdersPage({ params, searchParams }: PageProps<"/[
                 <div className="min-w-0 flex-1 space-y-1">
                   <p className="font-semibold tabular-nums">{o.orderNumber}</p>
                   <p className="text-sm text-muted-foreground">
-                    {formatBangkokDateTime(o.createdAt, fmt.date)}, {t("items", { count: o._count.items })}
+                    {formatBangkokDateTime(o.createdAt, fmt.date)},{" "}
+                    {o.kind === "LICENSE" ? t("license") : t("items", { count: o._count.items })}
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-1.5">

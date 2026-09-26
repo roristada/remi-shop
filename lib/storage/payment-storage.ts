@@ -5,6 +5,7 @@ import { getExtension } from "@/lib/storage/file-types";
 
 // Object keys are generated here, never taken from the browser.
 //   payment-slips (private): {yyyy}/{mm}/{orderId}/{uuid}.{ext}
+//   license-artworks (private): {userId}/{uuid}.{ext}
 //   product-previews (public): settings/promptpay-qr/{uuid}.{ext}  (the QR is not secret)
 
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
@@ -17,6 +18,16 @@ export function newSlipPath(orderId: string, fileName: string, now: Date): strin
 
 export function isSlipPath(path: string, orderId: string): boolean {
   return new RegExp(`^\\d{4}/\\d{2}/${orderId}/${UUID}\\.(jpe?g|png|webp)$`).test(path);
+}
+
+// license-artworks (private): {userId}/{uuid}.{ext}. Uploaded before the request exists,
+// so the key is scoped to the customer and checked against them on submit.
+export function newArtworkPath(userId: string, fileName: string): string {
+  return `${userId}/${crypto.randomUUID()}.${getExtension(fileName)}`;
+}
+
+export function isArtworkPath(path: string, userId: string): boolean {
+  return new RegExp(`^${userId}/${UUID}\\.(jpe?g|png|webp)$`).test(path);
 }
 
 export function newQrImagePath(fileName: string): string {

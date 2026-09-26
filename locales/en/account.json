@@ -6,13 +6,15 @@
     "profile": "Profile",
     "orders": "Orders",
     "downloads": "Downloads",
-    "wishlist": "Wishlist"
+    "wishlist": "Wishlist",
+    "licenses": "My licenses"
   },
   "overview": {
     "ordersDesc": "View order history and status",
     "downloadsDesc": "Download the files you've purchased",
     "wishlistDesc": "Products you've saved",
-    "profileDesc": "Edit your name and account details"
+    "profileDesc": "Edit your name and account details",
+    "licensesDesc": "Commercial license requests and status"
   },
   "profile": {
     "title": "Profile",
@@ -21,5 +23,40 @@
     "saved": "Profile saved",
     "changePassword": "Change password",
     "changePasswordDesc": "We'll email you a link to set a new password"
+  },
+  "licenses": {
+    "title": "My licenses",
+    "intro": "Your commercial license requests and where each one stands",
+    "submitted": "Request sent. The store will review it and post the result here.",
+    "empty": "No license requests yet",
+    "emptyHint": "Request a commercial license from any product page that offers commercial use.",
+    "requestedAt": "Requested {date}",
+    "total": "Total",
+    "buyer": "Buyer",
+    "artist": "Artist",
+    "platform": "Platform",
+    "orderNumber": "Order number",
+    "approvedAt": "Approved",
+    "paidAt": "Paid",
+    "rejectedReason": "Reason for rejection: {reason}",
+    "payBefore": "Please pay and attach the slip by {date}",
+    "pay": "Pay now",
+    "cancel": "Cancel request",
+    "cancelTitle": "Cancel this request?",
+    "cancelBody": "The store will stop reviewing it. You can send a new request later. This cannot be undone.",
+    "cancelConfirm": "Cancel request",
+    "keep": "Keep it",
+    "cancelled": "Request cancelled",
+    "cancelFailed": "It could not be cancelled. The store may already have decided on it.",
+    "stage": {
+      "REVIEW": "Waiting for review",
+      "AWAITING_PAYMENT": "Approved, awaiting payment",
+      "PAYMENT_REVIEW": "Checking payment",
+      "PAYMENT_REJECTED": "Payment not accepted",
+      "ACTIVE": "Active",
+      "REJECTED": "Not approved",
+      "CANCELLED": "Cancelled",
+      "PAYMENT_CANCELLED": "Cancelled (not paid)"
+    }
   }
 }

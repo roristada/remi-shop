@@ -8,6 +8,7 @@ const ITEMS = [
   { href: "/account", key: "overview" },
   { href: "/account/profile", key: "profile" },
   { href: "/orders", key: "orders" },
+  { href: "/account/licenses", key: "licenses" },
   { href: "/downloads", key: "downloads" },
   { href: "/wishlist", key: "wishlist" },
 ] as const;

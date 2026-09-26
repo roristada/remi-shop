@@ -6,13 +6,15 @@
     "profile": "โปรไฟล์",
     "orders": "คำสั่งซื้อ",
     "downloads": "ดาวน์โหลด",
-    "wishlist": "รายการโปรด"
+    "wishlist": "รายการโปรด",
+    "licenses": "License ของฉัน"
   },
   "overview": {
     "ordersDesc": "ดูประวัติและสถานะคำสั่งซื้อ",
     "downloadsDesc": "ดาวน์โหลดไฟล์ที่ซื้อแล้ว",
     "wishlistDesc": "สินค้าที่คุณบันทึกไว้",
-    "profileDesc": "แก้ไขชื่อและข้อมูลบัญชี"
+    "profileDesc": "แก้ไขชื่อและข้อมูลบัญชี",
+    "licensesDesc": "คำขอและสถานะ Commercial license"
   },
   "profile": {
     "title": "โปรไฟล์",
@@ -21,5 +23,40 @@
     "saved": "บันทึกข้อมูลเรียบร้อยแล้ว",
     "changePassword": "เปลี่ยนรหัสผ่าน",
     "changePasswordDesc": "เราจะส่งลิงก์ตั้งรหัสผ่านใหม่ไปที่อีเมลของคุณ"
+  },
+  "licenses": {
+    "title": "License ของฉัน",
+    "intro": "คำขอ Commercial license และสถานะของแต่ละคำขอ",
+    "submitted": "ส่งคำขอแล้ว ร้านจะพิจารณาและแจ้งผลที่หน้านี้",
+    "empty": "ยังไม่มีคำขอ License",
+    "emptyHint": "ขอ Commercial license ได้จากหน้าสินค้าที่เปิดให้ใช้งานเชิงพาณิชย์",
+    "requestedAt": "ส่งคำขอเมื่อ {date}",
+    "total": "ราคารวม",
+    "buyer": "ผู้ซื้อ",
+    "artist": "ศิลปิน",
+    "platform": "แพลตฟอร์ม",
+    "orderNumber": "เลขที่คำสั่งซื้อ",
+    "approvedAt": "อนุมัติเมื่อ",
+    "paidAt": "ชำระเงินเมื่อ",
+    "rejectedReason": "เหตุผลที่ไม่อนุมัติ: {reason}",
+    "payBefore": "กรุณาชำระเงินและแนบสลิปภายใน {date}",
+    "pay": "ชำระเงิน",
+    "cancel": "ยกเลิกคำขอ",
+    "cancelTitle": "ยกเลิกคำขอนี้?",
+    "cancelBody": "ร้านจะไม่พิจารณาคำขอนี้ต่อ ส่งคำขอใหม่ได้ภายหลัง การยกเลิกย้อนกลับไม่ได้",
+    "cancelConfirm": "ยกเลิกคำขอ",
+    "keep": "ไม่ยกเลิก",
+    "cancelled": "ยกเลิกคำขอแล้ว",
+    "cancelFailed": "ยกเลิกไม่ได้ ร้านอาจพิจารณาคำขอนี้ไปแล้ว",
+    "stage": {
+      "REVIEW": "รอร้านพิจารณา",
+      "AWAITING_PAYMENT": "อนุมัติแล้ว รอชำระเงิน",
+      "PAYMENT_REVIEW": "รอตรวจสอบการชำระเงิน",
+      "PAYMENT_REJECTED": "การชำระเงินไม่ผ่าน",
+      "ACTIVE": "ใช้งานได้",
+      "REJECTED": "ไม่อนุมัติ",
+      "CANCELLED": "ยกเลิกแล้ว",
+      "PAYMENT_CANCELLED": "ยกเลิก (ไม่ได้ชำระเงิน)"
+    }
   }
 }

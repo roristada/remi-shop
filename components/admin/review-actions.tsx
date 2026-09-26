@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useId, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
@@ -17,16 +17,35 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
-import { approvePayment, rejectPayment } from "@/lib/payments/admin-actions";
+import type { ActionResult } from "@/lib/actions/result";
 import { REJECT_REASON_MAX } from "@/lib/payments/rules";
 
-// Common reasons, one tap to fill in; the admin can still edit the text.
-const QUICK_REASONS = ["ยอดเงินไม่ตรงกับยอดคำสั่งซื้อ", "สลิปไม่ชัดเจน อ่านข้อมูลไม่ได้", "ไม่พบรายการโอนเข้าบัญชี", "สลิปซ้ำกับคำสั่งซื้ออื่น"];
+type Props = {
+  /** Server actions already bound to the record under review. */
+  approve: () => Promise<ActionResult>;
+  reject: (reason: string) => Promise<ActionResult>;
+  approveTitle: string;
+  approveDescription: ReactNode;
+  rejectTitle: string;
+  rejectDescription: string;
+  rejectLabel: string;
+  /** Common reasons, one tap to fill in; the admin can still edit the text. */
+  quickReasons: readonly string[];
+};
 
-type Props = { paymentId: string; orderNumber: string; amountLabel: string };
-
-export function PaymentReviewActions({ paymentId, orderNumber, amountLabel }: Props) {
+/** Approve (with confirm) / reject (with a required reason) for admin review queues. */
+export function ReviewActions({
+  approve,
+  reject,
+  approveTitle,
+  approveDescription,
+  rejectTitle,
+  rejectDescription,
+  rejectLabel,
+  quickReasons,
+}: Props) {
   const router = useRouter();
+  const reasonId = useId();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string>();
@@ -34,7 +53,7 @@ export function PaymentReviewActions({ paymentId, orderNumber, amountLabel }: Pr
 
   function submitReject() {
     startTransition(async () => {
-      const result = await rejectPayment(paymentId, reason);
+      const result = await reject(reason);
       if (!result.ok) {
         setError(result.fieldErrors?.reason ?? result.error);
         if (!result.fieldErrors) toast.error(result.error);
@@ -54,15 +73,11 @@ export function PaymentReviewActions({ paymentId, orderNumber, amountLabel }: Pr
             <Check aria-hidden /> อนุมัติ
           </Button>
         }
-        title={`อนุมัติคำสั่งซื้อ ${orderNumber}?`}
-        description={
-          <p>
-            ยืนยันว่าได้รับเงิน {amountLabel} แล้ว ลูกค้าจะดาวน์โหลดไฟล์ได้ทันทีหลังอนุมัติ
-          </p>
-        }
+        title={approveTitle}
+        description={approveDescription}
         confirmLabel="อนุมัติ"
         onConfirm={async () => {
-          const result = await approvePayment(paymentId);
+          const result = await approve();
           if (result.ok) toast.success(result.message);
           else toast.error(result.error);
           router.refresh();
@@ -77,21 +92,21 @@ export function PaymentReviewActions({ paymentId, orderNumber, amountLabel }: Pr
         </DialogTrigger>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>ปฏิเสธสลิป {orderNumber}</DialogTitle>
-            <DialogDescription>ลูกค้าจะเห็นเหตุผลนี้และแนบสลิปใหม่ได้</DialogDescription>
+            <DialogTitle>{rejectTitle}</DialogTitle>
+            <DialogDescription>{rejectDescription}</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="flex flex-wrap gap-1.5">
-              {QUICK_REASONS.map((r) => (
+              {quickReasons.map((r) => (
                 <Button key={r} type="button" variant="secondary" size="sm" className="rounded-full" onClick={() => setReason(r)}>
                   {r}
                 </Button>
               ))}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor={`reason-${paymentId}`}>เหตุผล</Label>
+              <Label htmlFor={reasonId}>เหตุผล</Label>
               <Textarea
-                id={`reason-${paymentId}`}
+                id={reasonId}
                 value={reason}
                 onChange={(e) => {
                   setReason(e.target.value);
@@ -100,10 +115,10 @@ export function PaymentReviewActions({ paymentId, orderNumber, amountLabel }: Pr
                 maxLength={REJECT_REASON_MAX}
                 rows={3}
                 aria-invalid={error ? true : undefined}
-                aria-describedby={error ? `reason-${paymentId}-error` : undefined}
+                aria-describedby={error ? `${reasonId}-error` : undefined}
               />
               {error && (
-                <p id={`reason-${paymentId}-error`} className="text-xs text-destructive">
+                <p id={`${reasonId}-error`} className="text-xs text-destructive">
                   {error}
                 </p>
               )}
@@ -114,7 +129,7 @@ export function PaymentReviewActions({ paymentId, orderNumber, amountLabel }: Pr
               ยกเลิก
             </Button>
             <Button variant="destructive" onClick={submitReject} disabled={pending} aria-busy={pending}>
-              {pending && <Loader2 className="animate-spin" aria-hidden />} ปฏิเสธสลิป
+              {pending && <Loader2 className="animate-spin" aria-hidden />} {rejectLabel}
             </Button>
           </DialogFooter>
         </DialogContent>

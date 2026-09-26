@@ -12,6 +12,7 @@ export async function getOrderForUser(userId: string, orderNumber: string, now: 
     select: {
       id: true,
       orderNumber: true,
+      kind: true,
       status: true,
       paymentStatus: true,
       subtotal: true,
@@ -40,6 +41,17 @@ export async function getOrderForUser(userId: string, orderNumber: string, now: 
           product: { select: { slug: true } },
         },
       },
+      // LICENSE orders have no items; the approved request describes what is being paid for.
+      licenseRequest: {
+        select: {
+          productNameTHSnapshot: true,
+          productNameENSnapshot: true,
+          artistName: true,
+          platform: true,
+          product: { select: { slug: true } },
+          items: { orderBy: { id: "asc" }, select: { id: true, nameTHSnapshot: true, nameENSnapshot: true, price: true } },
+        },
+      },
     },
   });
 }
@@ -59,6 +71,7 @@ export async function listOrdersForUser(userId: string, page: number, now: Date 
       select: {
         id: true,
         orderNumber: true,
+        kind: true,
         status: true,
         total: true,
         createdAt: true,

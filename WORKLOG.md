@@ -14,7 +14,7 @@ setup and commands live in `README.md`. Newest entries first.
 | 5 | Storefront (shop, category, product detail, SEO) | Done, tested in browser |
 | 6 | Cart + checkout (personal purchases) | Done, tested in browser |
 | 7 | Payment review (slip upload, approve/reject, payment settings) | Done, tested in browser |
-| 7b | Commercial license requests | **Next**, rules confirmed below |
+| 7b | Commercial license requests | Done, tested in browser |
 | 8–12 | Downloads, account, admin, email, hardening | Not started |
 
 ## Confirmed decisions
@@ -38,9 +38,48 @@ Business rules agreed with the owner. Follow these over the defaults in `CLAUDE.
   Flow: submit form → admin approves → customer is notified and shown payment details (3-day window,
   configurable) → slip → admin verifies. It does not use the cart. After payment the account shows the status,
   order number, product, usage types, buyer/artist and approval date, and an email is sent. There is no license number.
-  Still open: does the product discount apply to license prices?
+  The product discount does not apply to license prices; the price is locked when the request is sent
+  (the admin only approves or rejects); a license can be requested only while the product is on sale.
 - Uploads go browser → Supabase Storage using a signed upload token, then the server verifies
   the stored object. Vercel caps function request bodies at 4.5 MB, so files cannot pass through the server.
+
+## Phase 7b: Commercial license (done)
+
+**Data** (migration `20260926100000_commercial_license`)
+- `LicenseUsageType` (global list, active flag, order), `ProductLicensePrice` (row = offered; price > 0),
+  `LicenseRequest` (+ `LicenseRequestItem` snapshots of type names and prices), `Order.kind` (`PRODUCT` / `LICENSE`),
+  `StoreSetting.licensePaymentDays` (default 3, 1–30). RLS on all new tables; private bucket `license-artworks`.
+- A license payment is an ordinary `Order` with `kind = LICENSE` and **no OrderItems**, so the whole slip flow
+  (upload, review, reject, expiry, cancel) is reused and a license can never grant file access or count as
+  owning the product.
+
+**Customer**
+- Product page shows a "Commercial use" panel (active types + prices) while the product is `ACTIVE`.
+- `/[locale]/product/[slug]/license` (login required): pick types (total = sum), buyer/artist contact, platform,
+  note, finished artwork (JPG/PNG/WEBP ≤ 5 MB, uploaded to `license-artworks/{userId}/{uuid}.{ext}`).
+  The server re-prices inside a transaction and refuses a changed total (`PRICE_CHANGED`) or a type that is
+  no longer offered (`OPTION_CHANGED`). Max 5 requests waiting for review per customer (advisory lock).
+  The artwork object is deleted whenever the request is not created.
+- `/[locale]/account/licenses`: status (review → approved/awaiting payment → checking payment → active, or
+  rejected with reason / cancelled / not paid), order number, approval and payment dates. A request can be
+  cancelled while it waits for review.
+
+**Admin**
+- `/admin/licenses`: Pending / Approved / Rejected+cancelled tabs with the artwork (signed URL) and all details.
+  Approve creates the LICENSE order due in `licensePaymentDays`; reject needs a reason.
+- `/admin/licenses/types`: manage usage types (types that were requested cannot be deleted, deactivate instead).
+- Product edit → "License" tab: tick types and set a price per type. Settings → payment window in days.
+- `/admin/payments` shows license orders with their types; approve/reject share `components/admin/review-actions.tsx`.
+
+**QA (2026-09-26)**: temporary customer and admin, all data removed afterwards (requests, orders, slip and
+artwork objects, usage types, PromptPay number reset to empty). Covered: price 0 rejected in the admin; empty
+form errors + focus; HTML disguised as `.png` rejected and deleted; request → approve → LICENSE order with a
+3-day deadline → slip → approve → "Active"; EN form; cancel; reject with an empty reason blocked, then with a
+reason shown to the customer; 390 px layout.
+
+Known gaps: no emails yet (Phase 11), so the customer learns about approval from the account page only.
+A `pg` deprecation warning ("client.query() when the client is already executing a query") appears in the dev
+log; it comes from batched `prisma.$transaction([...])` reads, not from new code paths.
 
 ## Phase 7: Payment Review (done)
 
@@ -186,11 +225,4 @@ Bugs found and fixed:
 - Dev tip: do not run `next build` while `next dev` is running. It left the dev server
   serving a stale page. Restart `npm run dev` if a page does not reflect code changes.
 
-## Next: Phase 7b, Commercial license requests
-
-- Admin: usage type list; per-product license prices per type (on/off).
-- Customer: request form on the product page (buyer contact, artist contact, platform, usage types,
-  finished artwork image in a private bucket).
-- Admin review → approve creates an order with a 3-day payment window → the same slip flow as Phase 7.
-- Account page listing license requests and their status.
-- Open question: does the product discount apply to license prices?
+## Next: Phase 8, Secure downloads

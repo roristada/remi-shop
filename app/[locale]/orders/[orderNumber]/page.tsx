@@ -64,39 +64,43 @@ export default async function OrderPage({ params }: PageProps<"/[locale]/orders/
         <OrderStatusBadge status={order.status} className="h-7 px-3 text-sm" />
       </div>
 
-      <OrderProgress status={order.status} />
+      <OrderProgress status={order.status} isLicense={order.kind === "LICENSE"} />
       <StatusNotice order={order} t={t} />
 
       <div className={showPanel ? "grid gap-8 lg:grid-cols-[minmax(0,1fr)_24rem]" : "grid gap-8"}>
         <section aria-labelledby="items-heading" className="space-y-4">
           <h2 id="items-heading" className="text-lg">
-            {t("order.items")}
+            {order.licenseRequest ? t("order.licenseItems") : t("order.items")}
           </h2>
-          <ul className="divide-y rounded-3xl border">
-            {order.items.map((item) => {
-              const itemDiscount = toHundredths(item.discount);
-              return (
-                <li key={item.id} className="flex items-start justify-between gap-4 px-4 py-3.5 sm:px-5">
-                  <div className="min-w-0">
-                    <Link href={`/product/${item.product.slug}`} className="font-semibold hover:underline">
-                      {localized(locale, item.productNameTHSnapshot, item.productNameENSnapshot)}
-                    </Link>
-                    {item.productVersionSnapshot && (
-                      <p className="text-xs text-muted-foreground">
-                        {t("order.version", { version: item.productVersionSnapshot })}
-                      </p>
-                    )}
-                  </div>
-                  <p className="shrink-0 text-right tabular-nums">
-                    <span className="font-semibold">{money(item.finalPrice)}</span>
-                    {itemDiscount > 0 && (
-                      <s className="block text-xs text-muted-foreground">{money(item.unitPrice)}</s>
-                    )}
-                  </p>
-                </li>
-              );
-            })}
-          </ul>
+          {order.licenseRequest ? (
+            <LicenseSummary license={order.licenseRequest} locale={locale} t={t} />
+          ) : (
+            <ul className="divide-y rounded-3xl border">
+              {order.items.map((item) => {
+                const itemDiscount = toHundredths(item.discount);
+                return (
+                  <li key={item.id} className="flex items-start justify-between gap-4 px-4 py-3.5 sm:px-5">
+                    <div className="min-w-0">
+                      <Link href={`/product/${item.product.slug}`} className="font-semibold hover:underline">
+                        {localized(locale, item.productNameTHSnapshot, item.productNameENSnapshot)}
+                      </Link>
+                      {item.productVersionSnapshot && (
+                        <p className="text-xs text-muted-foreground">
+                          {t("order.version", { version: item.productVersionSnapshot })}
+                        </p>
+                      )}
+                    </div>
+                    <p className="shrink-0 text-right tabular-nums">
+                      <span className="font-semibold">{money(item.finalPrice)}</span>
+                      {itemDiscount > 0 && (
+                        <s className="block text-xs text-muted-foreground">{money(item.unitPrice)}</s>
+                      )}
+                    </p>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
           <dl className="space-y-1.5 px-1 text-sm">
             {discount > 0 && (
               <>
@@ -126,6 +130,39 @@ export default async function OrderPage({ params }: PageProps<"/[locale]/orders/
 
 type T = Awaited<ReturnType<typeof getTranslations<"cart">>>;
 
+/** What a LICENSE order pays for: rights only, so there is no file or version to list. */
+function LicenseSummary({
+  license,
+  locale,
+  t,
+}: {
+  license: NonNullable<CustomerOrder["licenseRequest"]>;
+  locale: string;
+  t: T;
+}) {
+  const fmt = intlLocale(locale);
+  return (
+    <div className="divide-y rounded-3xl border">
+      <div className="space-y-1 px-4 py-3.5 sm:px-5">
+        <Link href={`/product/${license.product.slug}`} className="font-semibold hover:underline">
+          {localized(locale, license.productNameTHSnapshot, license.productNameENSnapshot)}
+        </Link>
+        <p className="text-xs text-muted-foreground">
+          {t("order.licenseFor", { artist: license.artistName, platform: license.platform })}
+        </p>
+      </div>
+      <ul>
+        {license.items.map((item) => (
+          <li key={item.id} className="flex items-start justify-between gap-4 px-4 py-2.5 text-sm sm:px-5">
+            <span className="min-w-0">{localized(locale, item.nameTHSnapshot, item.nameENSnapshot)}</span>
+            <span className="shrink-0 tabular-nums">{formatTHB(toHundredths(item.price), fmt.number)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function StatusNotice({ order, t }: { order: CustomerOrder; t: T }) {
   let text: string | null = null;
   if (order.status === "CANCELLED") {
@@ -133,7 +170,7 @@ function StatusNotice({ order, t }: { order: CustomerOrder; t: T }) {
     const expired = order.paymentStatus === null && order.cancelledAt && order.cancelledAt >= order.expiresAt;
     text = expired ? t("order.expiredNotice") : t("order.cancelledNotice");
   } else if (order.status === "COMPLETED") {
-    text = t("order.completedNotice");
+    text = order.kind === "LICENSE" ? t("order.licenseCompletedNotice") : t("order.completedNotice");
   }
   if (!text) return null;
   return (
@@ -299,7 +336,9 @@ async function ReviewPanel({ order, locale }: { order: CustomerOrder; locale: st
           <h2 id="review-heading" className="text-lg">
             {t("reviewTitle")}
           </h2>
-          <p className="text-sm text-foreground/70">{t("reviewBody")}</p>
+          <p className="text-sm text-foreground/70">
+            {order.kind === "LICENSE" ? t("reviewBodyLicense") : t("reviewBody")}
+          </p>
           {slip && (
             <p className="text-xs text-foreground/70">
               {t("reviewSentAt", { date: formatBangkokDateTime(slip.createdAt, intlLocale(locale).date) })}

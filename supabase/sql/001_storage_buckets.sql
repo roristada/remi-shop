@@ -7,7 +7,8 @@ values
   ('product-previews', 'product-previews', true,  5242880, array['image/jpeg','image/png','image/webp']),
   ('digital-files',    'digital-files',    false, 5242880, null),
   ('payment-slips',    'payment-slips',    false, 5242880, array['image/jpeg','image/png','image/webp']),
-  ('avatars',          'avatars',          false, 2097152, array['image/jpeg','image/png','image/webp'])
+  ('avatars',          'avatars',          false, 2097152, array['image/jpeg','image/png','image/webp']),
+  ('license-artworks', 'license-artworks', false, 5242880, array['image/jpeg','image/png','image/webp'])
 on conflict (id) do update
   set public = excluded.public,
       file_size_limit = excluded.file_size_limit,

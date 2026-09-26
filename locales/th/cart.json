@@ -60,7 +60,8 @@
     "date": "วันที่สั่งซื้อ",
     "items": "{count, plural, other {# รายการ}}",
     "total": "ยอดรวม",
-    "view": "ดูรายละเอียด"
+    "view": "ดูรายละเอียด",
+    "license": "Commercial license"
   },
   "order": {
     "back": "คำสั่งซื้อทั้งหมด",
@@ -97,7 +98,11 @@
     "progressReview": "ร้านตรวจสลิป",
     "progressDownload": "ดาวน์โหลดไฟล์",
     "progressCurrent": "(ขั้นตอนปัจจุบัน)",
-    "progressDone": "(เสร็จแล้ว)"
+    "progressDone": "(เสร็จแล้ว)",
+    "licenseItems": "รายการ Commercial license",
+    "licenseFor": "ศิลปิน {artist} · {platform}",
+    "licenseCompletedNotice": "ชำระเงินเรียบร้อย สิทธิ์ใช้งานเชิงพาณิชย์มีผลแล้ว ดูรายละเอียดได้ที่หน้า License ของฉัน",
+    "progressLicense": "ได้รับสิทธิ์ใช้งาน"
   },
   "slip": {
     "title": "แนบสลิปการโอนเงิน",
@@ -124,6 +129,7 @@
       "too_large": "ไฟล์ต้องมีขนาดไม่เกิน 5 MB",
       "empty": "ไฟล์ว่างเปล่า",
       "signature_mismatch": "ไฟล์นี้ไม่ใช่รูปภาพที่ถูกต้อง"
-    }
+    },
+    "reviewBodyLicense": "ร้านกำลังตรวจสอบการชำระเงิน สิทธิ์ใช้งานเชิงพาณิชย์จะมีผลทันทีเมื่อยืนยันแล้ว"
   }
 }

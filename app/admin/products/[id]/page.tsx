@@ -22,6 +22,8 @@ import { PublishControls } from "@/components/admin/publish-controls";
 import { ImageManager } from "@/components/admin/image-manager";
 import { VersionManager } from "@/components/admin/version-manager";
 import { FlashToast } from "@/components/admin/flash-toast";
+import { LicensePricingEditor } from "@/components/admin/license-pricing-editor";
+import { getProductLicensePricing } from "@/lib/licenses/admin-queries";
 
 function toFormValues(p: AdminProduct): ProductFormValues {
   const limit = p.downloadLimit;
@@ -58,11 +60,12 @@ export default async function EditProductPage({ params, searchParams }: PageProp
   const { id } = await params;
   if (!idSchema.safeParse(id).success) notFound();
 
-  const [product, categories, buyerCount, orderCount] = await Promise.all([
+  const [product, categories, buyerCount, orderCount, licensePricing] = await Promise.all([
     getAdminProduct(id),
     listCategoryOptions(),
     countProductBuyers(id),
     countProductOrders(id),
+    getProductLicensePricing(id),
   ]);
   if (!product) notFound();
 
@@ -98,6 +101,7 @@ export default async function EditProductPage({ params, searchParams }: PageProp
           <TabsTrigger value="details">รายละเอียด</TabsTrigger>
           <TabsTrigger value="images">รูปภาพ ({product.images.length})</TabsTrigger>
           <TabsTrigger value="versions">เวอร์ชันและไฟล์ ({product.versions.length})</TabsTrigger>
+          <TabsTrigger value="license">License ({licensePricing.filter((l) => l.price !== null).length})</TabsTrigger>
         </TabsList>
         <TabsContent value="details">
           <ProductForm
@@ -135,6 +139,9 @@ export default async function EditProductPage({ params, searchParams }: PageProp
               files: v.files.map((f) => ({ id: f.id, fileName: f.fileName, fileSize: f.fileSize, fileType: f.fileType })),
             }))}
           />
+        </TabsContent>
+        <TabsContent value="license">
+          <LicensePricingEditor productId={product.id} rows={licensePricing} />
         </TabsContent>
       </Tabs>
     </div>

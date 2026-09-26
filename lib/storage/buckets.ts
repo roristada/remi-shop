@@ -3,6 +3,7 @@ export const BUCKETS = {
   digitalFiles: "digital-files", // private
   paymentSlips: "payment-slips", // private
   avatars: "avatars", // private
+  licenseArtworks: "license-artworks", // private
 } as const;
 
 export type BucketName = (typeof BUCKETS)[keyof typeof BUCKETS];
