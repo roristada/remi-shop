@@ -27,6 +27,13 @@ enum CategoryStatus {
   HIDDEN
 }
 
+/// ARCHIVED folders are hidden from the storefront folder view; their products
+/// keep their own publish state.
+enum FolderStatus {
+  ACTIVE
+  ARCHIVED
+}
+
 /// Admin-controlled publication state. The customer-facing status
 /// (DRAFT/SCHEDULED/ACTIVE/DISABLED/ENDED) is DERIVED server-side from this
 /// plus saleStartAt/saleEndAt — see lib/products/status.ts.
@@ -93,6 +100,24 @@ model Category {
   @@map("categories")
 }
 
+/// Seller-defined grouping (brand / collection) shown as sections on /shop.
+/// Independent of Category (file type). A product is in at most one folder.
+model Folder {
+  id        String       @id @default(uuid(7)) @db.Uuid
+  slug      String       @unique
+  nameTH    String       @map("name_th")
+  nameEN    String       @map("name_en")
+  status    FolderStatus @default(ACTIVE)
+  sortOrder Int          @default(0) @map("sort_order")
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  products Product[]
+
+  @@index([status, sortOrder])
+  @@map("folders")
+}
+
 model Product {
   id            String @id @default(uuid(7)) @db.Uuid
   slug          String @unique
@@ -102,6 +127,10 @@ model Product {
   descriptionEN String @default("") @map("description_en")
 
   categoryId String @map("category_id") @db.Uuid
+
+  folderId        String? @map("folder_id") @db.Uuid
+  /// Position inside the folder (admin drag order).
+  folderSortOrder Int     @default(0) @map("folder_sort_order")
 
   price           Decimal  @db.Decimal(10, 2)
   /// 0 < discountPercent < 100. Applies only within [discountStartAt, discountEndAt].
@@ -137,6 +166,7 @@ model Product {
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   category   Category         @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  folder     Folder?          @relation(fields: [folderId], references: [id], onDelete: SetNull)
   images     ProductImage[]
   versions   ProductVersion[]
   wishlist   Wishlist[]
@@ -145,6 +175,7 @@ model Product {
   downloads  Download[]
 
   @@index([categoryId])
+  @@index([folderId, folderSortOrder])
   @@index([publishStatus, publishedAt(sort: Desc)])
   @@index([publishStatus, saleStartAt, saleEndAt])
   // Trigram search. pg_trgm is in the `extensions` schema (on Supabase search_path).

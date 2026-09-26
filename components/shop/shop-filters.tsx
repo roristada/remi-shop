@@ -15,13 +15,17 @@ type Props = {
   action: string;
   /** Omit on category pages, where the category is fixed by the URL. */
   categories?: { slug: string; name: string }[];
+  /** Extra params the form must keep on submit (e.g. `view=all`, the folder filter). */
+  hiddenFields?: Record<string, string | undefined>;
+  /** Where "clear filters" goes. Defaults to `action`. */
+  clearHref?: string;
 };
 
 /** Plain GET form: works without JavaScript and keeps filters in the URL. */
-export function ShopFilterForm({ filters, action, categories }: Props) {
+export function ShopFilterForm({ filters, action, categories, hiddenFields, clearHref = action }: Props) {
   const t = useTranslations("shop.filters");
   const locale = useLocale();
-  const hasFilters = Boolean(filters.q || filters.category || filters.sale || filters.sort !== "newest");
+  const hasFilters = Boolean(filters.q || filters.category || filters.folder || filters.sale || filters.sort !== "newest");
 
   return (
     <form
@@ -30,6 +34,9 @@ export function ShopFilterForm({ filters, action, categories }: Props) {
       aria-label={t("label")}
       className="flex flex-wrap items-end gap-2 rounded-3xl bg-secondary/45 p-2.5"
     >
+      {Object.entries(hiddenFields ?? {}).map(([name, value]) =>
+        value ? <input key={name} type="hidden" name={name} value={value} /> : null,
+      )}
       <label className="relative min-w-52 flex-[2_1_16rem]">
         <span className="sr-only">{t("search")}</span>
         <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
@@ -85,7 +92,7 @@ export function ShopFilterForm({ filters, action, categories }: Props) {
       </Button>
       {hasFilters && (
         <Button asChild variant="ghost" className="h-10 rounded-xl px-3">
-          <Link href={action}>{t("clear")}</Link>
+          <Link href={clearHref}>{t("clear")}</Link>
         </Button>
       )}
     </form>

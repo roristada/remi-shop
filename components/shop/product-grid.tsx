@@ -3,9 +3,14 @@ import { PackageSearch } from "lucide-react";
 import type { ProductCardData } from "@/lib/products/storefront-queries";
 import { ProductCard } from "./product-card";
 
-type Props = { products: ProductCardData[]; filtered?: boolean };
+type Props = {
+  products: ProductCardData[];
+  filtered?: boolean;
+  /** Load the first row eagerly (above the fold). Off for grids further down the page. */
+  priority?: boolean;
+};
 
-export function ProductGrid({ products, filtered = false }: Props) {
+export function ProductGrid({ products, filtered = false, priority = true }: Props) {
   const t = useTranslations("shop.empty");
   if (products.length === 0) {
     return (
@@ -22,7 +27,7 @@ export function ProductGrid({ products, filtered = false }: Props) {
     <ul className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
       {products.map((p, i) => (
         <li key={p.id} className="flex">
-          <ProductCard product={p} priority={i < 4} />
+          <ProductCard product={p} priority={priority && i < 4} />
         </li>
       ))}
     </ul>

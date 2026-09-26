@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BadgeCheck, LayoutDashboard, Package, Receipt, Settings, Tags, Users } from "lucide-react";
+import { BadgeCheck, FolderOpen, LayoutDashboard, Package, Receipt, Settings, Tags, Users } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/guards";
 import { fontVariables } from "@/app/fonts";
 import { Toaster } from "@/components/ui/sonner";
@@ -14,6 +14,7 @@ export const metadata: Metadata = {
 const ADMIN_NAV = [
   { href: "/admin/dashboard", label: "แดชบอร์ด", icon: LayoutDashboard },
   { href: "/admin/products", label: "สินค้า", icon: Package },
+  { href: "/admin/folders", label: "โฟลเดอร์", icon: FolderOpen },
   { href: "/admin/categories", label: "หมวดหมู่", icon: Tags },
   { href: "/admin/payments", label: "ตรวจสลิป", icon: BadgeCheck },
   { href: "/admin/orders", label: "คำสั่งซื้อ", icon: Receipt },

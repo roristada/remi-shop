@@ -143,3 +143,13 @@ export const uploadRequestSchema = z.object({
 });
 
 export const idSchema = z.uuid();
+
+export const folderSchema = z.object({
+  slug: slugSchema,
+  nameTH: requiredText(80),
+  nameEN: requiredText(80),
+  status: z.enum(["ACTIVE", "ARCHIVED"]),
+});
+
+/** Upper bound for one drag-reorder request (folders or products in a folder). */
+export const MAX_REORDER_ITEMS = 1000;

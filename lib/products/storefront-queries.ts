@@ -69,12 +69,13 @@ function toCard(row: CardRow, locale: string, now: Date): ProductCardData {
 }
 
 export async function listShopProducts(
-  filters: ShopFilters & { categoryId?: string },
+  filters: ShopFilters & { categoryId?: string; folderId?: string },
   locale: string,
   now: Date = new Date(),
 ) {
   const and: Prisma.ProductWhereInput[] = [listedProductWhere(now)];
   if (filters.categoryId) and.push({ categoryId: filters.categoryId });
+  if (filters.folderId) and.push({ folderId: filters.folderId });
   if (filters.q) and.push(shopSearchWhere(filters.q));
   if (filters.sale) and.push(activeDiscountWhere(now));
   const where: Prisma.ProductWhereInput = { AND: and };
@@ -146,6 +147,74 @@ export const getShopCategory = cache((slug: string) =>
     select: { id: true, slug: true, nameTH: true, nameEN: true, descriptionTH: true, descriptionEN: true },
   }),
 );
+
+export const getShopFolder = cache((slug: string) =>
+  prisma.folder.findFirst({
+    where: { slug, status: "ACTIVE" },
+    select: { id: true, slug: true, nameTH: true, nameEN: true },
+  }),
+);
+
+/** Active folders that currently list at least one product (chips in the "All" view). */
+export async function listShopFolders(now: Date = new Date()) {
+  const folders = await prisma.folder.findMany({
+    where: { status: "ACTIVE", products: { some: listedProductWhere(now) } },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    select: { slug: true, nameTH: true, nameEN: true },
+  });
+  return folders;
+}
+
+/** Cards per folder section on /shop; the rest is behind "view all" (?folder=slug). */
+export const FOLDER_SECTION_SIZE = 8;
+
+const FOLDER_ORDER = [{ folderSortOrder: "asc" }, { id: "desc" }] satisfies Prisma.ProductOrderByWithRelationInput[];
+
+export type FolderSection = {
+  /** null = products without a folder ("Other"), always last. */
+  slug: string | null;
+  name: string | null;
+  total: number;
+  items: ProductCardData[];
+};
+
+/**
+ * /shop "By folder" view: active folders in admin order, each with its first listed products
+ * in admin drag order, then unfiled products. Empty sections are dropped. Products in archived
+ * folders appear only in the flat "All" view.
+ */
+export async function listShopFolderSections(locale: string, now: Date = new Date()): Promise<FolderSection[]> {
+  const listed = listedProductWhere(now);
+  const [folders, unfiledTotal, unfiled] = await prisma.$transaction([
+    prisma.folder.findMany({
+      where: { status: "ACTIVE" },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      select: {
+        slug: true,
+        nameTH: true,
+        nameEN: true,
+        _count: { select: { products: { where: listed } } },
+        products: { where: listed, orderBy: FOLDER_ORDER, take: FOLDER_SECTION_SIZE, select: CARD_SELECT },
+      },
+    }),
+    prisma.product.count({ where: { AND: [listed, { folderId: null }] } }),
+    prisma.product.findMany({
+      where: { AND: [listed, { folderId: null }] },
+      orderBy: shopOrderBy("newest", locale),
+      take: FOLDER_SECTION_SIZE,
+      select: CARD_SELECT,
+    }),
+  ]);
+
+  const sections: FolderSection[] = folders.map((f) => ({
+    slug: f.slug,
+    name: localized(locale, f.nameTH, f.nameEN),
+    total: f._count.products,
+    items: f.products.map((r) => toCard(r, locale, now)),
+  }));
+  sections.push({ slug: null, name: null, total: unfiledTotal, items: unfiled.map((r) => toCard(r, locale, now)) });
+  return sections.filter((s) => s.total > 0);
+}
 
 /**
  * Published product for the detail page (any sale state, so ended products still resolve).

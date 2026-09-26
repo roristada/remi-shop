@@ -91,5 +91,16 @@
     "released": "เผยแพร่ {date}",
     "noNotes": "ไม่มีบันทึกการเปลี่ยนแปลง",
     "related": "สินค้าอื่นในหมวดนี้"
+  },
+  "views": {
+    "label": "มุมมอง",
+    "all": "ทั้งหมด",
+    "byFolder": "ตามโฟลเดอร์",
+    "jumpTo": "ไปที่โฟลเดอร์"
+  },
+  "folder": {
+    "unfiled": "อื่น ๆ",
+    "viewAll": "ดูทั้งหมด ({count})",
+    "count": "{count, plural, other {# รายการ}}"
   }
 }

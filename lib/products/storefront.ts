@@ -10,6 +10,8 @@ export type ShopFilters = {
   q?: string;
   /** Category slug (validated format only; existence is checked by the query). */
   category?: string;
+  /** Folder slug (validated format only; existence is checked by the query). */
+  folder?: string;
   sort: ShopSort;
   /** Only products with a discount active right now. */
   sale: boolean;
@@ -22,15 +24,20 @@ function one(v: string | string[] | undefined) {
   return typeof v === "string" ? v : undefined;
 }
 
+function slugParam(v: string | string[] | undefined) {
+  const slug = one(v)?.trim().toLowerCase();
+  return slug && slug.length <= 100 && SLUG_PATTERN.test(slug) ? slug : undefined;
+}
+
 /** URL search params → safe filters. Anything invalid falls back to "no filter". */
 export function parseShopFilters(sp: SearchParams): ShopFilters {
   const q = one(sp.q)?.trim().slice(0, 100) || undefined;
-  const category = one(sp.category)?.trim().toLowerCase();
   const sort = SHOP_SORTS.find((s) => s === one(sp.sort)) ?? "newest";
   const page = Math.max(1, Math.min(10_000, Number.parseInt(one(sp.page) ?? "1", 10) || 1));
   return {
     q,
-    category: category && category.length <= 100 && SLUG_PATTERN.test(category) ? category : undefined,
+    category: slugParam(sp.category),
+    folder: slugParam(sp.folder),
     sort,
     sale: one(sp.sale) === "1",
     page,
@@ -42,9 +49,15 @@ export function shopFilterParams(f: ShopFilters): Record<string, string | undefi
   return {
     q: f.q,
     category: f.category,
+    folder: f.folder,
     sort: f.sort === "newest" ? undefined : f.sort,
     sale: f.sale ? "1" : undefined,
   };
+}
+
+/** Any filter set means the flat grid; otherwise /shop shows folder sections. */
+export function hasShopFilters(f: ShopFilters): boolean {
+  return Boolean(f.q || f.category || f.folder || f.sale || f.sort !== "newest" || f.page > 1);
 }
 
 /**

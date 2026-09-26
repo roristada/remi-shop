@@ -91,5 +91,16 @@
     "released": "Released {date}",
     "noNotes": "No release notes.",
     "related": "More in this category"
+  },
+  "views": {
+    "label": "View",
+    "all": "All",
+    "byFolder": "By folder",
+    "jumpTo": "Jump to folder"
+  },
+  "folder": {
+    "unfiled": "Other",
+    "viewAll": "View all ({count})",
+    "count": "{count, plural, one {# item} other {# items}}"
   }
 }
