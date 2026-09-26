@@ -1,13 +1,14 @@
+import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { ChevronLeft, Clock3 } from "lucide-react";
+import { ChevronLeft, Clock3, ExternalLink } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { intlLocale, localized } from "@/i18n/localize";
 import { requireUser } from "@/lib/auth/guards";
 import { formatBangkokDateTime } from "@/lib/datetime";
-import { formatTHB, toHundredths } from "@/lib/pricing/calculate";
+import { formatTHB, fromHundredths, toHundredths } from "@/lib/pricing/calculate";
 import { getOrderForUser, getPaymentSettings, type CustomerOrder } from "@/lib/orders/queries";
 import { orderNumberSchema } from "@/lib/orders/validation";
 import { previewImageUrl } from "@/lib/storage/public-url";
@@ -18,6 +19,9 @@ import { SlipUpload } from "@/components/cart/slip-upload";
 import { OrderStatusBadge } from "@/components/cart/order-status-badge";
 import { CancelOrderButton } from "@/components/cart/cancel-order-button";
 import { CountdownTimer } from "@/components/shop/countdown-timer";
+import { OrderProgress } from "@/components/cart/order-progress";
+import { CopyButton } from "@/components/shared/copy-button";
+import { cn } from "@/lib/utils";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/orders/[orderNumber]">): Promise<Metadata> {
   const { locale, orderNumber } = await params;
@@ -60,6 +64,7 @@ export default async function OrderPage({ params }: PageProps<"/[locale]/orders/
         <OrderStatusBadge status={order.status} className="h-7 px-3 text-sm" />
       </div>
 
+      <OrderProgress status={order.status} />
       <StatusNotice order={order} t={t} />
 
       <div className={showPanel ? "grid gap-8 lg:grid-cols-[minmax(0,1fr)_24rem]" : "grid gap-8"}>
@@ -175,51 +180,107 @@ async function PaymentPanel({ order, locale, now }: { order: CustomerOrder; loca
       )}
 
       {hasPaymentInfo && settings ? (
-        <div className="space-y-4">
+        // The sequence matters (scan → transfer the exact amount → attach the slip), so steps are numbered.
+        <ol className="space-y-5">
           {settings.qrImagePath && (
-            <div className="relative mx-auto aspect-square w-full max-w-64 overflow-hidden rounded-2xl bg-white p-3">
-              <Image
-                src={previewImageUrl(settings.qrImagePath)}
-                alt={t("qrAlt")}
-                fill
-                sizes="256px"
-                className="object-contain p-3"
-              />
-            </div>
+            <PayStep n={1} title={t("stepScan")}>
+              <p className="text-sm text-foreground/75">{t("stepScanHint")}</p>
+              <div className="relative mx-auto aspect-square w-full max-w-64 overflow-hidden rounded-2xl bg-white">
+                <Image
+                  src={previewImageUrl(settings.qrImagePath)}
+                  alt={t("qrAlt")}
+                  fill
+                  sizes="256px"
+                  className="object-contain p-3"
+                />
+              </div>
+              <a
+                href={previewImageUrl(settings.qrImagePath)}
+                target="_blank"
+                rel="noopener"
+                className="mx-auto flex min-h-11 w-fit items-center gap-1.5 text-sm font-medium text-brand-strong underline-offset-4 hover:underline"
+              >
+                <ExternalLink className="size-4" aria-hidden /> {t("saveQr")}
+              </a>
+            </PayStep>
           )}
-          <dl className="space-y-2 text-sm">
-            <div className="flex justify-between gap-4">
-              <dt className="text-foreground/70">{t("amount")}</dt>
-              <dd className="text-xl font-semibold tabular-nums">
-                {formatTHB(toHundredths(order.total), fmt.number)}
-              </dd>
-            </div>
-            {settings.promptPayName && (
-              <div className="flex justify-between gap-4">
-                <dt className="text-foreground/70">{t("accountName")}</dt>
-                <dd className="text-right font-medium">{settings.promptPayName}</dd>
-              </div>
-            )}
-            {settings.promptPayNumber && (
-              <div className="flex justify-between gap-4">
-                <dt className="text-foreground/70">{t("promptPay")}</dt>
-                <dd className="font-medium tabular-nums">{settings.promptPayNumber}</dd>
-              </div>
-            )}
-          </dl>
-          {instructions && <p className="text-sm whitespace-pre-line text-foreground/70">{instructions}</p>}
-        </div>
+          <PayStep n={settings.qrImagePath ? 2 : 1} title={t("stepTransfer")}>
+            <dl className="divide-y rounded-2xl bg-background text-sm">
+              <PayField label={t("amount")} value={formatTHB(toHundredths(order.total), fmt.number)} large>
+                <CopyButton
+                  value={fromHundredths(toHundredths(order.total))}
+                  label={t("copy", { label: t("amount") })}
+                  copiedLabel={t("copied")}
+                />
+              </PayField>
+              {settings.promptPayName && <PayField label={t("accountName")} value={settings.promptPayName} />}
+              {settings.promptPayNumber && (
+                <PayField label={t("promptPay")} value={settings.promptPayNumber}>
+                  <CopyButton
+                    value={settings.promptPayNumber.replace(/[\s-]/g, "")}
+                    label={t("copy", { label: t("promptPay") })}
+                    copiedLabel={t("copied")}
+                  />
+                </PayField>
+              )}
+            </dl>
+            {instructions && <p className="text-sm whitespace-pre-line text-foreground/75">{instructions}</p>}
+          </PayStep>
+          <PayStep n={settings.qrImagePath ? 3 : 2} title={t("stepUpload")}>
+            <SlipUpload orderNumber={order.orderNumber} />
+          </PayStep>
+        </ol>
       ) : (
         <p role="alert" className="rounded-xl bg-background px-3 py-2 text-sm">
           {t("noPaymentInfo")}
         </p>
       )}
 
-      {hasPaymentInfo && <SlipUpload orderNumber={order.orderNumber} />}
-      <div className="flex justify-center">
+      {/* Kept apart from the upload step so a thumb reaching for "send" doesn't land on it. */}
+      <div className="flex justify-center border-t border-foreground/10 pt-4">
         <CancelOrderButton orderNumber={order.orderNumber} />
       </div>
     </aside>
+  );
+}
+
+function PayStep({ n, title, children }: { n: number; title: string; children: ReactNode }) {
+  return (
+    <li className="space-y-3">
+      <h3 className="flex items-center gap-2.5 font-sans text-base font-semibold">
+        <span
+          aria-hidden
+          className="grid size-7 shrink-0 place-items-center rounded-full bg-foreground text-sm text-background tabular-nums"
+        >
+          {n}
+        </span>
+        {title}
+      </h3>
+      {children}
+    </li>
+  );
+}
+
+function PayField({
+  label,
+  value,
+  large = false,
+  children,
+}: {
+  label: string;
+  value: string;
+  large?: boolean;
+  children?: ReactNode;
+}) {
+  return (
+    // dt/dd must be direct children of the group div, so the copy button sits in its own dd.
+    <div className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 py-1.5 pr-1.5 pl-4">
+      <dt className="col-start-1 text-xs text-foreground/75">{label}</dt>
+      <dd className={cn("col-start-1", large ? "text-xl font-semibold tabular-nums" : "font-medium break-words tabular-nums")}>
+        {value}
+      </dd>
+      {children && <dd className="col-start-2 row-span-2 row-start-1">{children}</dd>}
+    </div>
   );
 }
 

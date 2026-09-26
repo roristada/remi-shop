@@ -66,11 +66,9 @@ export function SlipUpload({ orderNumber }: { orderNumber: string }) {
   }
 
   return (
-    <div className="space-y-3 rounded-2xl bg-background p-4">
-      <div>
-        <h3 className="text-base">{t("title")}</h3>
-        <p className="text-xs text-foreground/70">{t("hint")}</p>
-      </div>
+    // The order page's numbered step supplies the heading ("attach your transfer slip").
+    <div className="space-y-3">
+      <p className="text-xs text-foreground/75">{t("hint")}</p>
 
       <input
         ref={inputRef}
@@ -90,7 +88,7 @@ export function SlipUpload({ orderNumber }: { orderNumber: string }) {
       ) : (
         <label
           htmlFor={inputId}
-          className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-foreground/15 px-4 py-8 text-sm transition-colors hover:border-foreground/30 hover:bg-secondary/30 focus-within:ring-2 focus-within:ring-ring"
+          className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-foreground/15 px-4 py-8 text-sm transition-colors hover:border-foreground/30 bg-background/60 hover:bg-background focus-within:ring-2 focus-within:ring-ring"
         >
           <ImageUp className="size-6 text-muted-foreground" aria-hidden />
           <span className="font-medium">{t("choose")}</span>

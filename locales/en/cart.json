@@ -84,7 +84,20 @@
     "cancelFailed": "This order can't be cancelled. It may already be paid or expired.",
     "expiredNotice": "This order was cancelled because it wasn't paid in time.",
     "cancelledNotice": "This order has been cancelled.",
-    "completedNotice": "Payment confirmed. Download your files from the downloads page."
+    "completedNotice": "Payment confirmed. Download your files from the downloads page.",
+    "stepScan": "Scan or save the QR",
+    "stepScanHint": "Open your banking app and scan this QR. On a phone, save the image and pick it from the app.",
+    "saveQr": "Open QR image to save",
+    "stepTransfer": "Transfer exactly this amount",
+    "stepUpload": "Attach your transfer slip",
+    "copy": "Copy {label}",
+    "copied": "Copied",
+    "progressLabel": "Order progress",
+    "progressPay": "Pay",
+    "progressReview": "Store checks slip",
+    "progressDownload": "Download files",
+    "progressCurrent": "(current step)",
+    "progressDone": "(done)"
   },
   "slip": {
     "title": "Attach your transfer slip",
