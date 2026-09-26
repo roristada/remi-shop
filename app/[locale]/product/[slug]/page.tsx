@@ -161,7 +161,7 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
         </ol>
       </nav>
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-10">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-10">
         <ProductGallery images={images} />
 
         <div className="space-y-5">
@@ -205,7 +205,7 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
         </div>
       </div>
 
-      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
         <section aria-labelledby="description-heading" className="space-y-3">
           <h2 id="description-heading" className="text-xl">
             {t("description")}
