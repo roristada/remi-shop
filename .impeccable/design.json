@@ -1,0 +1,377 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-26T00:28:08.662670+00:00",
+  "title": "Design System: Remi Shop",
+  "extensions": {
+    "colorMeta": {
+      "sakura-pink": {
+        "role": "primary",
+        "displayName": "Sakura Pink",
+        "canonical": "#f5bfd4",
+        "tonalRamp": [
+          "#4a3940",
+          "#6e565f",
+          "#93737f",
+          "#b88f9f",
+          "#dcacbf",
+          "#f5bfd4",
+          "#fadfea",
+          "#fef5f9"
+        ]
+      },
+      "cherry-ink": {
+        "role": "primary",
+        "displayName": "Cherry Ink",
+        "canonical": "#b0426b",
+        "tonalRamp": [
+          "#351420",
+          "#4f1e30",
+          "#6a2840",
+          "#843250",
+          "#9e3b60",
+          "#b0426b",
+          "#d8a0b5",
+          "#f3e3e9"
+        ]
+      },
+      "powder-sky": {
+        "role": "secondary",
+        "displayName": "Powder Sky",
+        "canonical": "#def1f6",
+        "tonalRamp": [
+          "#43484a",
+          "#646c6f",
+          "#859194",
+          "#a6b5b8",
+          "#c8d9dd",
+          "#def1f6",
+          "#eef8fa",
+          "#fafdfe"
+        ]
+      },
+      "blush-mist": {
+        "role": "secondary",
+        "displayName": "Blush Mist",
+        "canonical": "#fcebf2",
+        "tonalRamp": [
+          "#4c4749",
+          "#716a6d",
+          "#978d91",
+          "#bdb0b6",
+          "#e3d4da",
+          "#fcebf2",
+          "#fef5f8",
+          "#fffcfd"
+        ]
+      },
+      "paper-white": {
+        "role": "neutral",
+        "displayName": "Paper White",
+        "canonical": "#fefeff",
+        "tonalRamp": [
+          "#4c4c4d",
+          "#727273",
+          "#989899",
+          "#bebebf",
+          "#e5e5e6",
+          "#fefeff",
+          "#fefeff",
+          "#ffffff"
+        ]
+      },
+      "graphite": {
+        "role": "neutral",
+        "displayName": "Graphite",
+        "canonical": "#333333",
+        "tonalRamp": [
+          "#0f0f0f",
+          "#171717",
+          "#1f1f1f",
+          "#262626",
+          "#2e2e2e",
+          "#333333",
+          "#999999",
+          "#e0e0e0"
+        ]
+      },
+      "pencil-gray": {
+        "role": "neutral",
+        "displayName": "Pencil Gray",
+        "canonical": "#6b6b6b",
+        "tonalRamp": [
+          "#202020",
+          "#303030",
+          "#404040",
+          "#505050",
+          "#606060",
+          "#6b6b6b",
+          "#b5b5b5",
+          "#e9e9e9"
+        ]
+      },
+      "fog": {
+        "role": "neutral",
+        "displayName": "Fog",
+        "canonical": "#f6f6f8",
+        "tonalRamp": [
+          "#4a4a4a",
+          "#6f6f70",
+          "#949495",
+          "#b8b8ba",
+          "#dddddf",
+          "#f6f6f8",
+          "#fafafc",
+          "#fefefe"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#ebebef",
+        "tonalRamp": [
+          "#474748",
+          "#6a6a6c",
+          "#8d8d8f",
+          "#b0b0b3",
+          "#d4d4d7",
+          "#ebebef",
+          "#f5f5f7",
+          "#fcfcfd"
+        ]
+      },
+      "input-line": {
+        "role": "neutral",
+        "displayName": "Input Line",
+        "canonical": "#e3e3e8",
+        "tonalRamp": [
+          "#444446",
+          "#666668",
+          "#88888b",
+          "#aaaaae",
+          "#ccccd1",
+          "#e3e3e8",
+          "#f1f1f4",
+          "#fbfbfc"
+        ]
+      },
+      "error-red": {
+        "role": "error",
+        "displayName": "Error Red",
+        "canonical": "#c62828",
+        "tonalRamp": [
+          "#3b0c0c",
+          "#591212",
+          "#771818",
+          "#941e1e",
+          "#b22424",
+          "#c62828",
+          "#e29494",
+          "#f6dfdf"
+        ]
+      },
+      "success-green": {
+        "role": "success",
+        "displayName": "Success Green",
+        "canonical": "#2e7d32",
+        "tonalRamp": [
+          "#0e260f",
+          "#153816",
+          "#1c4b1e",
+          "#225e26",
+          "#29702d",
+          "#2e7d32",
+          "#96be98",
+          "#e0ece0"
+        ]
+      },
+      "warning-amber": {
+        "role": "warning",
+        "displayName": "Warning Amber",
+        "canonical": "#a15c00",
+        "tonalRamp": [
+          "#301c00",
+          "#482900",
+          "#613700",
+          "#794500",
+          "#915300",
+          "#a15c00",
+          "#d0ae80",
+          "#f1e7d9"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Home hero title only."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page h1s."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Section h2s and panel titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Reading text and forms; product-card names at 600."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Meta, counts, hints; tabular numerals."
+      }
+    },
+    "shadows": [
+      {
+        "name": "soft-lift",
+        "value": "0 1px 2px rgb(51 51 51 / 0.04), 0 8px 24px -12px rgb(51 51 51 / 0.12)",
+        "purpose": "Raised cards/panels and badges over photos."
+      },
+      {
+        "name": "segment-active",
+        "value": "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+        "purpose": "Selected segment of a segmented toggle."
+      }
+    ],
+    "motion": [
+      {
+        "name": "swatch-in",
+        "value": "600ms cubic-bezier(0.2, 0.8, 0.2, 1)",
+        "purpose": "Home hero swatches fan in once; off under reduced motion."
+      },
+      {
+        "name": "tile-hover",
+        "value": "500ms ease-out",
+        "purpose": "Product image scales 1.04 on hover; off under reduced motion."
+      },
+      {
+        "name": "state",
+        "value": "150ms ease",
+        "purpose": "Button and chip color/border transitions."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main action (add to cart, checkout, search). One per view.",
+      "html": "<button class=\"ds-btn-primary\">เพิ่มลงตะกร้า</button>",
+      "css": ".ds-btn-primary { font-family: var(--font-anuphan), ui-sans-serif, system-ui, sans-serif; background: var(--primary); color: var(--primary-foreground); height: 44px; padding: 0 20px; border: 0; border-radius: 9999px; font-size: 14px; font-weight: 500; transition: background .15s, transform .15s; } .ds-btn-primary:hover { background: color-mix(in srgb, var(--primary) 80%, transparent); } .ds-btn-primary:active { transform: translateY(1px); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 80%, transparent); }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Secondary action next to a primary one.",
+      "html": "<button class=\"ds-btn-outline\">แก้ไข</button>",
+      "css": ".ds-btn-outline { font-family: var(--font-anuphan), ui-sans-serif, system-ui, sans-serif; background: var(--background); color: var(--foreground); height: 44px; padding: 0 18px; border: 1px solid var(--border); border-radius: 9999px; font-size: 14px; font-weight: 500; transition: background .15s; } .ds-btn-outline:hover { background: var(--muted); } .ds-btn-outline:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 80%, transparent); }"
+    },
+    {
+      "name": "Filter Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Folder/category chips; the active chip inverts to graphite.",
+      "html": "<div style=\"display:flex;gap:8px\"><a class=\"ds-chip\" href=\"#\">Zograce</a><a class=\"ds-chip ds-chip-active\" href=\"#\" aria-current=\"page\">Hot Brand</a></div>",
+      "css": ".ds-chip { font-family: var(--font-anuphan), ui-sans-serif, system-ui, sans-serif; display: inline-flex; align-items: center; height: 44px; padding: 0 16px; border: 1px solid var(--border); border-radius: 9999px; background: var(--background); color: var(--foreground); font-size: 14px; text-decoration: none; transition: border-color .15s; } .ds-chip:hover { border-color: color-mix(in srgb, var(--foreground) 30%, transparent); } .ds-chip-active { background: var(--foreground); color: var(--background); border-color: var(--foreground); } .ds-chip:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 80%, transparent); }"
+    },
+    {
+      "name": "Search Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Search field inside the powder-sky filter bar.",
+      "html": "<div class=\"ds-filterbar\"><input class=\"ds-input\" type=\"search\" placeholder=\"ค้นหาชื่อสินค้า, โปรแกรม, นามสกุลไฟล์...\"></div>",
+      "css": ".ds-filterbar { background: color-mix(in srgb, var(--secondary) 45%, var(--background)); border-radius: 30.8px; padding: 10px; } .ds-input { font-family: var(--font-anuphan), ui-sans-serif, system-ui, sans-serif; width: 100%; box-sizing: border-box; height: 40px; padding: 0 14px; border: 1px solid transparent; border-radius: 19.6px; background: var(--background); color: var(--foreground); font-size: 14px; } .ds-input::placeholder { color: var(--muted-foreground); } .ds-input:focus-visible { outline: none; border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 80%, transparent); }"
+    },
+    {
+      "name": "Product Tile",
+      "kind": "card",
+      "refersTo": "product-tile",
+      "description": "Frameless gallery tile: the image well is the card.",
+      "html": "<article class=\"ds-tile\"><div class=\"ds-tile-img\"></div><p class=\"ds-tile-meta\">แปรง · Procreate</p><h3 class=\"ds-tile-name\">Watercolor Brush Pack</h3><p class=\"ds-tile-price\">฿100</p></article>",
+      "css": ".ds-tile { font-family: var(--font-anuphan), ui-sans-serif, system-ui, sans-serif; width: 220px; display: flex; flex-direction: column; gap: 4px; } .ds-tile-img { aspect-ratio: 1; border-radius: 25.2px; background: linear-gradient(135deg, var(--primary), var(--secondary)); box-shadow: inset 0 0 0 1px rgb(0 0 0 / .05); margin-bottom: 8px; transition: transform .5s ease-out; } .ds-tile:hover .ds-tile-img { transform: scale(1.02); } .ds-tile-meta { margin: 0; font-size: 12px; color: var(--muted-foreground); } .ds-tile-name { margin: 0; font-size: 15px; font-weight: 600; line-height: 1.5; color: var(--foreground); } .ds-tile-price { font-family: var(--font-mitr), var(--font-anuphan), ui-sans-serif, sans-serif; margin: 0; font-weight: 500; color: var(--foreground); }"
+    },
+    {
+      "name": "Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Tinted side panel (purchase, payment, cart summary) with a paper field group.",
+      "html": "<aside class=\"ds-panel\"><h2 class=\"ds-panel-title\">ชำระเงินผ่าน PromptPay</h2><dl class=\"ds-fields\"><div><dt>ยอดที่ต้องโอน</dt><dd class=\"ds-big\">฿100</dd></div><div><dt>PromptPay</dt><dd>081-234-5678</dd></div></dl></aside>",
+      "css": ".ds-panel { font-family: var(--font-anuphan), ui-sans-serif, system-ui, sans-serif; width: 320px; background: color-mix(in srgb, var(--secondary) 45%, var(--background)); border-radius: 30.8px; padding: 24px; color: var(--foreground); } .ds-panel-title { font-family: var(--font-mitr), var(--font-anuphan), ui-sans-serif, sans-serif; margin: 0 0 16px; font-size: 18px; font-weight: 500; } .ds-fields { margin: 0; background: var(--background); border-radius: 25.2px; } .ds-fields > div { padding: 8px 16px; border-top: 1px solid var(--border); } .ds-fields > div:first-child { border-top: 0; } .ds-fields dt { font-size: 12px; color: color-mix(in srgb, var(--foreground) 75%, transparent); } .ds-fields dd { margin: 0; font-weight: 500; font-variant-numeric: tabular-nums; } .ds-fields dd.ds-big { font-size: 20px; font-weight: 600; }"
+    },
+    {
+      "name": "Header Navigation",
+      "kind": "nav",
+      "refersTo": "button-icon",
+      "description": "Sticky translucent header with wordmark and 44px icon controls.",
+      "html": "<header class=\"ds-header\"><a class=\"ds-logo\" href=\"#\"><span>R</span>Remi Shop</a><nav class=\"ds-links\"><a href=\"#\" aria-current=\"page\">ร้านค้า</a><a href=\"#\">หมวดหมู่</a></nav><button class=\"ds-icon\" aria-label=\"ตะกร้าสินค้า\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z\"/><path d=\"M3 6h18\"/><path d=\"M16 10a4 4 0 0 1-8 0\"/></svg></button></header>",
+      "css": ".ds-header { font-family: var(--font-anuphan), ui-sans-serif, system-ui, sans-serif; display: flex; align-items: center; gap: 16px; height: 64px; padding: 0 16px; background: color-mix(in srgb, var(--background) 85%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); } .ds-logo { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 18px; color: var(--foreground); text-decoration: none; } .ds-logo span { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9999px; background: var(--primary); font-size: 14px; } .ds-links { display: flex; gap: 4px; } .ds-links a { padding: 8px 12px; border-radius: 9999px; font-size: 14px; color: var(--muted-foreground); text-decoration: none; } .ds-links a:hover, .ds-links a[aria-current] { color: var(--foreground); background: var(--accent); } .ds-icon { margin-left: auto; display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 9999px; background: transparent; color: var(--foreground); } .ds-icon:hover { background: var(--muted); } .ds-icon:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 80%, transparent); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Swatch Board",
+    "overview": "Remi Shop reads like a clean board where an artist pins swatches of their brushes and palettes. The artwork is the loudest thing on every page; the interface is soft paper, quiet type and rounded tiles that hold the work without competing with it. The signature is the home hero's fanned swatch stack: preview tiles tilted like cards pinned to a board, one real preview on top.\n\nThe mood is cute and gentle but still premium: pastel pink and powder blue on near-white paper, generous whitespace and friendly rounded Thai type. Cute comes from softness, roundness and small moments (a swatch fanning in, a check mark after copying), never from clutter, stickers or loud color. Thai is the primary language, so every decision is checked against Thai text first: tone marks, line height and word length.\n\nThe store is explicitly not a dense marketplace (no Shopee-style banner walls or shouting discount stamps), not generic corporate SaaS, and not a dark or neon gamer look. V1 is light theme only.",
+    "keyCharacteristics": [
+      "Artwork first: preview images carry the color; UI surfaces stay pale.",
+      "Pink is an accent, powder blue is the surface, graphite is the voice.",
+      "Everything rounded: pills for actions and chips, 25–31px corners for tiles and panels.",
+      "Depth by tone (tinted panels on paper), with one soft shadow for lifted items.",
+      "Thai-first type: Mitr for titles, Anuphan for reading, no negative tracking.",
+      "44px touch targets and AA contrast are part of the look, not an afterthought."
+    ],
+    "rules": [
+      {
+        "name": "The Accent Not Wallpaper Rule",
+        "body": "Sakura pink covers only the primary action and small marks. If a screen has more than one pink-filled area besides the primary button, one of them is wrong.",
+        "section": "colors"
+      },
+      {
+        "name": "The Readable Pink Rule",
+        "body": "Pink that carries meaning as text, icon or outline is cherry-ink, never sakura-pink.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tone Mark Rule",
+        "body": "Thai text never gets line height under 1.3 in headings or 1.5 in clamped body text, and never negative letter-spacing; stacked vowels and tone marks must not be clipped.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tone Before Shadow Rule",
+        "body": "Reach for a tinted surface before a shadow. A shadow is allowed only when the element actually overlaps something.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** let product previews supply the color; keep surrounding UI in paper, powder-sky and graphite.",
+      "**Do** use cherry-ink (not sakura-pink) for any pink text, icon, link or focus ring.",
+      "**Do** make every interactive target at least 44px on touch screens.",
+      "**Do** keep secondary text at pencil-gray or darker on any tinted surface (≥4.5:1).",
+      "**Do** give Thai text room: headings at 1.3 line height, clamped body at 1.5, no negative tracking.",
+      "**Do** keep cuteness soft: rounded shapes, pastel tints and small, purposeful motion."
+    ],
+    "donts": [
+      "**Don't** flood a screen with pink; it is an accent, not a wallpaper.",
+      "**Don't** build dense marketplace layouts (banner walls, starbursts, shouting sale stamps).",
+      "**Don't** drift into generic corporate SaaS: gray boxes, sharp corners, icon-card grids.",
+      "**Don't** ship dark or neon \"gamer\" styling; V1 is light theme only.",
+      "**Don't** nest cards or add colored side borders to cards and alerts.",
+      "**Don't** signal status by color alone; every badge carries its text label."
+    ]
+  }
+}
