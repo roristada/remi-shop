@@ -18,13 +18,13 @@ export default async function ProfilePage({ params }: PageProps<"/[locale]/accou
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">{t("title")}</h1>
-      <section className="rounded-2xl border bg-card p-6 shadow-soft">
+      <h1 className="text-2xl">{t("title")}</h1>
+      <section className="rounded-2xl border p-6">
         <ProfileForm email={user.email ?? ""} displayName={profile?.displayName ?? ""} />
       </section>
-      <section className="space-y-3 rounded-2xl border bg-card p-6 shadow-soft">
+      <section className="space-y-3 rounded-2xl border p-6">
         <div>
-          <h2 className="font-semibold">{t("changePassword")}</h2>
+          <h2>{t("changePassword")}</h2>
           <p className="text-sm text-muted-foreground">{t("changePasswordDesc")}</p>
         </div>
         <ChangePasswordForm />

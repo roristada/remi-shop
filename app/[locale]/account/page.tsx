@@ -37,13 +37,13 @@ export default async function AccountPage({ params, searchParams }: PageProps<"/
   return (
     <div className="space-y-6">
       {notice && <FormMessage tone="success">{tAuth(notice)}</FormMessage>}
-      <h1 className="text-2xl font-bold break-words">{t("greeting", { name })}</h1>
+      <h1 className="text-2xl break-words">{t("greeting", { name })}</h1>
       <div className="grid gap-4 sm:grid-cols-2">
         {cards.map(({ href, icon: Icon, title, desc }) => (
           <Link
             key={href}
             href={href}
-            className="group flex items-center gap-4 rounded-2xl border bg-card p-5 shadow-soft transition-colors hover:border-primary"
+            className="group flex items-center gap-4 rounded-2xl border p-5 transition-colors hover:bg-secondary/30"
           >
             <span className="grid size-11 shrink-0 place-items-center rounded-full bg-secondary">
               <Icon className="size-5" aria-hidden />

@@ -48,7 +48,7 @@ export default async function AccountLicensesPage({ params, searchParams }: Page
   return (
     <div className="space-y-6">
       <div className="space-y-1">
-        <h1 className="text-2xl font-bold">{t("title")}</h1>
+        <h1 className="text-2xl">{t("title")}</h1>
         <p className="text-sm text-muted-foreground">{t("intro")}</p>
       </div>
       {sp.submitted === "1" && <FormMessage tone="success">{t("submitted")}</FormMessage>}
@@ -92,14 +92,14 @@ function LicenseCard({ request: r, locale, t }: { request: CustomerLicenseReques
         <Badge className={cn("h-7 px-3 text-sm", STAGE_STYLES[stage])}>{t(`stage.${stage}`)}</Badge>
       </div>
 
-      <ul className="divide-y rounded-2xl bg-secondary/35 text-sm">
+      <ul className="divide-y divide-foreground/10 text-sm">
         {r.items.map((i) => (
-          <li key={i.id} className="flex justify-between gap-3 px-4 py-2">
+          <li key={i.id} className="flex justify-between gap-3 py-2">
             <span className="min-w-0">{localized(locale, i.nameTHSnapshot, i.nameENSnapshot)}</span>
             <span className="shrink-0 tabular-nums">{formatTHB(toHundredths(i.price), fmt.number)}</span>
           </li>
         ))}
-        <li className="flex justify-between gap-3 px-4 py-2 font-semibold">
+        <li className="flex justify-between gap-3 py-2 font-semibold">
           <span>{t("total")}</span>
           <span className="tabular-nums">{formatTHB(toHundredths(r.total), fmt.number)}</span>
         </li>

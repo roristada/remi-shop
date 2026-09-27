@@ -8,7 +8,7 @@ export default async function AccountLayout({ children }: LayoutProps<"/[locale]
   return (
     <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 md:grid-cols-[220px_1fr]">
       <aside className="space-y-4">
-        <p className="px-3 text-lg font-bold">{t("title")}</p>
+        <p className="font-heading px-3 text-lg font-medium">{t("title")}</p>
         <AccountNav />
         <LogoutButton />
       </aside>
