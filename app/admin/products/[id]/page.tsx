@@ -10,6 +10,7 @@ import {
   type AdminProduct,
 } from "@/lib/products/admin-queries";
 import { updateProduct } from "@/lib/products/admin-actions";
+import { listSoftwareTagOptions } from "@/lib/software-tags/queries";
 import { getProductStatus } from "@/lib/products/status";
 import { calculateProductPrice, formatTHB } from "@/lib/pricing/calculate";
 import { formatBangkokDateTime, toBangkokDateTimeLocal } from "@/lib/datetime";
@@ -40,7 +41,7 @@ function toFormValues(p: AdminProduct): ProductFormValues {
     discountEndAt: toBangkokDateTimeLocal(p.discountEndAt),
     saleStartAt: toBangkokDateTimeLocal(p.saleStartAt),
     saleEndAt: toBangkokDateTimeLocal(p.saleEndAt),
-    software: p.software ?? "",
+    softwareTagIds: p.softwareTags.map((t) => t.softwareTagId),
     supportedVersion: p.supportedVersion ?? "",
     fileFormat: p.fileFormat ?? "",
     license: p.license ?? "",
@@ -60,12 +61,13 @@ export default async function EditProductPage({ params, searchParams }: PageProp
   const { id } = await params;
   if (!idSchema.safeParse(id).success) notFound();
 
-  const [product, categories, buyerCount, orderCount, licensePricing] = await Promise.all([
+  const [product, categories, buyerCount, orderCount, licensePricing, softwareTags] = await Promise.all([
     getAdminProduct(id),
     listCategoryOptions(),
     countProductBuyers(id),
     countProductOrders(id),
     getProductLicensePricing(id),
+    listSoftwareTagOptions(),
   ]);
   if (!product) notFound();
 
@@ -108,6 +110,7 @@ export default async function EditProductPage({ params, searchParams }: PageProp
             action={updateProduct.bind(null, product.id)}
             values={toFormValues(product)}
             categories={categories}
+            softwareTags={softwareTags}
             submitLabel="บันทึก"
           />
         </TabsContent>

@@ -162,7 +162,6 @@ model Product {
   publishedAt   DateTime?     @map("published_at") @db.Timestamptz(6)
 
   // Software compatibility
-  software         String? // e.g. "Clip Studio Paint"
   supportedVersion String? @map("supported_version") // e.g. "PRO / EX 2.0+"
   fileFormat       String? @map("file_format") // e.g. ".sut"
   license          String? // e.g. "Personal Use"
@@ -192,6 +191,7 @@ model Product {
   downloads       Download[]
   licensePrices   ProductLicensePrice[]
   licenseRequests LicenseRequest[]
+  softwareTags    ProductSoftwareTag[]
 
   @@index([categoryId])
   @@index([folderId, folderSortOrder])
@@ -200,9 +200,38 @@ model Product {
   // Trigram search. pg_trgm is in the `extensions` schema (on Supabase search_path).
   @@index([nameTH(ops: raw("gin_trgm_ops"))], map: "products_name_th_trgm", type: Gin)
   @@index([nameEN(ops: raw("gin_trgm_ops"))], map: "products_name_en_trgm", type: Gin)
-  @@index([software(ops: raw("gin_trgm_ops"))], map: "products_software_trgm", type: Gin)
   @@index([fileFormat(ops: raw("gin_trgm_ops"))], map: "products_file_format_trgm", type: Gin)
   @@map("products")
+}
+
+/// Canonical software name (e.g. "Procreate"), admin-managed so the shop filter can trust it —
+/// unlike the old free-text field, this can't drift into near-duplicate values.
+model SoftwareTag {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  name      String   @unique
+  isActive  Boolean  @default(true) @map("is_active")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  products ProductSoftwareTag[]
+
+  @@index([isActive, sortOrder])
+  @@map("software_tags")
+}
+
+/// Product ↔ SoftwareTag membership. No extra attributes (unlike license pricing), so a
+/// product's tag list is simply replaced wholesale on save.
+model ProductSoftwareTag {
+  productId     String @map("product_id") @db.Uuid
+  softwareTagId String @map("software_tag_id") @db.Uuid
+
+  product     Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  softwareTag SoftwareTag @relation(fields: [softwareTagId], references: [id], onDelete: Cascade)
+
+  @@id([productId, softwareTagId])
+  @@index([softwareTagId])
+  @@map("product_software_tags")
 }
 
 model ProductImage {

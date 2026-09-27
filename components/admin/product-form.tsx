@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition, type FormEvent } from "react";
 import { Loader2, Wand2 } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { FormSection, SelectInput, TextArea, TextInput, useResultToast } from "@/components/admin/form-controls";
 import { DateTimeInput } from "@/components/admin/date-time-input";
@@ -20,7 +21,7 @@ export type ProductFormValues = {
   discountEndAt: string;
   saleStartAt: string;
   saleEndAt: string;
-  software: string;
+  softwareTagIds: string[];
   supportedVersion: string;
   fileFormat: string;
   license: string;
@@ -47,7 +48,7 @@ export const EMPTY_PRODUCT_VALUES: ProductFormValues = {
   discountEndAt: "",
   saleStartAt: "",
   saleEndAt: "",
-  software: "",
+  softwareTagIds: [],
   supportedVersion: "",
   fileFormat: "",
   license: "",
@@ -76,11 +77,13 @@ export function ProductForm({
   action,
   values,
   categories,
+  softwareTags,
   submitLabel,
 }: {
   action: Action;
   values: ProductFormValues;
   categories: { id: string; nameTH: string; status: string }[];
+  softwareTags: { id: string; name: string; isActive: boolean }[];
   submitLabel: string;
 }) {
   const [state, setState] = useState<ActionResult<unknown> | null>(null);
@@ -175,7 +178,37 @@ export function ProductForm({
 
       <FormSection title="ความเข้ากันได้และลิขสิทธิ์">
         <div className="grid gap-4 md:grid-cols-2">
-          <TextInput label="โปรแกรม" name="software" placeholder="เช่น Procreate, Clip Studio Paint" defaultValue={values.software} error={err("software")} />
+          <div className="space-y-2 md:col-span-2">
+            <span className="text-sm font-medium">โปรแกรม</span>
+            {softwareTags.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                ยังไม่มีรายการโปรแกรม —{" "}
+                <Link href="/admin/products/software-tags" className="underline underline-offset-2">
+                  จัดการโปรแกรม
+                </Link>
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {softwareTags.map((tag) => (
+                  <label
+                    key={tag.id}
+                    className="flex h-9 cursor-pointer items-center gap-2 rounded-full border px-3 text-sm has-checked:border-primary has-checked:bg-secondary/60"
+                  >
+                    <input
+                      type="checkbox"
+                      name="softwareTagIds"
+                      value={tag.id}
+                      defaultChecked={values.softwareTagIds.includes(tag.id)}
+                      className="size-3.5 accent-brand-strong"
+                    />
+                    {tag.name}
+                    {!tag.isActive && <span className="text-xs text-muted-foreground">(ปิดใช้งาน)</span>}
+                  </label>
+                ))}
+              </div>
+            )}
+            {err("softwareTagIds") && <p className="text-sm text-destructive">{err("softwareTagIds")}</p>}
+          </div>
           <TextInput label="เวอร์ชันที่รองรับ" name="supportedVersion" placeholder="เช่น 5.2+" defaultValue={values.supportedVersion} error={err("supportedVersion")} />
           <TextInput label="รูปแบบไฟล์" name="fileFormat" placeholder="เช่น .brushset" defaultValue={values.fileFormat} error={err("fileFormat")} />
           <TextInput label="License" name="license" placeholder="เช่น Personal & Commercial Use" defaultValue={values.license} error={err("license")} />

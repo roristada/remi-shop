@@ -75,7 +75,7 @@ export const productSchema = z
     saleStartAt: optionalDateTime,
     saleEndAt: optionalDateTime,
 
-    software: optionalText(100),
+    softwareTagIds: z.array(z.uuid()).max(50),
     supportedVersion: optionalText(100),
     fileFormat: optionalText(100),
     license: optionalText(200),

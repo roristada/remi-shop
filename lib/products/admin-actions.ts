@@ -23,7 +23,6 @@ const PRODUCT_FIELDS = [
   "discountEndAt",
   "saleStartAt",
   "saleEndAt",
-  "software",
   "supportedVersion",
   "fileFormat",
   "license",
@@ -41,6 +40,7 @@ function parseProductForm(formData: FormData) {
     mode: formString(formData, "downloadLimitMode") || "unlimited",
     custom: formString(formData, "downloadLimitCustom"),
   };
+  raw.softwareTagIds = formData.getAll("softwareTagIds");
   return productSchema.safeParse(raw);
 }
 
@@ -59,7 +59,6 @@ function toProductData(d: ProductInput) {
     discountEndAt: d.discountEndAt,
     saleStartAt: d.saleStartAt,
     saleEndAt: d.saleEndAt,
-    software: d.software,
     supportedVersion: d.supportedVersion,
     fileFormat: d.fileFormat,
     license: d.license,
@@ -95,7 +94,11 @@ export async function createProduct(_prev: ActionResult<unknown> | null, formDat
   let id: string;
   try {
     const product = await prisma.product.create({
-      data: { ...toProductData(parsed.data), publishStatus: "DRAFT" },
+      data: {
+        ...toProductData(parsed.data),
+        publishStatus: "DRAFT",
+        softwareTags: { createMany: { data: parsed.data.softwareTagIds.map((softwareTagId) => ({ softwareTagId })) } },
+      },
       select: { id: true },
     });
     id = product.id;
@@ -118,7 +121,16 @@ export async function updateProduct(productId: string, _prev: ActionResult<unkno
   }
 
   try {
-    await prisma.product.update({ where: { id: productId }, data: toProductData(parsed.data) });
+    await prisma.$transaction([
+      prisma.product.update({ where: { id: productId }, data: toProductData(parsed.data) }),
+      prisma.productSoftwareTag.deleteMany({
+        where: { productId, softwareTagId: { notIn: parsed.data.softwareTagIds } },
+      }),
+      prisma.productSoftwareTag.createMany({
+        data: parsed.data.softwareTagIds.map((softwareTagId) => ({ productId, softwareTagId })),
+        skipDuplicates: true,
+      }),
+    ]);
   } catch (error) {
     return writeError(error, "update");
   }

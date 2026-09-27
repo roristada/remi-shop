@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ImageOff, Plus, Search } from "lucide-react";
+import { ImageOff, MonitorCog, Plus, Search } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/guards";
 import { listAdminProducts, listCategoryOptions } from "@/lib/products/admin-queries";
 import { getProductStatus } from "@/lib/products/status";
@@ -52,11 +52,18 @@ export default async function AdminProductsPage({ searchParams }: PageProps<"/ad
           <h1 className="text-2xl font-bold">สินค้า</h1>
           <p className="text-sm text-muted-foreground">ทั้งหมด {total.toLocaleString("th-TH")} รายการ</p>
         </div>
-        <Button asChild className="h-10 rounded-full px-5">
-          <Link href="/admin/products/new">
-            <Plus aria-hidden /> เพิ่มสินค้า
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" className="h-10 rounded-full px-5">
+            <Link href="/admin/products/software-tags">
+              <MonitorCog aria-hidden /> จัดการโปรแกรม
+            </Link>
+          </Button>
+          <Button asChild className="h-10 rounded-full px-5">
+            <Link href="/admin/products/new">
+              <Plus aria-hidden /> เพิ่มสินค้า
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <form className="flex flex-wrap gap-2 rounded-2xl border bg-card p-3 shadow-soft" role="search">

@@ -3,11 +3,12 @@ import { ChevronLeft } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/guards";
 import { listCategoryOptions } from "@/lib/products/admin-queries";
 import { createProduct } from "@/lib/products/admin-actions";
+import { listSoftwareTagOptions } from "@/lib/software-tags/queries";
 import { EMPTY_PRODUCT_VALUES, ProductForm } from "@/components/admin/product-form";
 
 export default async function NewProductPage() {
   await requireAdmin();
-  const categories = await listCategoryOptions();
+  const [categories, softwareTags] = await Promise.all([listCategoryOptions(), listSoftwareTagOptions()]);
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -20,7 +21,13 @@ export default async function NewProductPage() {
           สินค้าใหม่จะเป็นฉบับร่าง — เพิ่มรูป เวอร์ชัน และไฟล์ได้หลังบันทึก
         </p>
       </div>
-      <ProductForm action={createProduct} values={EMPTY_PRODUCT_VALUES} categories={categories} submitLabel="บันทึกและไปต่อ" />
+      <ProductForm
+        action={createProduct}
+        values={EMPTY_PRODUCT_VALUES}
+        categories={categories}
+        softwareTags={softwareTags}
+        submitLabel="บันทึกและไปต่อ"
+      />
     </div>
   );
 }

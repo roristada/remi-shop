@@ -62,6 +62,7 @@ export function getAdminProduct(id: string) {
     include: {
       category: { select: { id: true, nameTH: true } },
       images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
+      softwareTags: { select: { softwareTagId: true } },
       versions: {
         orderBy: [{ releaseDate: "desc" }, { createdAt: "desc" }],
         include: { files: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } },
