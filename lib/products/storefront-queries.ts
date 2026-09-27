@@ -126,6 +126,32 @@ export async function listNewestProducts(locale: string, take = 8, now: Date = n
   return rows.map((r) => toCard(r, locale, now));
 }
 
+export const WISHLIST_PAGE_SIZE = 12;
+
+/**
+ * A customer's saved products, most recently saved first. A product that's no longer listed
+ * (unpublished, hidden category, sale ended) silently drops off — lower stakes than a cart, so no
+ * "problem" badge, unlike cart lines.
+ */
+export async function listWishlistProducts(userId: string, locale: string, page: number, now: Date = new Date()) {
+  const where: Prisma.WishlistWhereInput = { userId, product: listedProductWhere(now) };
+  const [total, rows] = await prisma.$transaction([
+    prisma.wishlist.count({ where }),
+    prisma.wishlist.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * WISHLIST_PAGE_SIZE,
+      take: WISHLIST_PAGE_SIZE,
+      select: { product: { select: CARD_SELECT } },
+    }),
+  ]);
+  return {
+    items: rows.map((r) => toCard(r.product, locale, now)),
+    total,
+    pageCount: Math.max(1, Math.ceil(total / WISHLIST_PAGE_SIZE)),
+  };
+}
+
 export async function listRelatedProducts(
   categoryId: string,
   excludeId: string,

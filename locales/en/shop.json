@@ -167,5 +167,16 @@
   "rating": {
     "count": "{count, plural, one {# review} other {# reviews}}",
     "none": "No reviews yet"
+  },
+  "wishlist": {
+    "title": "Wishlist",
+    "resultCount": "{count, plural, one {# item} other {# items}}",
+    "empty": "No saved products yet",
+    "emptyHint": "Tap the heart on a product page to save it for later",
+    "add": "Save to wishlist",
+    "remove": "Remove from wishlist",
+    "added": "Saved to your wishlist",
+    "removed": "Removed from your wishlist",
+    "error": "Something went wrong. Please try again"
   }
 }

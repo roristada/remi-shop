@@ -26,6 +26,8 @@ import { ProductGrid } from "@/components/shop/product-grid";
 import { LicenseOfferPanel } from "@/components/shop/license-offer";
 import { getLicenseOffers } from "@/lib/licenses/queries";
 import { StarRating } from "@/components/shop/star-rating";
+import { WishlistButton } from "@/components/shop/wishlist-button";
+import { isWishlisted } from "@/lib/wishlist/queries";
 
 /** Published product in a visible category, or null. */
 async function loadProduct(slug: string): Promise<ShopProduct | null> {
@@ -101,6 +103,7 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
     status === "ACTIVE" ? getLicenseOffers(product.id) : Promise.resolve([]),
   ]);
   const purchaseState = await getPurchaseState(user?.id ?? null, product.id, now);
+  const wishlisted = user ? await isWishlisted(user.id, product.id) : false;
 
   const details = [
     { label: t("software"), value: product.softwareTags.map((st) => st.softwareTag.name).join(", ") || null },
@@ -177,7 +180,10 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
             >
               {categoryName}
             </Link>
-            <h1 className="font-sans text-2xl leading-snug font-semibold text-balance sm:text-[2rem]">{name}</h1>
+            <div className="flex items-start justify-between gap-3">
+              <h1 className="font-sans text-2xl leading-snug font-semibold text-balance sm:text-[2rem]">{name}</h1>
+              <WishlistButton productId={product.id} productSlug={product.slug} initialWishlisted={wishlisted} />
+            </div>
             {/* No review system yet — same honest empty state as the product card. */}
             <StarRating average={0} count={0} />
           </div>
