@@ -25,6 +25,7 @@ import { VersionHistory } from "@/components/shop/version-history";
 import { ProductGrid } from "@/components/shop/product-grid";
 import { LicenseOfferPanel } from "@/components/shop/license-offer";
 import { getLicenseOffers } from "@/lib/licenses/queries";
+import { StarRating } from "@/components/shop/star-rating";
 
 /** Published product in a visible category, or null. */
 async function loadProduct(slug: string): Promise<ShopProduct | null> {
@@ -177,6 +178,8 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
               {categoryName}
             </Link>
             <h1 className="font-sans text-2xl leading-snug font-semibold text-balance sm:text-[2rem]">{name}</h1>
+            {/* No review system yet — same honest empty state as the product card. */}
+            <StarRating average={0} count={0} />
           </div>
 
           <PurchasePanel
