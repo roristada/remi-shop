@@ -17,8 +17,6 @@
     "label": "Product filters",
     "search": "Search",
     "searchPlaceholder": "Search products, software, file types...",
-    "category": "Category",
-    "allCategories": "All categories",
     "sort": "Sort by",
     "sortNewest": "Newest",
     "sortPriceAsc": "Price: low to high",
@@ -26,7 +24,15 @@
     "sortName": "Name (A–Z)",
     "onSale": "On sale only",
     "apply": "Search",
-    "clear": "Clear filters"
+    "clear": "Clear filters",
+    "sidebarLabel": "More filters",
+    "fileType": "File type",
+    "softwareTitle": "Software",
+    "priceTitle": "Price range",
+    "priceAll": "All",
+    "priceUnder": "Under {amount}",
+    "priceBetween": "{min} – {max}",
+    "priceOver": "Over {amount}"
   },
   "empty": {
     "title": "No products found",

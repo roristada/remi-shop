@@ -6,26 +6,32 @@ import { SelectInput } from "@/components/admin/form-controls";
 import { Link } from "@/i18n/navigation";
 import type { ShopFilters } from "@/lib/products/storefront";
 
-// Fails the slug check in parseShopFilters(), i.e. "no category filter".
-const ALL_CATEGORIES = "_all";
-
 type Props = {
   filters: ShopFilters;
   /** Locale-less path the form submits to, e.g. "/shop" or "/category/brushes". */
   action: string;
-  /** Omit on category pages, where the category is fixed by the URL. */
-  categories?: { slug: string; name: string }[];
   /** Extra params the form must keep on submit (e.g. `view=all`, the folder filter). */
   hiddenFields?: Record<string, string | undefined>;
   /** Where "clear filters" goes. Defaults to `action`. */
   clearHref?: string;
 };
 
-/** Plain GET form: works without JavaScript and keeps filters in the URL. */
-export function ShopFilterForm({ filters, action, categories, hiddenFields, clearHref = action }: Props) {
+/**
+ * Plain GET form: works without JavaScript and keeps filters in the URL. File type, software and
+ * price live in `ShopSidebarFilters` instead — this bar only carries search/sort/on-sale.
+ */
+export function ShopFilterForm({ filters, action, hiddenFields, clearHref = action }: Props) {
   const t = useTranslations("shop.filters");
   const locale = useLocale();
-  const hasFilters = Boolean(filters.q || filters.category || filters.folder || filters.sale || filters.sort !== "newest");
+  const hasFilters = Boolean(
+    filters.q ||
+      filters.category.length > 0 ||
+      filters.folder ||
+      filters.software.length > 0 ||
+      filters.price ||
+      filters.sale ||
+      filters.sort !== "newest",
+  );
 
   return (
     <form
@@ -49,20 +55,6 @@ export function ShopFilterForm({ filters, action, categories, hiddenFields, clea
           className="h-10 rounded-xl border-transparent bg-background pl-9"
         />
       </label>
-      {categories && (
-        <SelectInput
-          label={t("category")}
-          hideLabel
-          name="category"
-          defaultValue={filters.category ?? ALL_CATEGORIES}
-          options={[
-            { value: ALL_CATEGORIES, label: t("allCategories") },
-            ...categories.map((c) => ({ value: c.slug, label: c.name })),
-          ]}
-          wrapperClassName="min-w-40 flex-1 space-y-0"
-          className="border-transparent bg-background"
-        />
-      )}
       <SelectInput
         label={t("sort")}
         hideLabel

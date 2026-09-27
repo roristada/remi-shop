@@ -8,10 +8,14 @@ import { getProductStatus, type ProductStatus } from "@/lib/products/status";
 import { previewImageUrl } from "@/lib/storage/public-url";
 import {
   activeDiscountWhere,
+  facetBaseWhere,
   listedProductWhere,
+  PRICE_BUCKETS,
+  priceBucketWhere,
   SHOP_PAGE_SIZE,
   shopOrderBy,
   shopSearchWhere,
+  type PriceBucketKey,
   type ShopFilters,
 } from "@/lib/products/storefront";
 
@@ -29,7 +33,10 @@ const CARD_SELECT = {
   publishStatus: true,
   saleStartAt: true,
   saleEndAt: true,
-  software: true,
+  softwareTags: {
+    select: { softwareTag: { select: { name: true } } },
+    orderBy: { softwareTag: { sortOrder: "asc" } },
+  },
   category: { select: { slug: true, nameTH: true, nameEN: true } },
   images: {
     orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
@@ -45,7 +52,7 @@ export type ProductCardData = {
   slug: string;
   name: string;
   categoryName: string;
-  software: string | null;
+  softwareTags: string[];
   image: { url: string; alt: string } | null;
   price: ProductPrice;
   status: ProductStatus;
@@ -59,7 +66,7 @@ function toCard(row: CardRow, locale: string, now: Date): ProductCardData {
     slug: row.slug,
     name,
     categoryName: localized(locale, row.category.nameTH, row.category.nameEN),
-    software: row.software,
+    softwareTags: row.softwareTags.map((t) => t.softwareTag.name),
     image: image
       ? { url: previewImageUrl(image.imagePath), alt: localized(locale, image.altTextTH, image.altTextEN) || name }
       : null,
@@ -74,8 +81,19 @@ export async function listShopProducts(
   now: Date = new Date(),
 ) {
   const and: Prisma.ProductWhereInput[] = [listedProductWhere(now)];
-  if (filters.categoryId) and.push({ categoryId: filters.categoryId });
+  // A fixed route category (category/folder page) wins over the sidebar's multi-select.
+  if (filters.categoryId) {
+    and.push({ categoryId: filters.categoryId });
+  } else if (filters.category.length > 0) {
+    const matched = await prisma.category.findMany({
+      where: { slug: { in: filters.category }, status: "ACTIVE" },
+      select: { id: true },
+    });
+    and.push({ categoryId: { in: matched.map((c) => c.id) } });
+  }
   if (filters.folderId) and.push({ folderId: filters.folderId });
+  if (filters.software.length > 0) and.push({ softwareTags: { some: { softwareTagId: { in: filters.software } } } });
+  if (filters.price) and.push(priceBucketWhere(filters.price));
   if (filters.q) and.push(shopSearchWhere(filters.q));
   if (filters.sale) and.push(activeDiscountWhere(now));
   const where: Prisma.ProductWhereInput = { AND: and };
@@ -140,8 +158,12 @@ export function getActiveAnnouncement(now: Date = new Date()) {
   });
 }
 
-/** Visible categories with the number of currently listed products. */
-export function listShopCategories(now: Date = new Date()) {
+/**
+ * Visible categories with a product count. `facetFilters` folds in search/on-sale so the
+ * sidebar's counts stay honest under those, independent of the other facet groups — see
+ * `facetBaseWhere`.
+ */
+export function listShopCategories(now: Date = new Date(), facetFilters: { q?: string; sale: boolean } = { sale: false }) {
   return prisma.category.findMany({
     where: { status: "ACTIVE" },
     orderBy: [{ sortOrder: "asc" }, { nameTH: "asc" }],
@@ -152,9 +174,21 @@ export function listShopCategories(now: Date = new Date()) {
       nameEN: true,
       descriptionTH: true,
       descriptionEN: true,
-      _count: { select: { products: { where: listedProductWhere(now) } } },
+      _count: { select: { products: { where: facetBaseWhere(now, facetFilters) } } },
     },
   });
+}
+
+/** Price-bucket counts for the sidebar, under the same independent-facet rule as categories. */
+export async function listPriceBucketCounts(
+  now: Date,
+  facetFilters: { q?: string; sale: boolean },
+): Promise<{ key: PriceBucketKey; count: number }[]> {
+  const base = facetBaseWhere(now, facetFilters);
+  const counts = await Promise.all(
+    PRICE_BUCKETS.map((b) => prisma.product.count({ where: { AND: [base, priceBucketWhere(b.key)] } })),
+  );
+  return PRICE_BUCKETS.map((b, i) => ({ key: b.key, count: counts[i] }));
 }
 
 export const getShopCategory = cache((slug: string) =>
@@ -253,7 +287,10 @@ export const getShopProduct = cache((slug: string) =>
       publishStatus: true,
       saleStartAt: true,
       saleEndAt: true,
-      software: true,
+      softwareTags: {
+        select: { softwareTag: { select: { name: true } } },
+        orderBy: { softwareTag: { sortOrder: "asc" } },
+      },
       supportedVersion: true,
       fileFormat: true,
       license: true,

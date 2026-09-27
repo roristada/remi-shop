@@ -103,7 +103,7 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
   const purchaseState = await getPurchaseState(user?.id ?? null, product.id, now);
 
   const details = [
-    { label: t("software"), value: product.software },
+    { label: t("software"), value: product.softwareTags.map((st) => st.softwareTag.name).join(", ") || null },
     { label: t("supportedVersion"), value: product.supportedVersion },
     { label: t("fileFormat"), value: product.fileFormat },
     { label: t("license"), value: product.license },

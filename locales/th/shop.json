@@ -17,8 +17,6 @@
     "label": "ตัวกรองสินค้า",
     "search": "ค้นหา",
     "searchPlaceholder": "ค้นหาชื่อสินค้า, โปรแกรม, นามสกุลไฟล์...",
-    "category": "หมวดหมู่",
-    "allCategories": "ทุกหมวดหมู่",
     "sort": "เรียงตาม",
     "sortNewest": "มาใหม่",
     "sortPriceAsc": "ราคา: ต่ำไปสูง",
@@ -26,7 +24,15 @@
     "sortName": "ชื่อ (ก–ฮ)",
     "onSale": "เฉพาะสินค้าลดราคา",
     "apply": "ค้นหา",
-    "clear": "ล้างตัวกรอง"
+    "clear": "ล้างตัวกรอง",
+    "sidebarLabel": "ตัวกรองเพิ่มเติม",
+    "fileType": "ประเภทไฟล์",
+    "softwareTitle": "โปรแกรม",
+    "priceTitle": "ช่วงราคา",
+    "priceAll": "ทั้งหมด",
+    "priceUnder": "ต่ำกว่า {amount}",
+    "priceBetween": "{min} – {max}",
+    "priceOver": "มากกว่า {amount}"
   },
   "empty": {
     "title": "ไม่พบสินค้า",

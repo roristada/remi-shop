@@ -35,7 +35,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps<"
 
   const [t, tNav] = await Promise.all([getTranslations("shop.shop"), getTranslations("common.nav")]);
   // The category comes from the URL, not the query string.
-  const filters = { ...parseShopFilters(await searchParams), category: undefined };
+  const filters = { ...parseShopFilters(await searchParams), category: [] };
   const { items, total, pageCount } = await listShopProducts({ ...filters, categoryId: category.id }, locale);
   const path = `/category/${category.slug}`;
   const description = localized(locale, category.descriptionTH, category.descriptionEN);

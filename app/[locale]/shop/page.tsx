@@ -4,16 +4,18 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { localized } from "@/i18n/localize";
 import { hasShopFilters, parseShopFilters, shopFilterParams, type ShopFilters } from "@/lib/products/storefront";
 import {
-  getShopCategory,
   getShopFolder,
+  listPriceBucketCounts,
   listShopCategories,
   listShopFolderSections,
   listShopFolders,
   listShopProducts,
 } from "@/lib/products/storefront-queries";
+import { listActiveSoftwareTags } from "@/lib/software-tags/queries";
 import { PageHeading } from "@/components/shop/page-heading";
 import { ProductGrid } from "@/components/shop/product-grid";
 import { ShopFilterForm } from "@/components/shop/shop-filters";
+import { ShopSidebarFilters } from "@/components/shop/shop-sidebar-filters";
 import { ShopPagination } from "@/components/shop/shop-pagination";
 import { FolderSection } from "@/components/shop/folder-section";
 import { ShopViewNav } from "@/components/shop/shop-view-nav";
@@ -47,12 +49,9 @@ export default async function ShopPage({ params, searchParams }: PageProps<"/[lo
   const sp = await searchParams;
 
   const parsed = parseShopFilters(sp);
-  const [category, folder] = await Promise.all([
-    parsed.category ? getShopCategory(parsed.category) : null,
-    parsed.folder ? getShopFolder(parsed.folder) : null,
-  ]);
-  // Unknown category/folder slugs are ignored rather than returning an empty page.
-  const filters: ShopFilters = { ...parsed, category: category?.slug, folder: folder?.slug };
+  const folder = parsed.folder ? await getShopFolder(parsed.folder) : null;
+  // An unknown folder slug is ignored rather than returning an empty page.
+  const filters: ShopFilters = { ...parsed, folder: folder?.slug };
 
   if (!wantsAllView(sp) && !hasShopFilters(filters)) {
     const sections = await listShopFolderSections(locale, now);
@@ -65,7 +64,7 @@ export default async function ShopPage({ params, searchParams }: PageProps<"/[lo
             view="folders"
             folders={sections.map((s) => ({ slug: s.slug, name: s.name ?? "" }))}
           />
-          <FilterForm locale={locale} filters={filters} view="folders" now={now} />
+          <ShopFilterForm filters={filters} action="/shop" />
           <div className="space-y-12">
             {sections.map((s, i) => (
               <FolderSection key={s.slug ?? "unfiled"} section={s} priority={i === 0} />
@@ -76,11 +75,16 @@ export default async function ShopPage({ params, searchParams }: PageProps<"/[lo
     }
   }
 
-  const [{ items, total, pageCount }, folders] = await Promise.all([
-    listShopProducts({ ...filters, categoryId: category?.id, folderId: folder?.id }, locale, now),
+  const facetFilters = { q: filters.q, sale: filters.sale };
+  const [{ items, total, pageCount }, folders, categories, softwareTags, priceCounts] = await Promise.all([
+    listShopProducts({ ...filters, folderId: folder?.id }, locale, now),
     listShopFolders(now),
+    listShopCategories(now, facetFilters),
+    listActiveSoftwareTags(now, facetFilters),
+    listPriceBucketCounts(now, facetFilters),
   ]);
   const folderName = folder ? localized(locale, folder.nameTH, folder.nameEN) : null;
+  const sidebarHidden = { q: filters.q, sort: filters.sort === "newest" ? undefined : filters.sort, sale: filters.sale ? "1" : undefined, view: "all", folder: filters.folder };
 
   return (
     <ShopShell
@@ -94,16 +98,38 @@ export default async function ShopPage({ params, searchParams }: PageProps<"/[lo
           folders={folders.map((f) => ({ slug: f.slug, name: localized(locale, f.nameTH, f.nameEN) }))}
         />
       )}
-      <FilterForm locale={locale} filters={filters} view="all" now={now} />
-      {/* Keeps the outline h1 → h2 → card h3 in the flat grid (folder view has section h2s). */}
-      <h2 className="sr-only">{t("products")}</h2>
-      <ProductGrid products={items} filtered={Boolean(filters.q || filters.category || filters.folder || filters.sale)} />
-      <ShopPagination
-        page={filters.page}
-        pageCount={pageCount}
-        params={{ ...shopFilterParams(filters), view: "all" }}
-        path="/shop"
+      <ShopFilterForm
+        filters={filters}
+        action="/shop"
+        // Submitting from the folder view applies filters, which switches to the grid anyway.
+        hiddenFields={{ view: "all", folder: filters.folder }}
+        clearHref="/shop?view=all"
       />
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        <ShopSidebarFilters
+          filters={filters}
+          action="/shop"
+          hiddenFields={sidebarHidden}
+          clearHref="/shop?view=all"
+          categories={categories.map((c) => ({ slug: c.slug, name: localized(locale, c.nameTH, c.nameEN), count: c._count.products }))}
+          softwareTags={softwareTags.map((s) => ({ id: s.id, name: s.name, count: s._count.products }))}
+          priceCounts={priceCounts}
+        />
+        <div className="min-w-0 flex-1 space-y-6">
+          {/* Keeps the outline h1 → h2 → card h3 in the flat grid (folder view has section h2s). */}
+          <h2 className="sr-only">{t("products")}</h2>
+          <ProductGrid
+            products={items}
+            filtered={Boolean(filters.q || filters.category.length > 0 || filters.folder || filters.software.length > 0 || filters.price || filters.sale)}
+          />
+          <ShopPagination
+            page={filters.page}
+            pageCount={pageCount}
+            params={{ ...shopFilterParams(filters), view: "all" }}
+            path="/shop"
+          />
+        </div>
+      </div>
     </ShopShell>
   );
 }
@@ -114,29 +140,5 @@ function ShopShell({ title, subtitle, children }: { title: string; subtitle: str
       <PageHeading title={title} subtitle={subtitle} />
       {children}
     </div>
-  );
-}
-
-async function FilterForm({
-  locale,
-  filters,
-  view,
-  now,
-}: {
-  locale: string;
-  filters: ShopFilters;
-  view: "folders" | "all";
-  now: Date;
-}) {
-  const categories = await listShopCategories(now);
-  return (
-    <ShopFilterForm
-      filters={filters}
-      action="/shop"
-      categories={categories.map((c) => ({ slug: c.slug, name: localized(locale, c.nameTH, c.nameEN) }))}
-      // Submitting from the folder view applies filters, which switches to the grid anyway.
-      hiddenFields={view === "all" ? { view: "all", folder: filters.folder } : undefined}
-      clearHref={view === "all" ? "/shop?view=all" : "/shop"}
-    />
   );
 }

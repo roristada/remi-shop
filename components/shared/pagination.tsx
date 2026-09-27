@@ -20,8 +20,8 @@ const THAI_LABELS: PaginationLabels = {
 type Props = {
   page: number;
   pageCount: number;
-  /** Current query params; `page` is replaced. */
-  params: Record<string, string | undefined>;
+  /** Current query params; `page` is replaced. A string[] repeats the key (multi-select filters). */
+  params: Record<string, string | string[] | undefined>;
   /** Full path including any locale prefix. */
   basePath: string;
   labels?: PaginationLabels;
@@ -30,7 +30,11 @@ type Props = {
 
 function href(basePath: string, params: Props["params"], page: number) {
   const search = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) if (v && k !== "page") search.set(k, v);
+  for (const [k, v] of Object.entries(params)) {
+    if (!v || k === "page") continue;
+    if (Array.isArray(v)) for (const item of v) search.append(k, item);
+    else search.set(k, v);
+  }
   if (page > 1) search.set("page", String(page));
   const qs = search.toString();
   return qs ? `${basePath}?${qs}` : basePath;

@@ -4,7 +4,7 @@ import { Pagination } from "@/components/shared/pagination";
 type Props = {
   page: number;
   pageCount: number;
-  params: Record<string, string | undefined>;
+  params: Record<string, string | string[] | undefined>;
   /** Locale-less path, e.g. "/shop". */
   path: string;
 };
