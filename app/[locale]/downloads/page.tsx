@@ -10,6 +10,7 @@ import { previewImageUrl } from "@/lib/storage/public-url";
 import { PageHeading } from "@/components/shop/page-heading";
 import { ShopPagination } from "@/components/shop/shop-pagination";
 import { FormMessage } from "@/components/auth/form-fields";
+import { Badge } from "@/components/ui/badge";
 
 function formatSize(bytes: number, locale: string) {
   const nf = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
@@ -95,13 +96,9 @@ async function OwnedProductCard({ product: p, locale }: { product: OwnedProduct;
           <div key={v.id} className="space-y-1.5">
             <p className="flex items-center gap-2 text-sm font-medium">
               {t("version", { version: v.versionNumber })}
-              {v.isLatest && (
-                <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-normal text-secondary-foreground">
-                  {t("latest")}
-                </span>
-              )}
+              {v.isLatest && <Badge variant="secondary">{t("latest")}</Badge>}
             </p>
-            <ul className="divide-y divide-foreground/10 rounded-2xl bg-secondary/35">
+            <ul className="divide-y divide-foreground/10">
               {v.files.map((f) => {
                 const remaining = p.downloadLimit === null ? null : Math.max(0, p.downloadLimit - f.downloadCount);
                 const blocked = remaining === 0;
