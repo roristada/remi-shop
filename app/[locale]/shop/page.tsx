@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { localized } from "@/i18n/localize";
+import { getCurrentUser } from "@/lib/auth/guards";
 import { hasShopFilters, parseShopFilters, shopFilterParams, type ShopFilters } from "@/lib/products/storefront";
 import {
   getShopFolder,
@@ -49,12 +50,16 @@ export default async function ShopPage({ params, searchParams }: PageProps<"/[lo
   const sp = await searchParams;
 
   const parsed = parseShopFilters(sp);
-  const folder = parsed.folder ? await getShopFolder(parsed.folder) : null;
+  const [folder, user] = await Promise.all([
+    parsed.folder ? getShopFolder(parsed.folder) : Promise.resolve(null),
+    getCurrentUser(),
+  ]);
   // An unknown folder slug is ignored rather than returning an empty page.
   const filters: ShopFilters = { ...parsed, folder: folder?.slug };
+  const userId = user?.id ?? null;
 
   if (!wantsAllView(sp) && !hasShopFilters(filters)) {
-    const sections = await listShopFolderSections(locale, now);
+    const sections = await listShopFolderSections(locale, now, userId);
     // Folder view only makes sense once at least one folder lists products.
     if (sections.some((s) => s.slug !== null)) {
       const total = sections.reduce((sum, s) => sum + s.total, 0);
@@ -77,7 +82,7 @@ export default async function ShopPage({ params, searchParams }: PageProps<"/[lo
 
   const facetFilters = { q: filters.q, sale: filters.sale };
   const [{ items, total, pageCount }, folders, categories, softwareTags, priceCounts] = await Promise.all([
-    listShopProducts({ ...filters, folderId: folder?.id }, locale, now),
+    listShopProducts({ ...filters, folderId: folder?.id }, locale, now, userId),
     listShopFolders(now),
     listShopCategories(now, facetFilters),
     listActiveSoftwareTags(now, facetFilters),

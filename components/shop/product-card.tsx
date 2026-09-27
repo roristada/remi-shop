@@ -6,6 +6,7 @@ import { ProductPrice } from "./product-price";
 import { DiscountBadge } from "./discount-badge";
 import { ProductStatusTag } from "./product-status-tag";
 import { StarRating } from "./star-rating";
+import { WishlistButton } from "./wishlist-button";
 
 /** Gallery-style tile: the preview image is the card; text sits below it without a frame. */
 export function ProductCard({ product, priority = false }: { product: ProductCardData; priority?: boolean }) {
@@ -28,6 +29,16 @@ export function ProductCard({ product, priority = false }: { product: ProductCar
         <div className="absolute top-2.5 left-2.5 flex flex-wrap gap-1">
           {price.isDiscounted && <DiscountBadge percent={price.discountPercent} />}
           <ProductStatusTag status={product.status} />
+        </div>
+        {/* Stacks above the card's stretched Link (later in the DOM) so the heart stays clickable. */}
+        <div className="absolute top-2 right-2 z-10">
+          <WishlistButton
+            productId={product.id}
+            productSlug={product.slug}
+            initialWishlisted={product.wishlisted}
+            size="icon-lg"
+            className="bg-background/80 backdrop-blur-sm hover:bg-background"
+          />
         </div>
       </div>
       <div className="flex flex-1 flex-col gap-1 px-0.5">

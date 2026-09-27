@@ -7,15 +7,18 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "@/i18n/navigation";
 import { toggleWishlist } from "@/lib/wishlist/actions";
+import { cn } from "@/lib/utils";
 
 type Props = {
   productId: string;
   productSlug: string;
   initialWishlisted: boolean;
+  size?: "icon-lg" | "icon-xl";
+  className?: string;
 };
 
 /** Heart toggle. The server re-checks the session on every click, same as add-to-cart. */
-export function WishlistButton({ productId, productSlug, initialWishlisted }: Props) {
+export function WishlistButton({ productId, productSlug, initialWishlisted, size = "icon-xl", className }: Props) {
   const t = useTranslations("shop.wishlist");
   const locale = useLocale();
   const router = useRouter();
@@ -42,12 +45,12 @@ export function WishlistButton({ productId, productSlug, initialWishlisted }: Pr
     <Button
       type="button"
       variant="outline"
-      size="icon-xl"
+      size={size}
       onClick={onToggle}
       disabled={pending}
       aria-pressed={wishlisted}
       aria-label={wishlisted ? t("remove") : t("add")}
-      className="shrink-0 rounded-full"
+      className={cn("shrink-0 rounded-full", className)}
     >
       {pending ? (
         <Loader2 className="animate-spin" aria-hidden />

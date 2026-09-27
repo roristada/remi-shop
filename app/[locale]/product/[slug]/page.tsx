@@ -96,14 +96,15 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
     alt: localized(locale, img.altTextTH, img.altTextEN) || name,
   }));
 
-  const [related, user, licenseOffers] = await Promise.all([
-    listRelatedProducts(product.categoryId, product.id, locale, now),
-    getCurrentUser(),
+  const user = await getCurrentUser();
+  const userId = user?.id ?? null;
+  const [related, licenseOffers] = await Promise.all([
+    listRelatedProducts(product.categoryId, product.id, locale, now, 4, userId),
     // A license can be requested only while the product is on sale.
     status === "ACTIVE" ? getLicenseOffers(product.id) : Promise.resolve([]),
   ]);
-  const purchaseState = await getPurchaseState(user?.id ?? null, product.id, now);
-  const wishlisted = user ? await isWishlisted(user.id, product.id) : false;
+  const purchaseState = await getPurchaseState(userId, product.id, now);
+  const wishlisted = userId ? await isWishlisted(userId, product.id) : false;
 
   const details = [
     { label: t("software"), value: product.softwareTags.map((st) => st.softwareTag.name).join(", ") || null },

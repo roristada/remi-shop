@@ -2,6 +2,7 @@ import { connection } from "next/server";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { localized } from "@/i18n/localize";
+import { getCurrentUser } from "@/lib/auth/guards";
 import { Button } from "@/components/ui/button";
 import { ProductGrid } from "@/components/shop/product-grid";
 import { SwatchStack } from "@/components/shop/swatch-stack";
@@ -14,9 +15,10 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
   setRequestLocale(locale);
   await connection(); // Prices and sale state depend on the current time.
   const now = new Date();
+  const user = await getCurrentUser();
   const [t, products, categories, announcement] = await Promise.all([
     getTranslations("home"),
-    listNewestProducts(locale, 8, now),
+    listNewestProducts(locale, 8, now, user?.id ?? null),
     listShopCategories(now),
     getActiveAnnouncement(now),
   ]);

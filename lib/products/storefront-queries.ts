@@ -21,31 +21,41 @@ import {
 
 // Storefront reads only. Never select storage paths of digital files here.
 
-const CARD_SELECT = {
-  id: true,
-  slug: true,
-  nameTH: true,
-  nameEN: true,
-  price: true,
-  discountPercent: true,
-  discountStartAt: true,
-  discountEndAt: true,
-  publishStatus: true,
-  saleStartAt: true,
-  saleEndAt: true,
-  softwareTags: {
-    select: { softwareTag: { select: { name: true } } },
-    orderBy: { softwareTag: { sortOrder: "asc" } },
-  },
-  category: { select: { slug: true, nameTH: true, nameEN: true } },
-  images: {
-    orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
-    take: 1,
-    select: { imagePath: true, altTextTH: true, altTextEN: true },
-  },
-} satisfies Prisma.ProductSelect;
+/** Never a real user id (Supabase Auth never issues the nil UUID) — a guest-safe "matches nothing". */
+const NO_USER = "00000000-0000-0000-0000-000000000000";
 
-type CardRow = Prisma.ProductGetPayload<{ select: typeof CARD_SELECT }>;
+/**
+ * `userId` folds in this viewer's wishlist membership in the same query (the nil-UUID sentinel
+ * for guests matches no row, so the shape stays identical either way).
+ */
+function cardSelect(userId: string | null) {
+  return {
+    id: true,
+    slug: true,
+    nameTH: true,
+    nameEN: true,
+    price: true,
+    discountPercent: true,
+    discountStartAt: true,
+    discountEndAt: true,
+    publishStatus: true,
+    saleStartAt: true,
+    saleEndAt: true,
+    softwareTags: {
+      select: { softwareTag: { select: { name: true } } },
+      orderBy: { softwareTag: { sortOrder: "asc" } },
+    },
+    category: { select: { slug: true, nameTH: true, nameEN: true } },
+    images: {
+      orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
+      take: 1,
+      select: { imagePath: true, altTextTH: true, altTextEN: true },
+    },
+    wishlist: { where: { userId: userId ?? NO_USER }, select: { userId: true }, take: 1 },
+  } satisfies Prisma.ProductSelect;
+}
+
+type CardRow = Prisma.ProductGetPayload<{ select: ReturnType<typeof cardSelect> }>;
 
 export type ProductCardData = {
   id: string;
@@ -56,6 +66,7 @@ export type ProductCardData = {
   image: { url: string; alt: string } | null;
   price: ProductPrice;
   status: ProductStatus;
+  wishlisted: boolean;
 };
 
 function toCard(row: CardRow, locale: string, now: Date): ProductCardData {
@@ -72,6 +83,7 @@ function toCard(row: CardRow, locale: string, now: Date): ProductCardData {
       : null,
     price: calculateProductPrice(row, now),
     status: getProductStatus(row, now),
+    wishlisted: row.wishlist.length > 0,
   };
 }
 
@@ -79,6 +91,7 @@ export async function listShopProducts(
   filters: ShopFilters & { categoryId?: string; folderId?: string },
   locale: string,
   now: Date = new Date(),
+  userId: string | null = null,
 ) {
   const and: Prisma.ProductWhereInput[] = [listedProductWhere(now)];
   // A fixed route category (category/folder page) wins over the sidebar's multi-select.
@@ -105,7 +118,7 @@ export async function listShopProducts(
       orderBy: shopOrderBy(filters.sort, locale),
       skip: (filters.page - 1) * SHOP_PAGE_SIZE,
       take: SHOP_PAGE_SIZE,
-      select: CARD_SELECT,
+      select: cardSelect(userId),
     }),
   ]);
 
@@ -116,12 +129,12 @@ export async function listShopProducts(
   };
 }
 
-export async function listNewestProducts(locale: string, take = 8, now: Date = new Date()) {
+export async function listNewestProducts(locale: string, take = 8, now: Date = new Date(), userId: string | null = null) {
   const rows = await prisma.product.findMany({
     where: listedProductWhere(now),
     orderBy: shopOrderBy("newest", locale),
     take,
-    select: CARD_SELECT,
+    select: cardSelect(userId),
   });
   return rows.map((r) => toCard(r, locale, now));
 }
@@ -142,7 +155,7 @@ export async function listWishlistProducts(userId: string, locale: string, page:
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * WISHLIST_PAGE_SIZE,
       take: WISHLIST_PAGE_SIZE,
-      select: { product: { select: CARD_SELECT } },
+      select: { product: { select: cardSelect(userId) } },
     }),
   ]);
   return {
@@ -158,12 +171,13 @@ export async function listRelatedProducts(
   locale: string,
   now: Date = new Date(),
   take = 4,
+  userId: string | null = null,
 ) {
   const rows = await prisma.product.findMany({
     where: { AND: [listedProductWhere(now), { categoryId, id: { not: excludeId } }] },
     orderBy: shopOrderBy("newest", locale),
     take,
-    select: CARD_SELECT,
+    select: cardSelect(userId),
   });
   return rows.map((r) => toCard(r, locale, now));
 }
@@ -259,7 +273,11 @@ export type FolderSection = {
  * in admin drag order, then unfiled products. Empty sections are dropped. Products in archived
  * folders appear only in the flat "All" view.
  */
-export async function listShopFolderSections(locale: string, now: Date = new Date()): Promise<FolderSection[]> {
+export async function listShopFolderSections(
+  locale: string,
+  now: Date = new Date(),
+  userId: string | null = null,
+): Promise<FolderSection[]> {
   const listed = listedProductWhere(now);
   const [folders, unfiledTotal, unfiled] = await prisma.$transaction([
     prisma.folder.findMany({
@@ -270,7 +288,7 @@ export async function listShopFolderSections(locale: string, now: Date = new Dat
         nameTH: true,
         nameEN: true,
         _count: { select: { products: { where: listed } } },
-        products: { where: listed, orderBy: FOLDER_ORDER, take: FOLDER_SECTION_SIZE, select: CARD_SELECT },
+        products: { where: listed, orderBy: FOLDER_ORDER, take: FOLDER_SECTION_SIZE, select: cardSelect(userId) },
       },
     }),
     prisma.product.count({ where: { AND: [listed, { folderId: null }] } }),
@@ -278,7 +296,7 @@ export async function listShopFolderSections(locale: string, now: Date = new Dat
       where: { AND: [listed, { folderId: null }] },
       orderBy: shopOrderBy("newest", locale),
       take: FOLDER_SECTION_SIZE,
-      select: CARD_SELECT,
+      select: cardSelect(userId),
     }),
   ]);
 

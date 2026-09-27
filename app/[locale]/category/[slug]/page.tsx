@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { localized } from "@/i18n/localize";
+import { getCurrentUser } from "@/lib/auth/guards";
 import { parseShopFilters, shopFilterParams } from "@/lib/products/storefront";
 import { getShopCategory, listShopProducts } from "@/lib/products/storefront-queries";
 import { PageHeading } from "@/components/shop/page-heading";
@@ -33,10 +34,19 @@ export default async function CategoryPage({ params, searchParams }: PageProps<"
   const category = await getShopCategory(slug);
   if (!category) notFound();
 
-  const [t, tNav] = await Promise.all([getTranslations("shop.shop"), getTranslations("common.nav")]);
+  const [t, tNav, user] = await Promise.all([
+    getTranslations("shop.shop"),
+    getTranslations("common.nav"),
+    getCurrentUser(),
+  ]);
   // The category comes from the URL, not the query string.
   const filters = { ...parseShopFilters(await searchParams), category: [] };
-  const { items, total, pageCount } = await listShopProducts({ ...filters, categoryId: category.id }, locale);
+  const { items, total, pageCount } = await listShopProducts(
+    { ...filters, categoryId: category.id },
+    locale,
+    new Date(),
+    user?.id ?? null,
+  );
   const path = `/category/${category.slug}`;
   const description = localized(locale, category.descriptionTH, category.descriptionEN);
 
