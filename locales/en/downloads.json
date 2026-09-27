@@ -1,0 +1,18 @@
+{
+  "title": "Downloads",
+  "resultCount": "{count, plural, one {# item} other {# items}}",
+  "empty": "No files to download yet",
+  "emptyHint": "Buy a product and wait for the admin to confirm payment — files will appear here",
+  "latest": "Latest",
+  "version": "Version {version}",
+  "download": "Download",
+  "unlimitedRemaining": "Unlimited downloads",
+  "remaining": "{count} left",
+  "limitReached": "You've reached the download limit for this file",
+  "errors": {
+    "not_found": "This file could not be found",
+    "forbidden": "You don't have permission to download this file",
+    "limit_reached": "You've reached the download limit for this file",
+    "error": "Something went wrong. Please try again"
+  }
+}
