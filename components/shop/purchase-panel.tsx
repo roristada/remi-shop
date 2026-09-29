@@ -45,10 +45,19 @@ export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now, prod
       )}
 
       {status === "SCHEDULED" && saleStartAt && (
-        <p className="flex items-center gap-2 rounded-xl bg-secondary px-3 py-2 text-sm">
-          <CalendarClock className="size-4 shrink-0" aria-hidden />
-          {t("opensAt", { date: formatBangkokDateTime(saleStartAt, dateLocale) })}
-        </p>
+        <div className="space-y-2">
+          <p className="flex items-center gap-2 rounded-xl bg-secondary px-3 py-2 text-sm">
+            <CalendarClock className="size-4 shrink-0" aria-hidden />
+            {t("opensAt", { date: formatBangkokDateTime(saleStartAt, dateLocale) })}
+          </p>
+          {/* Visual only: at zero the page refreshes and the server decides if it is on sale. */}
+          <CountdownTimer
+            endsAt={saleStartAt.toISOString()}
+            serverNow={now.toISOString()}
+            label={tCountdown("opensIn")}
+            endedLabel={tCountdown("opened")}
+          />
+        </div>
       )}
       {status === "ENDED" && (
         <p role="status" className="rounded-xl bg-muted px-3 py-2 text-sm font-medium">

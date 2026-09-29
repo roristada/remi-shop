@@ -9,6 +9,7 @@ import { idSchema, productSchema, type ProductInput } from "@/lib/validation/pro
 import { BUCKETS } from "@/lib/storage/buckets";
 import { removeObjects } from "@/lib/storage/product-storage";
 import { revalidateCatalog } from "@/lib/products/revalidate";
+import { scheduleWarnings } from "@/lib/products/status";
 
 const PRODUCT_FIELDS = [
   "slug",
@@ -136,7 +137,9 @@ export async function updateProduct(productId: string, _prev: ActionResult<unkno
   }
 
   revalidateCatalog();
-  return ok(undefined, "บันทึกแล้ว");
+  const warnings = scheduleWarnings(parsed.data);
+  const warned = Object.keys(warnings).length > 0;
+  return ok({ warnings }, warned ? "บันทึกแล้ว — โปรดตรวจช่วงเวลาที่ตั้งไว้" : "บันทึกแล้ว");
 }
 
 const PUBLISH_TARGETS = ["DRAFT", "PUBLISHED", "DISABLED"] as const;

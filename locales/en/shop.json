@@ -64,7 +64,9 @@
   "countdown": {
     "endsIn": "Discount ends in",
     "days": "{count, plural, one {# day} other {# days}}",
-    "ended": "Discount has ended"
+    "ended": "Discount has ended",
+    "opensIn": "Sale opens in",
+    "opened": "Now on sale"
   },
   "product": {
     "breadcrumb": "Breadcrumb",

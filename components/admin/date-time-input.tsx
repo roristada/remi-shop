@@ -45,6 +45,7 @@ export function DateTimeInput({
   name,
   defaultValue = "",
   error,
+  warning,
   hint,
   defaultTime = "00:00",
 }: {
@@ -52,6 +53,8 @@ export function DateTimeInput({
   name: string;
   defaultValue?: string;
   error?: string;
+  /** Non-blocking note shown in place of the hint. */
+  warning?: string;
   hint?: string;
   /** Time used when a date is first picked (e.g. "23:59" for end dates). */
   defaultTime?: string;
@@ -61,7 +64,7 @@ export function DateTimeInput({
   const [open, setOpen] = useState(false);
   const parts = parse(value);
   const minutes = parts && !MINUTES.includes(pad(parts.mm)) ? [...MINUTES, pad(parts.mm)].sort() : MINUTES;
-  const describedBy = error ? `${id}-error` : hint ? `${id}-hint` : undefined;
+  const describedBy = error ? `${id}-error` : warning || hint ? `${id}-hint` : undefined;
 
   const update = (patch: Partial<Parts>) => {
     const [dh, dm] = defaultTime.split(":").map(Number);
@@ -166,6 +169,10 @@ export function DateTimeInput({
       {error ? (
         <p id={`${id}-error`} className="text-xs text-destructive">
           {error}
+        </p>
+      ) : warning ? (
+        <p id={`${id}-hint`} role="status" className="text-xs font-medium text-warning">
+          {warning}
         </p>
       ) : hint ? (
         <p id={`${id}-hint`} className="text-xs text-muted-foreground">

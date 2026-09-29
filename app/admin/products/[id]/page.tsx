@@ -19,6 +19,7 @@ import { idSchema } from "@/lib/validation/product";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProductForm, type ProductFormValues } from "@/components/admin/product-form";
 import { ProductStatusBadge } from "@/components/admin/product-status-badge";
+import { ScheduleSummary } from "@/components/admin/schedule-summary";
 import { PublishControls } from "@/components/admin/publish-controls";
 import { ImageManager } from "@/components/admin/image-manager";
 import { VersionManager } from "@/components/admin/version-manager";
@@ -94,6 +95,7 @@ export default async function EditProductPage({ params, searchParams }: PageProp
             {price.isDiscounted && ` (ลด ${price.discountPercent / 100}% ถึง ${formatBangkokDateTime(price.discountEndsAt)})`}
             {" · "}ผู้ซื้อ {buyerCount.toLocaleString("th-TH")} คน
           </p>
+          <ScheduleSummary {...product} now={now} />
         </div>
         <PublishControls productId={product.id} publishStatus={product.publishStatus} hasOrders={orderCount > 0} />
       </header>

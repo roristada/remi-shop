@@ -62,6 +62,13 @@ export const EMPTY_PRODUCT_VALUES: ProductFormValues = {
   metaDescriptionEN: "",
 };
 
+function scheduleWarningsOf(data: unknown): Record<string, string | undefined> {
+  if (data && typeof data === "object" && "warnings" in data && data.warnings && typeof data.warnings === "object") {
+    return data.warnings as Record<string, string | undefined>;
+  }
+  return {};
+}
+
 type Action = (prev: ActionResult<unknown> | null, formData: FormData) => Promise<ActionResult<unknown>>;
 
 function slugify(value: string) {
@@ -101,6 +108,8 @@ export function ProductForm({
   }
 
   const err = (name: string) => (state && !state.ok ? state.fieldErrors?.[name] : undefined);
+  // Non-blocking notes from a successful save (e.g. a discount window that is already over).
+  const warn = (name: string) => (state?.ok ? scheduleWarningsOf(state.data)[name] : undefined);
 
   return (
     <form onSubmit={onSubmit} className="space-y-6" noValidate>
@@ -165,14 +174,14 @@ export function ProductForm({
             hint="เว้นว่างถ้าไม่มีส่วนลด"
           />
           <DateTimeInput label="เริ่มส่วนลด" name="discountStartAt" defaultValue={values.discountStartAt} error={err("discountStartAt")} />
-          <DateTimeInput label="สิ้นสุดส่วนลด" name="discountEndAt" defaultTime="23:59" defaultValue={values.discountEndAt} error={err("discountEndAt")} />
+          <DateTimeInput label="สิ้นสุดส่วนลด" name="discountEndAt" defaultTime="23:59" defaultValue={values.discountEndAt} error={err("discountEndAt")} warning={warn("discountEndAt")} />
         </div>
       </FormSection>
 
       <FormSection title="ช่วงเวลาขาย" description="เว้นว่าง = ขายได้ทันที / ไม่มีวันสิ้นสุด (เวลาไทย)">
         <div className="grid gap-4 md:grid-cols-2">
           <DateTimeInput label="เริ่มขาย" name="saleStartAt" defaultValue={values.saleStartAt} error={err("saleStartAt")} />
-          <DateTimeInput label="สิ้นสุดการขาย" name="saleEndAt" defaultTime="23:59" defaultValue={values.saleEndAt} error={err("saleEndAt")} />
+          <DateTimeInput label="สิ้นสุดการขาย" name="saleEndAt" defaultTime="23:59" defaultValue={values.saleEndAt} error={err("saleEndAt")} warning={warn("saleEndAt")} />
         </div>
       </FormSection>
 
