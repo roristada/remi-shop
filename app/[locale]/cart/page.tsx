@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { ProductPrice } from "@/components/shop/product-price";
 import { PageHeading } from "@/components/shop/page-heading";
 import { CheckoutButton, RemoveFromCartButton } from "@/components/cart/cart-controls";
+import { BackLink } from "@/components/shared/back-link";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/cart">): Promise<Metadata> {
   const { locale } = await params;
@@ -43,6 +44,7 @@ export default async function CartPage({ params }: PageProps<"/[locale]/cart">) 
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 py-8 sm:py-12">
+      <BackLink href="/shop">{(await getTranslations("common.state"))("continueShopping")}</BackLink>
       <PageHeading title={t("cart.title")} subtitle={t("cart.itemCount", { count: lines.length })} />
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <ul className="divide-y">

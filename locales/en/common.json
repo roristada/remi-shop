@@ -37,6 +37,8 @@
     "error": "Something went wrong. Please try again.",
     "retry": "Try again",
     "notFound": "We couldn't find that page",
-    "backHome": "Back to home"
+    "backHome": "Back to home",
+    "backToAccount": "My account",
+    "continueShopping": "Keep shopping"
   }
 }

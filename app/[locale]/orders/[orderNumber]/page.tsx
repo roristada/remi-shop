@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { ChevronLeft, Clock3, ExternalLink } from "lucide-react";
+import { Clock3, ExternalLink } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { intlLocale, localized } from "@/i18n/localize";
 import { requireUser } from "@/lib/auth/guards";
@@ -14,6 +14,7 @@ import { orderNumberSchema } from "@/lib/orders/validation";
 import { previewImageUrl } from "@/lib/storage/public-url";
 import { BUCKETS } from "@/lib/storage/buckets";
 import { createSignedViewUrls } from "@/lib/storage/payment-storage";
+import { listOrderDownloads } from "@/lib/downloads/queries";
 import { canUploadSlip } from "@/lib/payments/rules";
 import { SlipUpload } from "@/components/cart/slip-upload";
 import { OrderStatusBadge } from "@/components/cart/order-status-badge";
@@ -21,7 +22,9 @@ import { CancelOrderButton } from "@/components/cart/cancel-order-button";
 import { CountdownTimer } from "@/components/shop/countdown-timer";
 import { OrderProgress } from "@/components/cart/order-progress";
 import { CopyButton } from "@/components/shared/copy-button";
+import { DownloadVersions } from "@/components/downloads/download-versions";
 import { cn } from "@/lib/utils";
+import { BackLink } from "@/components/shared/back-link";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/orders/[orderNumber]">): Promise<Metadata> {
   const { locale, orderNumber } = await params;
@@ -47,12 +50,14 @@ export default async function OrderPage({ params }: PageProps<"/[locale]/orders/
   const canPay = canUploadSlip(order, now);
   const showPanel = canPay || order.status === "WAITING_REVIEW";
   const discount = toHundredths(order.discount);
+  // Files are listed only once payment is approved; each link is re-authorized by /api/download.
+  const downloads =
+    order.status === "COMPLETED" && order.kind === "PRODUCT" ? await listOrderDownloads(user.id, order.id) : null;
+  const hasAnyFiles = downloads ? [...downloads.values()].some((d) => d.versions.length > 0) : false;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:py-12">
-      <Link href="/orders" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        <ChevronLeft className="size-4" aria-hidden /> {t("order.back")}
-      </Link>
+      <BackLink href="/orders">{t("order.back")}</BackLink>
 
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-1">
@@ -65,7 +70,7 @@ export default async function OrderPage({ params }: PageProps<"/[locale]/orders/
       </div>
 
       <OrderProgress status={order.status} isLicense={order.kind === "LICENSE"} />
-      <StatusNotice order={order} t={t} />
+      <StatusNotice order={order} t={t} hasFiles={hasAnyFiles} />
 
       <div className={showPanel ? "grid gap-8 lg:grid-cols-[minmax(0,1fr)_24rem]" : "grid gap-8"}>
         <section aria-labelledby="items-heading" className="space-y-4">
@@ -78,24 +83,46 @@ export default async function OrderPage({ params }: PageProps<"/[locale]/orders/
             <ul className="divide-y rounded-3xl border">
               {order.items.map((item) => {
                 const itemDiscount = toHundredths(item.discount);
+                const name = localized(locale, item.productNameTHSnapshot, item.productNameENSnapshot);
+                const image = item.product.images[0];
+                const files = downloads?.get(item.product.id);
                 return (
-                  <li key={item.id} className="flex items-start justify-between gap-4 px-4 py-3.5 sm:px-5">
-                    <div className="min-w-0">
-                      <Link href={`/product/${item.product.slug}`} className="font-semibold hover:underline">
-                        {localized(locale, item.productNameTHSnapshot, item.productNameENSnapshot)}
-                      </Link>
-                      {item.productVersionSnapshot && (
-                        <p className="text-xs text-muted-foreground">
-                          {t("order.version", { version: item.productVersionSnapshot })}
-                        </p>
-                      )}
+                  <li key={item.id} className="space-y-3 px-4 py-3.5 sm:px-5">
+                    <div className="flex items-center gap-3">
+                      <div className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-secondary/60">
+                        {image && (
+                          <Image
+                            src={previewImageUrl(image.imagePath)}
+                            alt={localized(locale, image.altTextTH, image.altTextEN) || name}
+                            fill
+                            sizes="56px"
+                            className="object-cover"
+                          />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <Link href={`/product/${item.product.slug}`} className="font-semibold hover:underline">
+                          {name}
+                        </Link>
+                        {item.productVersionSnapshot && (
+                          <p className="text-xs text-muted-foreground">
+                            {t("order.version", { version: item.productVersionSnapshot })}
+                          </p>
+                        )}
+                      </div>
+                      <p className="shrink-0 text-right tabular-nums">
+                        <span className="font-semibold">{money(item.finalPrice)}</span>
+                        {itemDiscount > 0 && (
+                          <s className="block text-xs text-muted-foreground">{money(item.unitPrice)}</s>
+                        )}
+                      </p>
                     </div>
-                    <p className="shrink-0 text-right tabular-nums">
-                      <span className="font-semibold">{money(item.finalPrice)}</span>
-                      {itemDiscount > 0 && (
-                        <s className="block text-xs text-muted-foreground">{money(item.unitPrice)}</s>
-                      )}
-                    </p>
+                    {downloads &&
+                      (files && files.versions.length > 0 ? (
+                        <DownloadVersions versions={files.versions} downloadLimit={files.downloadLimit} locale={locale} />
+                      ) : (
+                        <p className="text-sm text-muted-foreground">{t("order.itemNoFiles")}</p>
+                      ))}
                   </li>
                 );
               })}
@@ -163,14 +190,16 @@ function LicenseSummary({
   );
 }
 
-function StatusNotice({ order, t }: { order: CustomerOrder; t: T }) {
+function StatusNotice({ order, t, hasFiles }: { order: CustomerOrder; t: T; hasFiles: boolean }) {
   let text: string | null = null;
   if (order.status === "CANCELLED") {
     // Auto-cancelled at the unpaid deadline (never had a slip), as opposed to cancelled by the customer.
     const expired = order.paymentStatus === null && order.cancelledAt && order.cancelledAt >= order.expiresAt;
     text = expired ? t("order.expiredNotice") : t("order.cancelledNotice");
   } else if (order.status === "COMPLETED") {
-    text = order.kind === "LICENSE" ? t("order.licenseCompletedNotice") : t("order.completedNotice");
+    if (order.kind === "LICENSE") text = t("order.licenseCompletedNotice");
+    // No file to download yet: the store delivers it by email.
+    else text = hasFiles ? t("order.completedNotice") : t("order.noFilesNotice");
   }
   if (!text) return null;
   return (

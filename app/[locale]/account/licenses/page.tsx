@@ -14,6 +14,7 @@ import { FormMessage } from "@/components/auth/form-fields";
 import { ShopPagination } from "@/components/shop/shop-pagination";
 import { CancelLicenseButton } from "@/components/account/cancel-license-button";
 import { cn } from "@/lib/utils";
+import { BackLink } from "@/components/shared/back-link";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/account/licenses">): Promise<Metadata> {
   const { locale } = await params;
@@ -47,6 +48,7 @@ export default async function AccountLicensesPage({ params, searchParams }: Page
 
   return (
     <div className="space-y-6">
+      <div className="md:hidden"><BackLink href="/account">{(await getTranslations("common.state"))("backToAccount")}</BackLink></div>
       <div className="space-y-1">
         <h1 className="text-2xl">{t("title")}</h1>
         <p className="text-sm text-muted-foreground">{t("intro")}</p>

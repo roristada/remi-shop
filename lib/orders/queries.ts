@@ -38,7 +38,17 @@ export async function getOrderForUser(userId: string, orderNumber: string, now: 
           unitPrice: true,
           discount: true,
           finalPrice: true,
-          product: { select: { slug: true } },
+          product: {
+            select: {
+              id: true,
+              slug: true,
+              images: {
+                orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
+                take: 1,
+                select: { imagePath: true, altTextTH: true, altTextEN: true },
+              },
+            },
+          },
         },
       },
       // LICENSE orders have no items; the approved request describes what is being paid for.

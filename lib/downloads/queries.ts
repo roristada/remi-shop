@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma/client";
+import type { Prisma } from "@/lib/generated/prisma/client";
 import { isDownloadLimitReached, isWithinRateLimit } from "@/lib/downloads/rules";
 
 export type DownloadAccess =
@@ -54,6 +55,73 @@ export function recordDownload(params: { userId: string; orderId: string; produc
  */
 export const DOWNLOADS_PAGE_SIZE = 10;
 
+const VERSIONS_SELECT = {
+  orderBy: [{ releaseDate: "desc" }, { createdAt: "desc" }],
+  select: {
+    id: true,
+    versionNumber: true,
+    isLatest: true,
+    createdAt: true,
+    files: {
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      select: { id: true, fileName: true, fileSize: true, fileType: true },
+    },
+  },
+} satisfies Prisma.Product$versionsArgs;
+
+type VersionRow = Prisma.ProductVersionGetPayload<typeof VERSIONS_SELECT>;
+
+async function downloadCounts(userId: string, versions: VersionRow[]): Promise<Map<string, number>> {
+  const fileIds = versions.flatMap((v) => v.files.map((f) => f.id));
+  if (fileIds.length === 0) return new Map();
+  const counts = await prisma.download.groupBy({
+    by: ["fileId"],
+    where: { userId, fileId: { in: fileIds } },
+    _count: { _all: true },
+  });
+  const out = new Map<string, number>();
+  for (const c of counts) if (c.fileId) out.set(c.fileId, c._count._all);
+  return out;
+}
+
+/** Versions that have files, each file with how often this customer has downloaded it. */
+function toDownloadVersions(versions: VersionRow[], countByFile: Map<string, number>) {
+  return versions
+    .filter((v) => v.files.length > 0)
+    .map((v) => ({
+      id: v.id,
+      versionNumber: v.versionNumber,
+      isLatest: v.isLatest,
+      files: v.files.map((f) => ({
+        id: f.id,
+        fileName: f.fileName,
+        fileSize: f.fileSize,
+        fileType: f.fileType,
+        downloadCount: countByFile.get(f.id) ?? 0,
+      })),
+    }));
+}
+
+export type DownloadVersion = ReturnType<typeof toDownloadVersions>[number];
+
+/**
+ * Downloadable files for the products of one of the caller's COMPLETED product orders, keyed
+ * by productId. Ownership is part of the query; the download route re-authorizes every click.
+ */
+export async function listOrderDownloads(userId: string, orderId: string) {
+  const items = await prisma.orderItem.findMany({
+    where: { orderId, order: { userId, status: "COMPLETED", kind: "PRODUCT" } },
+    select: { product: { select: { id: true, downloadLimit: true, versions: VERSIONS_SELECT } } },
+  });
+  const countByFile = await downloadCounts(userId, items.flatMap((i) => i.product.versions));
+  return new Map(
+    items.map((i) => [
+      i.product.id,
+      { downloadLimit: i.product.downloadLimit, versions: toDownloadVersions(i.product.versions, countByFile) },
+    ]),
+  );
+}
+
 export async function listOwnedProducts(userId: string, page: number) {
   const where = { order: { userId, status: "COMPLETED" as const, kind: "PRODUCT" as const } };
   const rows = await prisma.orderItem.findMany({
@@ -75,19 +143,7 @@ export async function listOwnedProducts(userId: string, page: number) {
             take: 1,
             select: { imagePath: true, altTextTH: true, altTextEN: true },
           },
-          versions: {
-            orderBy: [{ releaseDate: "desc" }, { createdAt: "desc" }],
-            select: {
-              id: true,
-              versionNumber: true,
-              isLatest: true,
-              createdAt: true,
-              files: {
-                orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-                select: { id: true, fileName: true, fileSize: true, fileType: true },
-              },
-            },
-          },
+          versions: VERSIONS_SELECT,
         },
       },
     },
@@ -103,12 +159,7 @@ export async function listOwnedProducts(userId: string, page: number) {
   const pageCount = Math.max(1, Math.ceil(total / DOWNLOADS_PAGE_SIZE));
   const pageRows = deduped.slice((page - 1) * DOWNLOADS_PAGE_SIZE, page * DOWNLOADS_PAGE_SIZE);
 
-  const fileIds = pageRows.flatMap((r) => r.product.versions.flatMap((v) => v.files.map((f) => f.id)));
-  const counts =
-    fileIds.length > 0
-      ? await prisma.download.groupBy({ by: ["fileId"], where: { userId, fileId: { in: fileIds } }, _count: { _all: true } })
-      : [];
-  const countByFile = new Map(counts.map((c) => [c.fileId, c._count._all]));
+  const countByFile = await downloadCounts(userId, pageRows.flatMap((r) => r.product.versions));
 
   return {
     items: pageRows.map((r) => ({
@@ -120,20 +171,7 @@ export async function listOwnedProducts(userId: string, page: number) {
       categoryNameEN: r.product.category.nameEN,
       image: r.product.images[0] ?? null,
       downloadLimit: r.product.downloadLimit,
-      versions: r.product.versions
-        .filter((v) => v.files.length > 0)
-        .map((v) => ({
-          id: v.id,
-          versionNumber: v.versionNumber,
-          isLatest: v.isLatest,
-          files: v.files.map((f) => ({
-            id: f.id,
-            fileName: f.fileName,
-            fileSize: f.fileSize,
-            fileType: f.fileType,
-            downloadCount: countByFile.get(f.id) ?? 0,
-          })),
-        })),
+      versions: toDownloadVersions(r.product.versions, countByFile),
     })),
     total,
     pageCount,

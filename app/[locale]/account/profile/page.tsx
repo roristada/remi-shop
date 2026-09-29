@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { requireUser, getCurrentProfile } from "@/lib/auth/guards";
 import { ProfileForm } from "@/components/account/profile-form";
 import { ChangePasswordForm } from "@/components/account/change-password-form";
+import { BackLink } from "@/components/shared/back-link";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/account/profile">): Promise<Metadata> {
   const { locale } = await params;
@@ -18,6 +19,7 @@ export default async function ProfilePage({ params }: PageProps<"/[locale]/accou
 
   return (
     <div className="space-y-6">
+      <div className="md:hidden"><BackLink href="/account">{(await getTranslations("common.state"))("backToAccount")}</BackLink></div>
       <h1 className="text-2xl">{t("title")}</h1>
       <section className="rounded-2xl border p-6">
         <ProfileForm email={user.email ?? ""} displayName={profile?.displayName ?? ""} />

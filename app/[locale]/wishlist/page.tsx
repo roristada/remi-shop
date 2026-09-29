@@ -6,6 +6,7 @@ import { listWishlistProducts } from "@/lib/products/storefront-queries";
 import { PageHeading } from "@/components/shop/page-heading";
 import { ProductGrid } from "@/components/shop/product-grid";
 import { ShopPagination } from "@/components/shop/shop-pagination";
+import { BackLink } from "@/components/shared/back-link";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/wishlist">): Promise<Metadata> {
   const { locale } = await params;
@@ -27,6 +28,7 @@ export default async function WishlistPage({ params, searchParams }: PageProps<"
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 py-8 sm:py-12">
+      <BackLink href="/account">{(await getTranslations("common.state"))("backToAccount")}</BackLink>
       <PageHeading title={t("title")} subtitle={t("resultCount", { count: total })} />
       {items.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-3xl bg-secondary/45 px-4 py-16 text-center">

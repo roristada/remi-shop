@@ -10,6 +10,7 @@ import { listOrdersForUser } from "@/lib/orders/queries";
 import { PageHeading } from "@/components/shop/page-heading";
 import { ShopPagination } from "@/components/shop/shop-pagination";
 import { OrderStatusBadge } from "@/components/cart/order-status-badge";
+import { BackLink } from "@/components/shared/back-link";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/orders">): Promise<Metadata> {
   const { locale } = await params;
@@ -29,6 +30,7 @@ export default async function OrdersPage({ params, searchParams }: PageProps<"/[
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:py-12">
+      <BackLink href="/account">{(await getTranslations("common.state"))("backToAccount")}</BackLink>
       <PageHeading title={t("title")} />
       {items.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-3xl bg-secondary/45 px-4 py-16 text-center">
