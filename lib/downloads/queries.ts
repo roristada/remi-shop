@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma/client";
 import { isDownloadLimitReached, isWithinRateLimit } from "@/lib/downloads/rules";
 
 export type DownloadAccess =
-  | { ok: true; orderId: string; productId: string; storagePath: string; skipLog: boolean }
+  | { ok: true; orderId: string; productId: string; storagePath: string; fileName: string; skipLog: boolean }
   | { ok: false; code: "not_found" | "forbidden" | "limit_reached" };
 
 /**
@@ -17,6 +17,7 @@ export async function checkDownloadAccess(userId: string, fileId: string, now: D
     where: { id: fileId },
     select: {
       storagePath: true,
+      fileName: true,
       version: { select: { productId: true, product: { select: { downloadLimit: true } } } },
     },
   });
@@ -39,7 +40,7 @@ export async function checkDownloadAccess(userId: string, fileId: string, now: D
     return { ok: false, code: "limit_reached" };
   }
 
-  return { ok: true, orderId: orderItem.orderId, productId, storagePath: file.storagePath, skipLog };
+  return { ok: true, orderId: orderItem.orderId, productId, storagePath: file.storagePath, fileName: file.fileName, skipLog };
 }
 
 export function recordDownload(params: { userId: string; orderId: string; productId: string; fileId: string }) {

@@ -1,6 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { BUCKETS, MAX_FILE_SIZE, type BucketName } from "@/lib/storage/buckets";
+import { BUCKETS, MAX_FILE_SIZE, SIGNED_URL_TTL_SECONDS, type BucketName } from "@/lib/storage/buckets";
 import { sanitizeFileName } from "@/lib/storage/paths";
 import {
   checkFileSignature,
@@ -92,6 +92,26 @@ async function readHead(bucket: BucketName, path: string): Promise<Uint8Array | 
     console.error("[storage] read head failed", { bucket, path, message: (e as Error).message });
     return null;
   }
+}
+
+/**
+ * Short-lived URL that makes Storage answer with `Content-Disposition: attachment`, so the
+ * browser saves the file under its original name instead of previewing it inline.
+ */
+export async function createSignedDownloadUrl(
+  bucket: BucketName,
+  path: string,
+  fileName: string,
+  ttlSeconds = SIGNED_URL_TTL_SECONDS,
+): Promise<string | null> {
+  const { data, error } = await createAdminClient()
+    .storage.from(bucket)
+    .createSignedUrl(path, ttlSeconds, { download: fileName });
+  if (error || !data) {
+    console.error("[storage] signed download url failed", { bucket, message: error?.message });
+    return null;
+  }
+  return data.signedUrl;
 }
 
 /** Best-effort delete; failures are logged (orphans are harmless in a private bucket). */

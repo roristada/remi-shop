@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/guards";
 import { idSchema } from "@/lib/validation/product";
 import { checkDownloadAccess, recordDownload } from "@/lib/downloads/queries";
-import { createSignedViewUrls } from "@/lib/storage/payment-storage";
+import { createSignedDownloadUrl } from "@/lib/storage/product-storage";
 import { BUCKETS } from "@/lib/storage/buckets";
 
 type Locale = "th" | "en";
@@ -34,8 +34,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const access = await checkDownloadAccess(user.id, fileId, now);
   if (!access.ok) return errorRedirect(origin, locale, access.code);
 
-  const urls = await createSignedViewUrls(BUCKETS.digitalFiles, [access.storagePath]);
-  const url = urls.get(access.storagePath);
+  const url = await createSignedDownloadUrl(BUCKETS.digitalFiles, access.storagePath, access.fileName);
   if (!url) {
     console.error("[downloads] signed url failed", { userId: user.id, fileId });
     return errorRedirect(origin, locale, "error");
