@@ -8,21 +8,45 @@ import { getOwnership } from "@/lib/orders/ownership";
 import { evaluateLine, type LineProblem } from "@/lib/orders/rules";
 import { CHECKOUT_PRODUCT_SELECT, toCheckoutProduct } from "@/lib/cart/queries";
 import { idSchema } from "@/lib/validation/product";
+import { localized } from "@/i18n/localize";
+import { previewImageUrl } from "@/lib/storage/public-url";
 
 /** Codes map to `cart.errors.*` translation keys. */
 export type CartActionResult = { ok: true } | { ok: false; code: LineProblem | "LOGIN_REQUIRED" | "ERROR" };
 
-export async function addToCart(productId: string): Promise<CartActionResult> {
+/** What the header cart popover shows after an add. Price is computed server-side (satang). */
+export type AddedCartItem = { name: string; imageUrl: string | null; finalPrice: number; unitPrice: number };
+export type AddToCartResult =
+  | { ok: true; item: AddedCartItem; count: number }
+  | { ok: false; code: LineProblem | "LOGIN_REQUIRED" | "ERROR" };
+
+async function countCartItems(userId: string): Promise<number> {
+  return prisma.cartItem.count({ where: { cart: { userId } } });
+}
+
+/** Item count for the header badge; 0 for guests. */
+export async function getCartCount(): Promise<number> {
+  const user = await getCurrentUser();
+  return user ? countCartItems(user.id) : 0;
+}
+
+export async function addToCart(productId: string, locale: string): Promise<AddToCartResult> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, code: "LOGIN_REQUIRED" };
   if (!idSchema.safeParse(productId).success) return { ok: false, code: "UNAVAILABLE" };
 
   const now = new Date();
-  const product = await prisma.product.findUnique({ where: { id: productId }, select: CHECKOUT_PRODUCT_SELECT });
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+    select: {
+      ...CHECKOUT_PRODUCT_SELECT,
+      images: { orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }], take: 1, select: { imagePath: true } },
+    },
+  });
   if (!product) return { ok: false, code: "UNAVAILABLE" };
 
   const ownership = await getOwnership(user.id, [product.id], now);
-  const { problem } = evaluateLine(toCheckoutProduct(product), ownership, now);
+  const { problem, price } = evaluateLine(toCheckoutProduct(product), ownership, now);
   if (problem) return { ok: false, code: problem };
 
   try {
@@ -42,7 +66,17 @@ export async function addToCart(productId: string): Promise<CartActionResult> {
   }
 
   revalidatePath("/[locale]/cart", "page");
-  return { ok: true };
+  const image = product.images[0];
+  return {
+    ok: true,
+    item: {
+      name: localized(locale, product.nameTH, product.nameEN),
+      imageUrl: image ? previewImageUrl(image.imagePath) : null,
+      finalPrice: price.finalPrice,
+      unitPrice: price.unitPrice,
+    },
+    count: await countCartItems(user.id),
+  };
 }
 
 export async function removeFromCart(productId: string): Promise<CartActionResult> {

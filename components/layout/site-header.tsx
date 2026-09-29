@@ -1,11 +1,12 @@
 import { getLocale, getTranslations } from "next-intl/server";
-import { Search, ShoppingBag, User } from "lucide-react";
+import { Search, User } from "lucide-react";
 import { Link, getPathname } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BunnyMark } from "@/components/shared/bunny-mark";
 import { LanguageSwitcher } from "./language-switcher";
 import { MobileNav } from "./mobile-nav";
+import { HeaderCartButton } from "@/components/cart/header-cart-button";
 import { NAV_LINKS } from "./nav-links";
 
 export async function SiteHeader() {
@@ -63,11 +64,7 @@ export async function SiteHeader() {
               <User />
             </Link>
           </Button>
-          <Button asChild variant="ghost" size="icon-xl" className="rounded-full">
-            <Link href="/cart" aria-label={t("header.cart")}>
-              <ShoppingBag />
-            </Link>
-          </Button>
+          <HeaderCartButton />
         </div>
       </div>
     </header>

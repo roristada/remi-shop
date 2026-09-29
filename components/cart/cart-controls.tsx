@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useRouter } from "@/i18n/navigation";
 import { removeFromCart } from "@/lib/cart/actions";
 import { checkout } from "@/lib/orders/actions";
+import { emitCartChanged } from "./cart-events";
 
 export function RemoveFromCartButton({ productId, name }: { productId: string; name: string }) {
   const t = useTranslations("cart");
@@ -24,6 +25,7 @@ export function RemoveFromCartButton({ productId, name }: { productId: string; n
         startTransition(async () => {
           const result = await removeFromCart(productId);
           if (!result.ok) toast.error(t(`errors.${result.code}`));
+          emitCartChanged();
           router.refresh();
         })
       }

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Link, useRouter } from "@/i18n/navigation";
 import { addToCart } from "@/lib/cart/actions";
 import type { PurchaseState } from "@/lib/cart/queries";
+import { emitCartAdded } from "./cart-events";
 
 type Props = {
   productId: string;
@@ -55,10 +56,10 @@ export function AddToCartButton({ productId, productSlug, initialState }: Props)
 
   function onAdd() {
     startTransition(async () => {
-      const result = await addToCart(productId);
+      const result = await addToCart(productId, locale);
       if (result.ok) {
         setState("inCart");
-        toast.success(t("add.added"), { action: { label: t("add.viewCart"), onClick: () => router.push("/cart") } });
+        emitCartAdded({ item: result.item, count: result.count });
         return;
       }
       if (result.code === "LOGIN_REQUIRED") {
