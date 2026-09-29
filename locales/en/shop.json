@@ -122,7 +122,7 @@
     "notOffered": "This product does not offer a commercial license right now.",
     "usageTitle": "Type of use",
     "usageHint": "Pick one or more. The total is the sum of every type you pick.",
-    "buyerTitle": "Buyer",
+    "buyerTitle": "License buyer",
     "buyerName": "Buyer name",
     "buyerEmail": "Buyer email",
     "buyerContact": "Buyer contact",

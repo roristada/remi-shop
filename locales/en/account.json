@@ -32,7 +32,7 @@
     "emptyHint": "Request a commercial license from any product page that offers commercial use.",
     "requestedAt": "Requested {date}",
     "total": "Total",
-    "buyer": "Buyer",
+    "buyer": "License buyer",
     "artist": "Artist",
     "platform": "Platform",
     "orderNumber": "Order number",
