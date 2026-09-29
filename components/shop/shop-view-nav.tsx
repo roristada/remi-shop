@@ -32,10 +32,10 @@ export function ShopViewNav({ view, folders, activeFolder }: Props) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
       <nav aria-label={t("label")} className="inline-flex shrink-0 self-start rounded-full bg-secondary/60 p-1">
-        <ViewLink href="/shop" current={view === "folders"} icon={<Rows3 aria-hidden />}>
+        <ViewLink href="/shop?view=folders" current={view === "folders"} icon={<Rows3 aria-hidden />}>
           {t("byFolder")}
         </ViewLink>
-        <ViewLink href="/shop?view=all" current={view === "all" && !activeFolder} icon={<LayoutGrid aria-hidden />}>
+        <ViewLink href="/shop" current={view === "all" && !activeFolder} icon={<LayoutGrid aria-hidden />}>
           {t("all")}
         </ViewLink>
       </nav>
@@ -46,7 +46,7 @@ export function ShopViewNav({ view, folders, activeFolder }: Props) {
             {folders.map((f) => {
               const active = view === "all" && f.slug !== null && f.slug === activeFolder;
               const href =
-                view === "folders" ? `#${folderAnchor(f.slug)}` : `/shop?view=all&folder=${encodeURIComponent(f.slug ?? "")}`;
+                view === "folders" ? `#${folderAnchor(f.slug)}` : `/shop?folder=${encodeURIComponent(f.slug ?? "")}`;
               return (
                 <li key={f.slug ?? UNFILED_ANCHOR}>
                   {view === "folders" ? (

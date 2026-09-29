@@ -23,9 +23,9 @@ import { ShopViewNav } from "@/components/shop/shop-view-nav";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
-/** `?view=all` shows the flat grid without any filter; otherwise the bare /shop groups by folder. */
-function wantsAllView(sp: SearchParams) {
-  return sp.view === "all";
+/** The bare /shop is the flat "All" grid; `?view=folders` groups products by folder. */
+function wantsFolderView(sp: SearchParams) {
+  return sp.view === "folders";
 }
 
 export async function generateMetadata({ params, searchParams }: PageProps<"/[locale]/shop">): Promise<Metadata> {
@@ -38,7 +38,7 @@ export async function generateMetadata({ params, searchParams }: PageProps<"/[lo
     description: t("shopDescription"),
     alternates: { canonical: `/${locale}/shop`, languages: { th: "/th/shop", en: "/en/shop" } },
     // Filtered, search and alternate-view pages are thin duplicates of /shop.
-    robots: hasShopFilters(filters) || wantsAllView(sp) ? { index: false, follow: true } : undefined,
+    robots: hasShopFilters(filters) || wantsFolderView(sp) ? { index: false, follow: true } : undefined,
   };
 }
 
@@ -58,7 +58,7 @@ export default async function ShopPage({ params, searchParams }: PageProps<"/[lo
   const filters: ShopFilters = { ...parsed, folder: folder?.slug };
   const userId = user?.id ?? null;
 
-  if (!wantsAllView(sp) && !hasShopFilters(filters)) {
+  if (wantsFolderView(sp) && !hasShopFilters(filters)) {
     const sections = await listShopFolderSections(locale, now, userId);
     // Folder view only makes sense once at least one folder lists products.
     if (sections.some((s) => s.slug !== null)) {
@@ -89,7 +89,7 @@ export default async function ShopPage({ params, searchParams }: PageProps<"/[lo
     listPriceBucketCounts(now, facetFilters),
   ]);
   const folderName = folder ? localized(locale, folder.nameTH, folder.nameEN) : null;
-  const sidebarHidden = { q: filters.q, sort: filters.sort === "newest" ? undefined : filters.sort, sale: filters.sale ? "1" : undefined, view: "all", folder: filters.folder };
+  const sidebarHidden = { q: filters.q, sort: filters.sort === "newest" ? undefined : filters.sort, sale: filters.sale ? "1" : undefined, folder: filters.folder };
 
   return (
     <ShopShell
@@ -106,16 +106,15 @@ export default async function ShopPage({ params, searchParams }: PageProps<"/[lo
       <ShopFilterForm
         filters={filters}
         action="/shop"
-        // Submitting from the folder view applies filters, which switches to the grid anyway.
-        hiddenFields={{ view: "all", folder: filters.folder }}
-        clearHref="/shop?view=all"
+        hiddenFields={{ folder: filters.folder }}
+        clearHref="/shop"
       />
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         <ShopSidebarFilters
           filters={filters}
           action="/shop"
           hiddenFields={sidebarHidden}
-          clearHref="/shop?view=all"
+          clearHref="/shop"
           categories={categories.map((c) => ({ slug: c.slug, name: localized(locale, c.nameTH, c.nameEN), count: c._count.products }))}
           softwareTags={softwareTags.map((s) => ({ id: s.id, name: s.name, count: s._count.products }))}
           priceCounts={priceCounts}
@@ -130,7 +129,7 @@ export default async function ShopPage({ params, searchParams }: PageProps<"/[lo
           <ShopPagination
             page={filters.page}
             pageCount={pageCount}
-            params={{ ...shopFilterParams(filters), view: "all" }}
+            params={shopFilterParams(filters)}
             path="/shop"
           />
         </div>

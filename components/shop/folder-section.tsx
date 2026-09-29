@@ -22,7 +22,7 @@ export function FolderSection({ section, priority = false }: { section: FolderSe
         </div>
         {more && section.slug && (
           <Link
-            href={`/shop?view=all&folder=${encodeURIComponent(section.slug)}`}
+            href={`/shop?folder=${encodeURIComponent(section.slug)}`}
             className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-brand-strong underline-offset-4 hover:underline"
           >
             {t("viewAll", { count: section.total })}

@@ -10,7 +10,7 @@ type Props = {
   filters: ShopFilters;
   /** Locale-less path the form submits to, e.g. "/shop" or "/category/brushes". */
   action: string;
-  /** Extra params the form must keep on submit (e.g. `view=all`, the folder filter). */
+  /** Extra params the form must keep on submit (e.g. the folder filter). */
   hiddenFields?: Record<string, string | undefined>;
   /** Where "clear filters" goes. Defaults to `action`. */
   clearHref?: string;
