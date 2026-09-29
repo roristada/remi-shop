@@ -4,7 +4,7 @@ import type { OrderStatus } from "@/lib/generated/prisma/enums";
 import { cn } from "@/lib/utils";
 
 // The label is always shown, so status is never conveyed by color alone.
-const STYLES: Record<OrderStatus, string> = {
+export const ORDER_STATUS_STYLES: Record<OrderStatus, string> = {
   PENDING_PAYMENT: "bg-primary/60 text-foreground",
   WAITING_REVIEW: "bg-secondary text-secondary-foreground",
   PAYMENT_REJECTED: "bg-destructive/10 text-destructive",
@@ -14,5 +14,5 @@ const STYLES: Record<OrderStatus, string> = {
 
 export function OrderStatusBadge({ status, className }: { status: OrderStatus; className?: string }) {
   const t = useTranslations("cart.status");
-  return <Badge className={cn(STYLES[status], className)}>{t(status)}</Badge>;
+  return <Badge className={cn(ORDER_STATUS_STYLES[status], className)}>{t(status)}</Badge>;
 }
