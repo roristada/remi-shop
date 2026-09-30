@@ -4,7 +4,8 @@ import { useState, useTransition, type MouseEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Ban, Copy, Eye, FilePen, ImageOff, Loader2, MoreHorizontal, Pencil, Trash2, X } from "lucide-react";
+import { Ban, Copy, Eye, FilePen, ImageOff, Link2, Loader2, MoreHorizontal, Pencil, Trash2, X } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -26,6 +27,7 @@ import { cn } from "@/lib/utils";
 
 export type AdminProductRow = {
   id: string;
+  slug: string;
   nameTH: string;
   nameEN: string;
   versionNumber: string | null;
@@ -38,6 +40,9 @@ export type AdminProductRow = {
   publishStatus: PublishStatus;
   updatedAt: string;
   hasOrders: boolean;
+  /** e.g. "1/1" (left/limit), "∞" or "3 ตัวเลือก". */
+  stockLabel: string;
+  stockTitle: string;
 };
 
 export type ProductListView = "list" | "grid";
@@ -83,12 +88,15 @@ export function ProductList({ rows, view }: { rows: AdminProductRow[]; view: Pro
 
   return (
     <div className="space-y-3">
-      <BulkBar
-        selectedIds={visibleSelected}
-        allSelected={allSelected}
-        onToggleAll={toggleAll}
-        onClear={() => setSelected(new Set())}
-      />
+      {/* The list header already has a select-all box, so there the bar only appears once something is picked. */}
+      {(view === "grid" || visibleSelected.length > 0) && (
+        <BulkBar
+          selectedIds={visibleSelected}
+          allSelected={allSelected}
+          onToggleAll={toggleAll}
+          onClear={() => setSelected(new Set())}
+        />
+      )}
       {view === "grid" ? (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {rows.map((r) => (
@@ -100,9 +108,9 @@ export function ProductList({ rows, view }: { rows: AdminProductRow[]; view: Pro
       ) : (
         <div className="overflow-hidden rounded-2xl border bg-card shadow-soft">
           <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10">
+            <TableHeader className="bg-muted/50">
+              <TableRow className="hover:bg-transparent [&>th]:h-11 [&>th]:text-xs [&>th]:font-medium [&>th]:text-muted-foreground">
+                <TableHead className="w-12 pl-4">
                   <Checkbox
                     checked={allSelected ? true : visibleSelected.length > 0 ? "indeterminate" : false}
                     onCheckedChange={(v) => toggleAll(v === true)}
@@ -113,11 +121,12 @@ export function ProductList({ rows, view }: { rows: AdminProductRow[]; view: Pro
                   <span className="sr-only">รูป</span>
                 </TableHead>
                 <TableHead>สินค้า</TableHead>
-                <TableHead className="hidden md:table-cell">หมวดหมู่</TableHead>
-                <TableHead className="text-right">ราคา</TableHead>
-                <TableHead>สถานะ</TableHead>
-                <TableHead className="hidden lg:table-cell">แก้ไขล่าสุด</TableHead>
-                <TableHead className="w-12">
+                <TableHead className="hidden w-36 md:table-cell">หมวดหมู่</TableHead>
+                <TableHead className="w-28 pr-6 text-right">ราคา</TableHead>
+                <TableHead className="w-32">สถานะ</TableHead>
+                <TableHead className="hidden w-24 md:table-cell">สต็อก</TableHead>
+                <TableHead className="hidden w-40 lg:table-cell">แก้ไขล่าสุด</TableHead>
+                <TableHead className="w-40 pr-4">
                   <span className="sr-only">จัดการ</span>
                 </TableHead>
               </TableRow>
@@ -139,12 +148,12 @@ type ItemProps = { row: AdminProductRow; checked: boolean; onCheckedChange: (on:
 function ProductRow({ row, checked, onCheckedChange }: ItemProps) {
   const onClick = useOpenOnClick(row.id);
   return (
-    <TableRow onClick={onClick} data-state={checked ? "selected" : undefined} className="cursor-pointer">
-      <TableCell>
+    <TableRow onClick={onClick} data-state={checked ? "selected" : undefined} className="cursor-pointer hover:bg-muted/40">
+      <TableCell className="pl-4">
         <Checkbox checked={checked} onCheckedChange={(v) => onCheckedChange(v === true)} aria-label={`เลือก ${row.nameTH}`} />
       </TableCell>
       <TableCell>
-        <div className="relative size-12 overflow-hidden rounded-lg bg-muted">
+        <div className="relative size-12 overflow-hidden rounded-xl bg-muted ring-1 ring-black/5">
           {row.imageUrl ? (
             <Image src={row.imageUrl} alt="" fill sizes="48px" className="object-cover" />
           ) : (
@@ -152,25 +161,32 @@ function ProductRow({ row, checked, onCheckedChange }: ItemProps) {
           )}
         </div>
       </TableCell>
-      <TableCell className="max-w-72">
-        <Link href={editHref(row.id)} className="font-medium hover:underline">
+      <TableCell className="max-w-80">
+        <Link href={editHref(row.id)} className="line-clamp-1 font-medium hover:underline">
           {row.nameTH}
         </Link>
         <p className="truncate text-xs text-muted-foreground">
-          {row.nameEN}
-          {row.versionNumber ? ` · v${row.versionNumber}` : " · ยังไม่มีเวอร์ชัน"}
+          {/* English name only when it adds something; the version is always shown. */}
+          {row.nameEN && row.nameEN !== row.nameTH && `${row.nameEN} · `}
+          {row.versionNumber ? `v${row.versionNumber}` : "ยังไม่มีเวอร์ชัน"}
         </p>
       </TableCell>
-      <TableCell className="hidden md:table-cell">{row.categoryName}</TableCell>
-      <TableCell className="text-right whitespace-nowrap">
+      <TableCell className="hidden text-muted-foreground md:table-cell">{row.categoryName}</TableCell>
+      <TableCell className="pr-6 text-right font-medium whitespace-nowrap tabular-nums">
         <Price row={row} />
       </TableCell>
       <TableCell>
         <ProductStatusBadge status={row.status} />
       </TableCell>
-      <TableCell className="hidden text-xs text-muted-foreground lg:table-cell">{row.updatedAt}</TableCell>
-      <TableCell>
-        <RowActions row={row} />
+      <TableCell className="hidden text-sm tabular-nums md:table-cell" title={row.stockTitle}>
+        {row.stockLabel}
+      </TableCell>
+      <TableCell className="hidden text-xs whitespace-nowrap text-muted-foreground lg:table-cell">{row.updatedAt}</TableCell>
+      <TableCell className="pr-4">
+        <div className="flex items-center justify-end gap-0.5">
+          <QuickActions row={row} />
+          <RowActions row={row} />
+        </div>
       </TableCell>
     </TableRow>
   );
@@ -236,6 +252,17 @@ function ProductCard({ row, checked, onCheckedChange }: ItemProps) {
           )}
         </div>
       </div>
+      <div className="flex items-stretch border-t">
+        <div className="flex flex-1 items-center gap-0.5 px-1.5 py-1">
+          <QuickActions row={row} />
+        </div>
+        <span
+          className="flex items-center border-l px-3 text-xs text-muted-foreground tabular-nums"
+          title={row.stockTitle}
+        >
+          {row.stockLabel}
+        </span>
+      </div>
     </div>
   );
 }
@@ -259,11 +286,64 @@ function useStatusChange(productId: string) {
   return { run, pending };
 }
 
-function RowActions({ row }: { row: AdminProductRow }) {
+/** Always-visible shortcuts: copy the shop link, duplicate, delete. */
+function QuickActions({ row }: { row: AdminProductRow }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [duplicating, startDuplicate] = useTransition();
+
+  async function copyLink() {
+    const url = `${window.location.origin}/th/product/${row.slug}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("คัดลอกลิงก์สินค้าแล้ว");
+    } catch {
+      toast.error("คัดลอกไม่สำเร็จ");
+    }
+  }
+
+  return (
+    <>
+      <Button size="icon-sm" variant="ghost" aria-label={`คัดลอกลิงก์ ${row.nameTH}`} title="คัดลอกลิงก์หน้าร้าน" onClick={copyLink}>
+        <Link2 aria-hidden />
+      </Button>
+      <Button
+        size="icon-sm"
+        variant="ghost"
+        aria-label={`ทำซ้ำ ${row.nameTH}`}
+        title="ทำซ้ำ (สร้างเป็นฉบับร่าง)"
+        disabled={duplicating}
+        onClick={() => startDuplicate(async () => void (await runWithToast(() => duplicateProduct(row.id))))}
+      >
+        {duplicating ? <Loader2 className="animate-spin" aria-hidden /> : <Copy aria-hidden />}
+      </Button>
+      <Button
+        size="icon-sm"
+        variant="ghost"
+        className="text-destructive hover:text-destructive"
+        aria-label={`ลบ ${row.nameTH}`}
+        title={row.hasOrders ? "มีคำสั่งซื้อแล้ว ลบไม่ได้ — ใช้ “ปิดการขาย” แทน" : "ลบ"}
+        disabled={row.hasOrders}
+        onClick={() => setConfirmDelete(true)}
+      >
+        <Trash2 aria-hidden />
+      </Button>
+      <ConfirmDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title={`ลบ ${row.nameTH} ถาวร?`}
+        description="ข้อมูล รูปภาพ เวอร์ชัน และไฟล์ทั้งหมดจะถูกลบ และกู้คืนไม่ได้"
+        confirmLabel="ลบถาวร"
+        destructive
+        onConfirm={() => runWithToast(() => deleteProduct(row.id))}
+      />
+    </>
+  );
+}
+
+/** Menu for the rest: edit and status changes. */
+function RowActions({ row }: { row: AdminProductRow }) {
   const changeStatus = useStatusChange(row.id);
-  const busy = duplicating || changeStatus.pending;
+  const busy = changeStatus.pending;
 
   return (
     <>
@@ -279,9 +359,6 @@ function RowActions({ row }: { row: AdminProductRow }) {
               <Pencil aria-hidden /> แก้ไข
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => startDuplicate(async () => void (await runWithToast(() => duplicateProduct(row.id))))}>
-            <Copy aria-hidden /> ทำซ้ำ
-          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuLabel className="text-xs text-muted-foreground">เปลี่ยนสถานะ</DropdownMenuLabel>
           {PUBLISH_OPTIONS.filter((o) => o.value !== row.publishStatus).map(({ value, label, icon: Icon }) => (
@@ -289,26 +366,8 @@ function RowActions({ row }: { row: AdminProductRow }) {
               <Icon aria-hidden /> {label}
             </DropdownMenuItem>
           ))}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            variant="destructive"
-            disabled={row.hasOrders}
-            onSelect={() => setConfirmDelete(true)}
-            title={row.hasOrders ? "มีคำสั่งซื้อแล้ว ลบไม่ได้ — ใช้ “ปิดการขาย” แทน" : undefined}
-          >
-            <Trash2 aria-hidden /> {row.hasOrders ? "ลบไม่ได้ (มีคำสั่งซื้อ)" : "ลบ"}
-          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <ConfirmDialog
-        open={confirmDelete}
-        onOpenChange={setConfirmDelete}
-        title={`ลบ ${row.nameTH} ถาวร?`}
-        description="ข้อมูล รูปภาพ เวอร์ชัน และไฟล์ทั้งหมดจะถูกลบ และกู้คืนไม่ได้"
-        confirmLabel="ลบถาวร"
-        destructive
-        onConfirm={() => runWithToast(() => deleteProduct(row.id))}
-      />
     </>
   );
 }

@@ -53,6 +53,7 @@ export default async function AdminProductsPage({ searchParams }: PageProps<"/ad
     const price = calculateProductPrice(p, now);
     return {
       id: p.id,
+      slug: p.slug,
       nameTH: p.nameTH,
       nameEN: p.nameEN,
       versionNumber: p.versions[0]?.versionNumber ?? null,
@@ -64,6 +65,18 @@ export default async function AdminProductsPage({ searchParams }: PageProps<"/ad
       publishStatus: p.publishStatus,
       updatedAt: formatBangkokDateTime(p.updatedAt),
       hasOrders: p._count.orderItems > 0,
+      stockLabel:
+        p._count.variants > 0
+          ? `${p._count.variants} ตัวเลือก`
+          : p.stockLimit === null
+            ? "∞"
+            : `${Math.max(0, p.stockLimit - p.stockTaken)}/${p.stockLimit}`,
+      stockTitle:
+        p._count.variants > 0
+          ? "สต็อกตั้งแยกตามตัวเลือก"
+          : p.stockLimit === null
+            ? "สต็อกไม่จำกัด"
+            : `เหลือ ${Math.max(0, p.stockLimit - p.stockTaken)} จาก ${p.stockLimit} ชิ้น`,
     };
   });
 

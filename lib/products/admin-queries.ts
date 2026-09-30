@@ -50,12 +50,30 @@ export async function listAdminProducts({ q, categoryId, publishStatus, page }: 
         category: { select: { nameTH: true } },
         images: { where: { isPrimary: true }, select: { imagePath: true, altTextTH: true }, take: 1 },
         versions: { where: { isLatest: true }, select: { versionNumber: true }, take: 1 },
-        _count: { select: { orderItems: true } },
+        stockLimit: true,
+        _count: { select: { orderItems: true, variants: true } },
       },
     }),
   ]);
 
-  return { items, total, page, pageCount: Math.max(1, Math.ceil(total / ADMIN_PAGE_SIZE)) };
+  // Units taken per limited product (the product's own line, open + completed orders), in one query.
+  const limitedIds = items.filter((p) => p.stockLimit !== null).map((p) => p.id);
+  const taken =
+    limitedIds.length > 0
+      ? await prisma.orderItem.groupBy({
+          by: ["productId"],
+          where: { productId: { in: limitedIds }, variantId: null, order: stockTakingOrderWhere(new Date()) },
+          _count: { _all: true },
+        })
+      : [];
+  const takenById = new Map(taken.map((t) => [t.productId, t._count._all]));
+
+  return {
+    items: items.map((p) => ({ ...p, stockTaken: takenById.get(p.id) ?? 0 })),
+    total,
+    page,
+    pageCount: Math.max(1, Math.ceil(total / ADMIN_PAGE_SIZE)),
+  };
 }
 
 export function getAdminProduct(id: string) {
