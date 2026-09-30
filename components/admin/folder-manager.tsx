@@ -7,11 +7,17 @@ import { useRouter } from "next/navigation";
 import {
   closestCenter,
   DndContext,
+  DragOverlay,
   KeyboardSensor,
   PointerSensor,
+  pointerWithin,
+  useDroppable,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
 import {
   arrayMove,
@@ -97,7 +103,7 @@ function useSortSensors() {
 }
 
 /** Local order for instant feedback while dragging; resets whenever the server sends new data. */
-function useLocalOrder<T>(serverItems: T[]) {
+function useLocalOrder<T>(serverItems: T) {
   const [items, setItems] = useState(serverItems);
   const [seen, setSeen] = useState(serverItems);
   if (serverItems !== seen) {
@@ -109,6 +115,44 @@ function useLocalOrder<T>(serverItems: T[]) {
 
 const anchorId = (id: string) => `folder-${id}`;
 
+type DragData =
+  | { type: "folder" }
+  | { type: "product"; container: string | null }
+  | { type: "zone"; container: string | null };
+
+const zoneId = (folderId: string | null) => `zone:${folderId ?? "none"}`;
+const dragData = (d: { data: { current?: unknown } } | null | undefined) => (d?.data.current ?? null) as DragData | null;
+
+/**
+ * Folders only collide with folders. Products prefer the tile under the pointer, then the
+ * folder area under it (drop into another folder), then the closest target (keyboard).
+ */
+const collisionDetection: CollisionDetection = (args) => {
+  const draggingFolder = dragData(args.active)?.type === "folder";
+  const scoped = {
+    ...args,
+    droppableContainers: args.droppableContainers.filter((c) => (dragData(c)?.type === "folder") === draggingFolder),
+  };
+  if (draggingFolder) return closestCenter(scoped);
+  const hits = pointerWithin(scoped);
+  const productHits = hits.filter((h) => dragData(h.data?.droppableContainer)?.type === "product");
+  if (productHits.length > 0) return productHits;
+  if (hits.length > 0) return hits;
+  return closestCenter(scoped);
+};
+
+type Board = { folders: ManagedFolder[]; unfiled: ManagedFolderProduct[] };
+
+function productsIn(board: Board, container: string | null) {
+  return container === null ? board.unfiled : (board.folders.find((f) => f.id === container)?.products ?? []);
+}
+
+function withProducts(board: Board, container: string | null, products: ManagedFolderProduct[]): Board {
+  return container === null
+    ? { ...board, unfiled: products }
+    : { ...board, folders: board.folders.map((f) => (f.id === container ? { ...f, products } : f)) };
+}
+
 export function FolderManager({
   folders,
   allProducts,
@@ -117,30 +161,122 @@ export function FolderManager({
   allProducts: ManagedFolderProduct[];
 }) {
   const router = useRouter();
-  const [items, setItems] = useLocalOrder(folders);
+  const serverBoard = useMemo<Board>(
+    () => ({ folders, unfiled: allProducts.filter((p) => p.folderId === null) }),
+    [folders, allProducts],
+  );
+  const [board, setBoard] = useLocalOrder(serverBoard);
   const [pending, startTransition] = useTransition();
+  const [activeProduct, setActiveProduct] = useState<ManagedFolderProduct | null>(null);
+  // undefined = not over any product area; null = over "no folder".
+  const [overContainer, setOverContainer] = useState<string | null | undefined>(undefined);
   const sensors = useSortSensors();
   const dndId = useId();
-  const unfiled = useMemo(() => allProducts.filter((p) => p.folderId === null), [allProducts]);
-  const folderOptions: FolderOption[] = items.map((f) => ({
-    id: f.id,
-    nameTH: f.nameTH,
-  }));
+  const folderOptions: FolderOption[] = board.folders.map((f) => ({ id: f.id, nameTH: f.nameTH }));
 
-  function onDragEnd({ active, over }: DragEndEvent) {
-    if (!over || active.id === over.id) return;
-    const previous = items;
-    const next = arrayMove(
-      items,
-      items.findIndex((f) => f.id === active.id),
-      items.findIndex((f) => f.id === over.id),
-    );
-    setItems(next);
+  function save(previous: Board, action: () => Promise<boolean>) {
     startTransition(async () => {
-      if (!(await runWithToast(() => reorderFolders(next.map((f) => f.id))))) setItems(previous);
+      if (!(await action())) setBoard(previous);
       router.refresh();
     });
   }
+
+  function resetDrag() {
+    setActiveProduct(null);
+    setOverContainer(undefined);
+  }
+
+  function onDragStart({ active }: DragStartEvent) {
+    const data = dragData(active);
+    if (data?.type !== "product") return;
+    setActiveProduct(productsIn(board, data.container).find((p) => p.id === active.id) ?? null);
+  }
+
+  function onDragOver({ over }: DragOverEvent) {
+    const data = dragData(over);
+    setOverContainer(data && data.type !== "folder" ? data.container : undefined);
+  }
+
+  function onDragEnd({ active, over }: DragEndEvent) {
+    resetDrag();
+    const from = dragData(active);
+    const to = dragData(over);
+    if (!over || !from || !to) return;
+    const previous = board;
+
+    if (from.type === "folder") {
+      if (active.id === over.id) return;
+      const next = arrayMove(
+        board.folders,
+        board.folders.findIndex((f) => f.id === active.id),
+        board.folders.findIndex((f) => f.id === over.id),
+      );
+      setBoard({ ...board, folders: next });
+      save(previous, () => runWithToast(() => reorderFolders(next.map((f) => f.id))));
+      return;
+    }
+    if (from.type !== "product" || to.type === "folder") return;
+
+    const productId = String(active.id);
+    const source = productsIn(board, from.container);
+    const target = productsIn(board, to.container);
+
+    if (from.container === to.container) {
+      // Unfiled products have no order of their own.
+      if (to.container === null || to.type !== "product" || active.id === over.id) return;
+      const folderId = to.container;
+      const next = arrayMove(
+        source,
+        source.findIndex((p) => p.id === active.id),
+        source.findIndex((p) => p.id === over.id),
+      );
+      setBoard(withProducts(board, folderId, next));
+      save(previous, () =>
+        runWithToast(() =>
+          reorderFolderProducts(
+            folderId,
+            next.map((p) => p.id),
+          ),
+        ),
+      );
+      return;
+    }
+
+    // Moving to another folder (or out of all folders): lands where the tile under the pointer is.
+    const moved = source.find((p) => p.id === productId);
+    if (!moved) return;
+    const overIndex = to.type === "product" ? target.findIndex((p) => p.id === over.id) : -1;
+    const index = overIndex < 0 ? target.length : overIndex;
+    const nextTarget = [...target.slice(0, index), { ...moved, folderId: to.container }, ...target.slice(index)];
+    setBoard(
+      withProducts(
+        withProducts(
+          board,
+          from.container,
+          source.filter((p) => p.id !== productId),
+        ),
+        to.container,
+        nextTarget,
+      ),
+    );
+
+    const destination = to.container;
+    save(previous, async () => {
+      if (destination === null) return runWithToast(() => removeProductFromFolder(productId));
+      if (!(await runWithToast(() => addProductsToFolder(destination, [productId])))) return false;
+      // The server appends to the end; reorder only when dropped before it.
+      if (index === target.length) return true;
+      return runWithToast(() =>
+        reorderFolderProducts(
+          destination,
+          nextTarget.map((p) => p.id),
+        ),
+      );
+    });
+  }
+
+  const isDropTarget = (container: string | null) =>
+    activeProduct !== null && overContainer === container && activeProduct.folderId !== container;
 
   return (
     <div className="space-y-6">
@@ -154,14 +290,14 @@ export function FolderManager({
           }
         />
         <p className="text-xs text-muted-foreground">
-          ลาก <GripVertical className="inline size-3" aria-hidden /> เพื่อเรียงโฟลเดอร์และสินค้า ·
+          ลาก <GripVertical className="inline size-3" aria-hidden /> เพื่อเรียงลำดับ หรือลากสินค้าไปวางในโฟลเดอร์อื่น ·
           สินค้าหนึ่งชิ้นอยู่ได้หนึ่งโฟลเดอร์
         </p>
       </div>
 
-      {items.length > 0 && (
+      {board.folders.length > 0 && (
         <nav aria-label="ไปที่โฟลเดอร์" className="flex flex-wrap gap-2">
-          {items.map((f) => (
+          {board.folders.map((f) => (
             <a
               key={f.id}
               href={`#${anchorId(f.id)}`}
@@ -174,47 +310,62 @@ export function FolderManager({
         </nav>
       )}
 
-      {items.length === 0 ? (
-        <div className="rounded-2xl border border-dashed bg-card p-12 text-center text-sm text-muted-foreground">
-          ยังไม่มีโฟลเดอร์ — หน้าร้านจะแสดงสินค้าทั้งหมดแบบรวม
-        </div>
-      ) : (
-        <DndContext id={dndId} sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd} accessibility={DND_A11Y}>
-          <SortableContext items={items.map((f) => f.id)} strategy={verticalListSortingStrategy}>
+      <DndContext
+        id={dndId}
+        sensors={sensors}
+        collisionDetection={collisionDetection}
+        onDragStart={onDragStart}
+        onDragOver={onDragOver}
+        onDragEnd={onDragEnd}
+        onDragCancel={resetDrag}
+        accessibility={DND_A11Y}
+      >
+        {board.folders.length === 0 ? (
+          <div className="rounded-2xl border border-dashed bg-card p-12 text-center text-sm text-muted-foreground">
+            ยังไม่มีโฟลเดอร์ — หน้าร้านจะแสดงสินค้าทั้งหมดแบบรวม
+          </div>
+        ) : (
+          <SortableContext items={board.folders.map((f) => f.id)} strategy={verticalListSortingStrategy}>
             <ol className="space-y-5">
-              {items.map((f) => (
+              {board.folders.map((f) => (
                 <SortableFolder
                   key={f.id}
                   folder={f}
                   folders={folderOptions}
                   allProducts={allProducts}
                   disabled={pending}
+                  isDropTarget={isDropTarget(f.id)}
                 />
               ))}
             </ol>
           </SortableContext>
-        </DndContext>
-      )}
-
-      <section aria-labelledby="unfiled-title" className="rounded-3xl border border-dashed bg-card/60 p-4 sm:p-6">
-        <div className="mb-4 flex items-baseline gap-3">
-          <h2 id="unfiled-title" className="text-lg font-semibold">
-            ไม่มีโฟลเดอร์
-          </h2>
-          <span className="text-sm text-muted-foreground tabular-nums">{unfiled.length} รายการ</span>
-        </div>
-        {unfiled.length === 0 ? (
-          <p className="text-sm text-muted-foreground">ทุกสินค้าอยู่ในโฟลเดอร์แล้ว</p>
-        ) : (
-          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            {unfiled.map((p) => (
-              <li key={p.id}>
-                <ProductTile product={p} folders={folderOptions} />
-              </li>
-            ))}
-          </ul>
         )}
-      </section>
+
+        <section aria-labelledby="unfiled-title" className="rounded-3xl border border-dashed bg-card/60 p-4 sm:p-6">
+          <div className="mb-4 flex items-baseline gap-3">
+            <h2 id="unfiled-title" className="text-lg font-semibold">
+              ไม่มีโฟลเดอร์
+            </h2>
+            <span className="text-sm text-muted-foreground tabular-nums">{board.unfiled.length} รายการ</span>
+          </div>
+          <ProductZone
+            container={null}
+            products={board.unfiled}
+            folders={folderOptions}
+            disabled={pending}
+            isDropTarget={isDropTarget(null)}
+            emptyText="ทุกสินค้าอยู่ในโฟลเดอร์แล้ว — ลากสินค้ามาวางที่นี่เพื่อนำออกจากโฟลเดอร์"
+          />
+        </section>
+
+        <DragOverlay>
+          {activeProduct && (
+            <div className="w-44 rotate-2 rounded-2xl shadow-lg">
+              <ProductTile product={activeProduct} folders={folderOptions} />
+            </div>
+          )}
+        </DragOverlay>
+      </DndContext>
     </div>
   );
 }
@@ -224,16 +375,19 @@ function SortableFolder({
   folders,
   allProducts,
   disabled,
+  isDropTarget,
 }: {
   folder: ManagedFolder;
   folders: FolderOption[];
   allProducts: ManagedFolderProduct[];
   disabled: boolean;
+  isDropTarget: boolean;
 }) {
   const router = useRouter();
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: folder.id,
     disabled,
+    data: { type: "folder" } satisfies DragData,
   });
   const archived = folder.status === "ARCHIVED";
 
@@ -309,89 +463,81 @@ function SortableFolder({
           />
         </div>
       </div>
-      <FolderProducts folderId={folder.id} products={folder.products} folders={folders} />
+      <ProductZone
+        container={folder.id}
+        products={folder.products}
+        folders={folders}
+        disabled={disabled}
+        isDropTarget={isDropTarget}
+        emptyText="ยังไม่มีสินค้าในโฟลเดอร์นี้ — ลากสินค้ามาวาง หรือกด “เพิ่มสินค้า”"
+      />
     </li>
   );
 }
 
-function FolderProducts({
-  folderId,
+/** A folder's (or the unfiled) product grid: sortable tiles plus a drop area for products from elsewhere. */
+function ProductZone({
+  container,
   products,
   folders,
+  disabled,
+  isDropTarget,
+  emptyText,
 }: {
-  folderId: string;
+  container: string | null;
   products: ManagedFolderProduct[];
   folders: FolderOption[];
+  disabled: boolean;
+  isDropTarget: boolean;
+  emptyText: string;
 }) {
-  const router = useRouter();
-  const [items, setItems] = useLocalOrder(products);
-  const [pending, startTransition] = useTransition();
-  const sensors = useSortSensors();
-  const dndId = useId();
-
-  function onDragEnd({ active, over }: DragEndEvent) {
-    if (!over || active.id === over.id) return;
-    const previous = items;
-    const next = arrayMove(
-      items,
-      items.findIndex((p) => p.id === active.id),
-      items.findIndex((p) => p.id === over.id),
-    );
-    setItems(next);
-    startTransition(async () => {
-      if (
-        !(await runWithToast(() =>
-          reorderFolderProducts(
-            folderId,
-            next.map((p) => p.id),
-          ),
-        ))
-      )
-        setItems(previous);
-      router.refresh();
-    });
-  }
-
-  if (items.length === 0) {
-    return (
-      <p className="rounded-2xl border border-dashed p-8 text-center text-sm text-muted-foreground">
-        ยังไม่มีสินค้าในโฟลเดอร์นี้ — กด “เพิ่มสินค้า”
-      </p>
-    );
-  }
+  const { setNodeRef } = useDroppable({ id: zoneId(container), data: { type: "zone", container } satisfies DragData });
 
   return (
-    <DndContext id={dndId} sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd} accessibility={DND_A11Y}>
-      <SortableContext items={items.map((p) => p.id)} strategy={rectSortingStrategy}>
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {items.map((p) => (
-            <SortableProduct key={p.id} product={p} folders={folders} disabled={pending} />
-          ))}
-        </ul>
-      </SortableContext>
-    </DndContext>
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "rounded-2xl transition-[box-shadow,background-color]",
+        isDropTarget && "bg-secondary/40 ring-2 ring-primary ring-offset-4 ring-offset-card",
+      )}
+    >
+      {products.length === 0 ? (
+        <p className="rounded-2xl border border-dashed p-8 text-center text-sm text-muted-foreground">{emptyText}</p>
+      ) : (
+        <SortableContext items={products.map((p) => p.id)} strategy={rectSortingStrategy}>
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {products.map((p) => (
+              <SortableProduct key={p.id} product={p} container={container} folders={folders} disabled={disabled} />
+            ))}
+          </ul>
+        </SortableContext>
+      )}
+    </div>
   );
 }
 
 function SortableProduct({
   product,
+  container,
   folders,
   disabled,
 }: {
   product: ManagedFolderProduct;
+  container: string | null;
   folders: FolderOption[];
   disabled: boolean;
 }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: product.id,
     disabled,
+    data: { type: "product", container } satisfies DragData,
   });
 
   return (
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={cn(isDragging && "relative z-10 opacity-80")}
+      className={cn(isDragging && "opacity-40")}
     >
       <ProductTile
         product={product}
