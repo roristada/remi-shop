@@ -190,5 +190,40 @@
     "added": "Saved to your wishlist",
     "removed": "Removed from your wishlist",
     "error": "Something went wrong. Please try again"
+  },
+  "reviews": {
+    "title": "Reviews",
+    "distribution": "Rating breakdown",
+    "count": "{count, plural, one {# review} other {# reviews}}",
+    "none": "No reviews yet",
+    "write": "Write a review",
+    "edit": "Edit my review",
+    "loginToReview": "Sign in to review",
+    "onlyBuyers": "Only customers who bought this product can review it",
+    "expired": "The review window has closed (reviews are open for 30 days after purchase)",
+    "reviewUntil": "Review until {date}",
+    "reviewed": "Reviewed",
+    "verified": "Verified purchase",
+    "anonymous": "Customer",
+    "loadMore": "Show more reviews",
+    "starsShort": "{count} stars",
+    "starsOption": "{count, plural, one {# star} other {# stars}}",
+    "dialogTitle": "Review this product",
+    "editTitle": "Edit your review",
+    "ratingLabel": "Your rating",
+    "bodyLabel": "Your review",
+    "bodyPlaceholder": "How was it? Which software did you use it with?",
+    "submit": "Send review",
+    "submitting": "Sending...",
+    "saved": "Review saved. Thank you!",
+    "errors": {
+      "rating": "Please give at least 1 star",
+      "required": "Please write a few words",
+      "too_long": "This is too long",
+      "LOGIN_REQUIRED": "Please sign in first",
+      "INVALID": "Please check what you entered",
+      "NOT_ELIGIBLE": "You can review products you bought and that were approved, within 30 days",
+      "ERROR": "Something went wrong. Please try again"
+    }
   }
 }

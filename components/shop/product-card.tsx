@@ -58,8 +58,7 @@ export function ProductCard({ product, priority = false }: { product: ProductCar
             {product.name}
           </Link>
         </h3>
-        {/* No review system yet — every card honestly shows the same empty state, never a guessed number. */}
-        <StarRating average={0} count={0} />
+        <StarRating {...product.rating} />
         <ProductPrice price={price} className="mt-auto" />
       </div>
     </article>

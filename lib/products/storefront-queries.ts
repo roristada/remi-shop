@@ -6,6 +6,7 @@ import { localized } from "@/i18n/localize";
 import { calculateProductPrice, type ProductPrice } from "@/lib/pricing/calculate";
 import { getProductStatus, type ProductStatus } from "@/lib/products/status";
 import { previewImageUrl } from "@/lib/storage/public-url";
+import { ratingAverage } from "@/lib/reviews/rules";
 import {
   activeDiscountWhere,
   facetBaseWhere,
@@ -41,6 +42,8 @@ function cardSelect(userId: string | null) {
     publishStatus: true,
     saleStartAt: true,
     saleEndAt: true,
+    ratingCount: true,
+    ratingSum: true,
     softwareTags: {
       select: { softwareTag: { select: { name: true } } },
       orderBy: { softwareTag: { sortOrder: "asc" } },
@@ -67,6 +70,7 @@ export type ProductCardData = {
   price: ProductPrice;
   status: ProductStatus;
   wishlisted: boolean;
+  rating: { average: number; count: number };
 };
 
 function toCard(row: CardRow, locale: string, now: Date): ProductCardData {
@@ -84,6 +88,7 @@ function toCard(row: CardRow, locale: string, now: Date): ProductCardData {
     price: calculateProductPrice(row, now),
     status: getProductStatus(row, now),
     wishlisted: row.wishlist.length > 0,
+    rating: { average: ratingAverage(row.ratingSum, row.ratingCount), count: row.ratingCount },
   };
 }
 
@@ -378,6 +383,8 @@ export const getShopProduct = cache((slug: string) =>
       metaDescriptionTH: true,
       metaDescriptionEN: true,
       updatedAt: true,
+      ratingCount: true,
+      ratingSum: true,
       categoryId: true,
       category: { select: { slug: true, nameTH: true, nameEN: true, status: true } },
       images: {

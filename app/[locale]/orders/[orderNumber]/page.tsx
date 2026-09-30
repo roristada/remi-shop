@@ -25,6 +25,8 @@ import { CopyButton } from "@/components/shared/copy-button";
 import { DownloadVersions } from "@/components/downloads/download-versions";
 import { cn } from "@/lib/utils";
 import { BackLink } from "@/components/shared/back-link";
+import { getOrderReviewStates } from "@/lib/reviews/queries";
+import { OrderReviewButton, ReviewPrompt, type OrderReviewItem } from "@/components/reviews/order-review-actions";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/orders/[orderNumber]">): Promise<Metadata> {
   const { locale, orderNumber } = await params;
@@ -54,6 +56,28 @@ export default async function OrderPage({ params }: PageProps<"/[locale]/orders/
   const downloads =
     order.status === "COMPLETED" && order.kind === "PRODUCT" ? await listOrderDownloads(user.id, order.id) : null;
   const hasAnyFiles = downloads ? [...downloads.values()].some((d) => d.versions.length > 0) : false;
+  // Verified-purchase reviews: only paid product orders, for 30 days after approval.
+  const reviewStates =
+    order.status === "COMPLETED" && order.kind === "PRODUCT"
+      ? await getOrderReviewStates(
+          user.id,
+          order,
+          order.items.map((i) => i.product.id),
+          now,
+        )
+      : null;
+  const reviewUntil = reviewStates
+    ? new Intl.DateTimeFormat(fmt.date, { dateStyle: "medium", timeZone: "Asia/Bangkok" }).format(reviewStates.deadline)
+    : "";
+  const reviewItems: OrderReviewItem[] = reviewStates
+    ? order.items.map((i) => ({
+        productId: i.product.id,
+        name: localized(locale, i.productNameTHSnapshot, i.productNameENSnapshot),
+        state: reviewStates.byProduct.get(i.product.id) ?? "EXPIRED",
+        until: reviewUntil,
+      }))
+    : [];
+  const promptItems = reviewItems.filter((i) => i.state === "CAN_REVIEW");
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:py-12">
@@ -69,6 +93,7 @@ export default async function OrderPage({ params }: PageProps<"/[locale]/orders/
         <OrderStatusBadge status={order.status} className="h-7 px-3 text-sm" />
       </div>
 
+      {promptItems.length > 0 && <ReviewPrompt orderNumber={order.orderNumber} items={promptItems} />}
       <OrderProgress status={order.status} isLicense={order.kind === "LICENSE"} />
       <StatusNotice order={order} t={t} hasFiles={hasAnyFiles} />
 
@@ -117,6 +142,9 @@ export default async function OrderPage({ params }: PageProps<"/[locale]/orders/
                         )}
                       </p>
                     </div>
+                    {reviewStates && (
+                      <OrderReviewButton item={reviewItems.find((r) => r.productId === item.product.id)!} />
+                    )}
                     {downloads &&
                       (files && files.versions.length > 0 ? (
                         <DownloadVersions versions={files.versions} downloadLimit={files.downloadLimit} locale={locale} />

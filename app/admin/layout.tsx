@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BadgeCheck, Stamp, FolderOpen, LayoutDashboard, Package, Receipt, Settings, Tags, Users } from "lucide-react";
+import { BadgeCheck, Stamp, FolderOpen, LayoutDashboard, MessageSquareText, Package, Receipt, Settings, Tags, Users } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/guards";
 import { fontVariables } from "@/app/fonts";
 import { Toaster } from "@/components/ui/sonner";
@@ -19,6 +19,7 @@ const ADMIN_NAV = [
   { href: "/admin/payments", label: "ตรวจสลิป", icon: BadgeCheck },
   { href: "/admin/licenses", label: "คำขอ License", icon: Stamp },
   { href: "/admin/orders", label: "คำสั่งซื้อ", icon: Receipt },
+  { href: "/admin/reviews", label: "รีวิว", icon: MessageSquareText },
   { href: "/admin/customers", label: "ลูกค้า", icon: Users },
   { href: "/admin/settings", label: "ตั้งค่า", icon: Settings },
 ];

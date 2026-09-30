@@ -26,6 +26,8 @@ import { ProductGrid } from "@/components/shop/product-grid";
 import { LicenseOfferPanel } from "@/components/shop/license-offer";
 import { getLicenseOffers } from "@/lib/licenses/queries";
 import { StarRating } from "@/components/shop/star-rating";
+import { ReviewSection } from "@/components/reviews/review-section";
+import { ratingAverage } from "@/lib/reviews/rules";
 import { WishlistButton } from "@/components/shop/wishlist-button";
 import { isWishlisted } from "@/lib/wishlist/queries";
 
@@ -185,8 +187,7 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
               <h1 className="font-sans text-2xl leading-snug font-semibold text-balance sm:text-[2rem]">{name}</h1>
               <WishlistButton productId={product.id} productSlug={product.slug} initialWishlisted={wishlisted} />
             </div>
-            {/* No review system yet — same honest empty state as the product card. */}
-            <StarRating average={0} count={0} />
+            <StarRating average={ratingAverage(product.ratingSum, product.ratingCount)} count={product.ratingCount} />
           </div>
 
           <PurchasePanel
@@ -246,6 +247,8 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
           </section>
         )}
       </div>
+
+      <ReviewSection productId={product.id} productName={name} productSlug={product.slug} />
 
       {related.length > 0 && (
         <section aria-labelledby="related-heading" className="space-y-4">

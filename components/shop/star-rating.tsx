@@ -6,8 +6,7 @@ export type RatingData = { average: number; count: number };
 
 /**
  * Honest by construction: always takes `{ average, count }`, never a hardcoded number.
- * `count === 0` renders an outline-only row and "no reviews yet" — the review system has not
- * shipped, so every call site passes `{ average: 0, count: 0 }` today. See DESIGN.md § Rating.
+ * `count === 0` renders an outline-only row and "no reviews yet". See DESIGN.md § Rating.
  */
 export function StarRating({ average, count, className }: RatingData & { className?: string }) {
   const t = useTranslations("shop.rating");

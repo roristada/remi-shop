@@ -92,6 +92,7 @@ model Profile {
   reviewedPayments Payment[]        @relation("PaymentReviewer")
   licenseRequests  LicenseRequest[]
   reviewedLicenses LicenseRequest[] @relation("LicenseReviewer")
+  reviews          Review[]
 
   @@map("profiles")
 }
@@ -168,6 +169,10 @@ model Product {
   requirementsTH   String? @map("requirements_th")
   requirementsEN   String? @map("requirements_en")
 
+  /// Denormalized from visible reviews (kept in step inside the review transactions).
+  ratingCount Int @default(0) @map("rating_count")
+  ratingSum   Int @default(0) @map("rating_sum")
+
   /// null = unlimited downloads
   downloadLimit Int? @map("download_limit")
 
@@ -192,6 +197,7 @@ model Product {
   licensePrices   ProductLicensePrice[]
   licenseRequests LicenseRequest[]
   softwareTags    ProductSoftwareTag[]
+  reviews         Review[]
 
   @@index([categoryId])
   @@index([folderId, folderSortOrder])
@@ -580,4 +586,29 @@ model StoreSetting {
   updatedAt                  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("store_settings")
+}
+
+/// A verified buyer's review of a product (one per customer per product).
+/// Writes are server-only; `isHidden` lets the admin take a review down without deleting it.
+model Review {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  /// The completed order that made this customer eligible.
+  orderId   String   @map("order_id") @db.Uuid
+  /// 1-5 (CHECK constraint in SQL).
+  rating    Int
+  body      String
+  isHidden  Boolean  @default(false) @map("is_hidden")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, userId])
+  @@index([productId, isHidden, createdAt(sort: Desc)])
+  @@index([userId])
+  @@index([isHidden, createdAt(sort: Desc)])
+  @@map("reviews")
 }
