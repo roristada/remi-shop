@@ -19,7 +19,11 @@
     "language": "Language",
     "skipToContent": "Skip to content",
     "mainNav": "Main",
-    "mobileNav": "Mobile menu"
+    "mobileNav": "Mobile menu",
+    "goToCart": "Go to cart",
+    "cartMore": "and {count} more",
+    "cartError": "Couldn't load your cart",
+    "retry": "Try again"
   },
   "footer": {
     "tagline": "Digital files for artists. Download once your payment is confirmed.",

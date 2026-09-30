@@ -5,8 +5,9 @@ import { getCurrentUser } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma/client";
 import { isUniqueViolation } from "@/lib/prisma/errors";
 import { getOwnership } from "@/lib/orders/ownership";
-import { evaluateLine, type LineProblem } from "@/lib/orders/rules";
-import { checkoutProductSelect, checkoutVariantSelect, toCheckoutProduct } from "@/lib/cart/queries";
+import { evaluateLine, lineKey, type LineProblem } from "@/lib/orders/rules";
+import { checkoutProductSelect, checkoutVariantSelect, getCartView, toCheckoutProduct } from "@/lib/cart/queries";
+import { toLocale } from "@/lib/auth/redirect";
 import { idSchema } from "@/lib/validation/product";
 import { localized } from "@/i18n/localize";
 import { previewImageUrl } from "@/lib/storage/public-url";
@@ -22,6 +23,38 @@ export type AddToCartResult =
 
 async function countCartItems(userId: string): Promise<number> {
   return prisma.cartItem.count({ where: { cart: { userId } } });
+}
+
+/** One line of the header mini-cart. Prices are server-calculated (satang). */
+export type MiniCartLine = {
+  key: string;
+  name: string;
+  variantName: string | null;
+  imageUrl: string | null;
+  finalPrice: number;
+  unitPrice: number;
+  problem: LineProblem | null;
+};
+export type MiniCart = { lines: MiniCartLine[]; total: number; hasProblems: boolean };
+
+/** The header cart popover's contents, re-priced like the cart page; null for guests. */
+export async function getMiniCart(locale: string): Promise<MiniCart | null> {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  const { lines, totals } = await getCartView(user.id, toLocale(locale));
+  return {
+    lines: lines.map((l) => ({
+      key: lineKey(l.productId, l.variantId),
+      name: l.name,
+      variantName: l.variantName,
+      imageUrl: l.image?.url ?? null,
+      finalPrice: l.price.finalPrice,
+      unitPrice: l.price.unitPrice,
+      problem: l.problem,
+    })),
+    total: totals.total,
+    hasProblems: lines.some((l) => l.problem !== null),
+  };
 }
 
 /** Item count for the header badge; 0 for guests. */

@@ -49,7 +49,18 @@
       "IN_ORDER": "In another unfinished order",
       "SOLD_OUT": "Sold out"
     },
-    "problemNotice": "Remove the items that can't be bought to place your order."
+    "problemNotice": "Remove the items that can't be bought to place your order.",
+    "fileSummary": "{count} files · {size}",
+    "noFiles": "The store will email the files",
+    "version": "Version {version}",
+    "downloadsUnlimited": "Unlimited downloads",
+    "downloadsLimited": "{count} downloads per file",
+    "discountUntil": "Special price until {date}",
+    "next": "After you order",
+    "step1": "Pay with QR PromptPay within {minutes} minutes",
+    "step2": "Attach your slip; the store checks the payment",
+    "step3": "Download once the store confirms it",
+    "itemsHeading": "Items"
   },
   "status": {
     "PENDING_PAYMENT": "Awaiting payment",
@@ -95,6 +106,9 @@
     "itemNoFiles": "The store will email this file to you within 7 days.",
     "stepScan": "Scan or save the QR",
     "stepScanHint": "Open your banking app and scan this QR. On a phone, save the image and pick it from the app.",
+    "stepScanHintAmount": "Scan with your banking app. The amount fills in by itself. On a phone, save the image and pick it from the app.",
+    "qrAmountAlt": "PromptPay QR for {amount}",
+    "downloadQr": "Save QR image",
     "saveQr": "Open QR image to save",
     "stepTransfer": "Transfer exactly this amount",
     "stepUpload": "Attach your transfer slip",
@@ -128,6 +142,8 @@
     "submit": "Send slip",
     "uploading": "Uploading...",
     "submitted": "Slip sent. The store will check it as soon as possible.",
+    "checking": "Checking your slip...",
+    "approved": "Slip verified. Payment confirmed.",
     "preview": "Selected slip preview",
     "reviewTitle": "Slip received",
     "reviewBody": "The store is checking your payment. You can download your files as soon as it is confirmed.",

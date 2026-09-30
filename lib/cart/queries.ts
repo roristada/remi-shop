@@ -13,6 +13,7 @@ import {
   type StockInfo,
 } from "@/lib/products/stock";
 import type { ProductPrice } from "@/lib/pricing/calculate";
+import { canAccessFile } from "@/lib/downloads/rules";
 
 /** Everything checkout needs to re-price and re-validate a product. Never trust cart contents as-is. */
 export function checkoutProductSelect(now: Date) {
@@ -98,6 +99,13 @@ export type CartLineView = CheckoutLine & {
   name: string;
   variantName: string | null;
   image: { url: string; alt: string } | null;
+  categoryName: string;
+  softwareTags: string[];
+  fileFormat: string | null;
+  /** Latest version, and the files this line will get from it (shared + its variant's). */
+  version: { number: string; fileCount: number; totalBytes: number } | null;
+  /** null = unlimited downloads per file. */
+  downloadLimit: number | null;
 };
 
 /** What the buy button on a product page should offer this visitor for one line. */
@@ -160,6 +168,20 @@ export async function getPurchaseOptions(
   });
 }
 
+/** What a line gets from the latest version: shared files plus its own variant's. */
+function latestVersionFor(
+  version: { versionNumber: string; files: { fileSize: number; variantId: string | null }[] } | undefined,
+  variantId: string | null,
+): CartLineView["version"] {
+  if (!version) return null;
+  const files = version.files.filter((f) => canAccessFile(f.variantId, new Set([variantId])));
+  return {
+    number: version.versionNumber,
+    fileCount: files.length,
+    totalBytes: files.reduce((sum, f) => sum + f.fileSize, 0),
+  };
+}
+
 /** The customer's cart with server-calculated prices and a problem flag per line. */
 export async function getCartView(userId: string, locale: string, now: Date = new Date()) {
   const items = await prisma.cartItem.findMany({
@@ -174,6 +196,16 @@ export async function getCartView(userId: string, locale: string, now: Date = ne
             take: 1,
             select: { imagePath: true, altTextTH: true, altTextEN: true },
           },
+          // Same shapes as checkoutProductSelect, widened for display (names, file metadata only).
+          category: { select: { status: true, nameTH: true, nameEN: true } },
+          versions: {
+            where: { isLatest: true },
+            take: 1,
+            select: { versionNumber: true, files: { select: { fileSize: true, variantId: true } } },
+          },
+          softwareTags: { select: { softwareTag: { select: { name: true } } }, orderBy: { softwareTag: { sortOrder: "asc" } } },
+          fileFormat: true,
+          downloadLimit: true,
         },
       },
       variant: { select: checkoutVariantSelect(now) },
@@ -193,6 +225,11 @@ export async function getCartView(userId: string, locale: string, now: Date = ne
       slug: product.slug,
       name,
       variantName: variant ? localized(locale, variant.nameTH, variant.nameEN) : null,
+      categoryName: localized(locale, product.category.nameTH, product.category.nameEN),
+      softwareTags: product.softwareTags.map((t) => t.softwareTag.name),
+      fileFormat: product.fileFormat,
+      version: latestVersionFor(product.versions[0], variant?.id ?? null),
+      downloadLimit: product.downloadLimit,
       image: image
         ? { url: previewImageUrl(image.imagePath), alt: localized(locale, image.altTextTH, image.altTextEN) || name }
         : null,
