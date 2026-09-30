@@ -102,3 +102,9 @@ export function getPaymentSettings() {
     select: { promptPayName: true, promptPayNumber: true, qrImagePath: true, instructionsTH: true, instructionsEN: true },
   });
 }
+
+/** Minutes a new order stays open for payment (store setting, 60 by default). */
+export async function getOrderExpiryMinutes(): Promise<number> {
+  const s = await prisma.storeSetting.findUnique({ where: { id: 1 }, select: { orderExpiryMinutes: true } });
+  return s?.orderExpiryMinutes ?? 60;
+}

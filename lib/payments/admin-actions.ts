@@ -7,42 +7,21 @@ import { fail, ok, type ActionResult } from "@/lib/actions/result";
 import { normalizeRejectReason, REJECT_REASON_MAX } from "@/lib/payments/rules";
 import { idSchema } from "@/lib/validation/product";
 import { notifyUser } from "@/lib/notifications/service";
-
-class StaleReview extends Error {}
+import { approvePaymentTx, StaleReview } from "@/lib/payments/approval";
 
 function revalidatePayments() {
   revalidatePath("/admin/payments");
   revalidatePath("/[locale]/orders/[orderNumber]", "page");
 }
 
-/**
- * Approves a slip under review: Payment → APPROVED, Order → COMPLETED (download access comes from
- * the completed order). Both updates are conditional, so a double click or two admins reviewing the
- * same slip cannot approve twice or approve a slip that was already rejected.
- */
+/** Approves a slip under review (see `approvePaymentTx` for the race guarantees). */
 export async function approvePayment(paymentId: string): Promise<ActionResult> {
   const admin = await requireAdmin();
   if (!idSchema.safeParse(paymentId).success) return fail("คำขอไม่ถูกต้อง");
   const now = new Date();
 
   try {
-    await prisma.$transaction(async (tx) => {
-      const payment = await tx.payment.findUnique({
-        where: { id: paymentId },
-        select: { orderId: true, order: { select: { userId: true, orderNumber: true } } },
-      });
-      if (!payment) throw new StaleReview();
-      const updated = await tx.payment.updateMany({
-        where: { id: paymentId, status: { in: ["WAITING", "REVIEWING"] } },
-        data: { status: "APPROVED", reviewedById: admin.id, reviewedAt: now, rejectReason: null },
-      });
-      const order = await tx.order.updateMany({
-        where: { id: payment.orderId, status: "WAITING_REVIEW" },
-        data: { status: "COMPLETED", paymentStatus: "APPROVED", paidAt: now },
-      });
-      if (updated.count !== 1 || order.count !== 1) throw new StaleReview();
-      await notifyUser(tx, payment.order.userId, "PAYMENT_APPROVED", { orderNumber: payment.order.orderNumber });
-    });
+    await prisma.$transaction((tx) => approvePaymentTx(tx, paymentId, admin.id, now));
   } catch (error) {
     if (error instanceof StaleReview) return fail("รายการนี้ถูกตรวจไปแล้ว กรุณารีเฟรชหน้า");
     console.error("Payment approve failed", { paymentId, error });

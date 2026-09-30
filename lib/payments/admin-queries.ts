@@ -29,6 +29,7 @@ export async function listPaymentsForReview(tab: PaymentTab, page: number) {
         slipPath: true,
         status: true,
         rejectReason: true,
+        autoCheckResult: true,
         createdAt: true,
         reviewedAt: true,
         reviewedBy: { select: { email: true, displayName: true } },

@@ -26,6 +26,7 @@ export function SlipUpload({ orderNumber }: { orderNumber: string }) {
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [checking, setChecking] = useState(false);
 
   // Release the last preview URL when the component goes away.
   const previewRef = useRef<string | null>(null);
@@ -57,10 +58,13 @@ export function SlipUpload({ orderNumber }: { orderNumber: string }) {
         .uploadToSignedUrl(path, token, file, { contentType: file.type || "image/jpeg" });
       if (uploadError) return setError(t("errors.ERROR"));
 
+      // The server may verify the slip with the bank here, which takes a few seconds.
+      setChecking(true);
       const result = await confirmSlipUpload(orderNumber, { path, fileName: file.name });
+      setChecking(false);
       if (!result.ok) return setError(t(`errors.${result.code}`));
 
-      toast.success(t("submitted"));
+      toast.success(t(result.data.approved ? "approved" : "submitted"));
       router.refresh();
     });
   }
@@ -105,7 +109,7 @@ export function SlipUpload({ orderNumber }: { orderNumber: string }) {
         <div className="flex flex-wrap gap-2">
           <Button className="h-11 flex-1 rounded-full" onClick={send} disabled={pending} aria-busy={pending}>
             {pending && <Loader2 className="animate-spin" aria-hidden />}
-            {pending ? t("uploading") : t("submit")}
+            {pending ? t(checking ? "checking" : "uploading") : t("submit")}
           </Button>
           <Button variant="outline" className="h-11 rounded-full" disabled={pending} onClick={() => inputRef.current?.click()}>
             {t("change")}

@@ -58,6 +58,18 @@ enum PaymentStatus {
   REJECTED
 }
 
+/// Outcome of the automatic slip check. Anything but PASSED leaves the slip for the admin.
+enum SlipCheckResult {
+  PASSED
+  AMOUNT_MISMATCH
+  RECEIVER_MISMATCH
+  DUPLICATE
+  BEFORE_ORDER
+  NOT_FOUND
+  UNREADABLE
+  UNAVAILABLE
+}
+
 /// PRODUCT = cart checkout (OrderItems grant downloads). LICENSE = payment for an approved
 /// commercial license request; it has no OrderItems, so it never grants file access.
 enum OrderKind {
@@ -474,6 +486,11 @@ model Payment {
   reviewedById String?       @map("reviewed_by") @db.Uuid
   reviewedAt   DateTime?     @map("reviewed_at") @db.Timestamptz(6)
   rejectReason String?       @map("reject_reason")
+  /// Bank transaction reference read from the slip. Unique, so one transfer can pay one order only.
+  transRef        String?          @unique @map("trans_ref")
+  /// Automatic slip check (SlipOK). Null when it was not run (not configured). PASSED + no reviewer = auto-approved.
+  autoCheckResult SlipCheckResult? @map("auto_check_result")
+  autoCheckedAt   DateTime?        @map("auto_checked_at") @db.Timestamptz(6)
   createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 

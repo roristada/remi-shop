@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { Clock3, ExternalLink } from "lucide-react";
+import { Clock3, Download, ExternalLink } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { intlLocale, localized } from "@/i18n/localize";
 import { requireUser } from "@/lib/auth/guards";
@@ -16,6 +16,7 @@ import { BUCKETS } from "@/lib/storage/buckets";
 import { createSignedViewUrls } from "@/lib/storage/payment-storage";
 import { listOrderDownloads } from "@/lib/downloads/queries";
 import { canUploadSlip } from "@/lib/payments/rules";
+import { promptPayQrDataUrl } from "@/lib/payments/promptpay-qr";
 import { SlipUpload } from "@/components/cart/slip-upload";
 import { OrderStatusBadge } from "@/components/cart/order-status-badge";
 import { CancelOrderButton } from "@/components/cart/cancel-order-button";
@@ -274,6 +275,11 @@ async function PaymentPanel({ order, locale, now }: { order: CustomerOrder; loca
   ]);
   const rejected = order.status === "PAYMENT_REJECTED" ? order.payments[0] : undefined;
   const fmt = intlLocale(locale);
+  // A QR with the amount built in when the PromptPay number is set; else the QR image the admin uploaded.
+  const amountQr = settings?.promptPayNumber
+    ? await promptPayQrDataUrl(settings.promptPayNumber, toHundredths(order.total))
+    : null;
+  const hasQr = Boolean(amountQr || settings?.qrImagePath);
   const hasPaymentInfo = Boolean(settings && (settings.qrImagePath || settings.promptPayNumber));
   const instructions = settings ? localized(locale, settings.instructionsTH, settings.instructionsEN) : null;
 
@@ -305,7 +311,24 @@ async function PaymentPanel({ order, locale, now }: { order: CustomerOrder; loca
       {hasPaymentInfo && settings ? (
         // The sequence matters (scan → transfer the exact amount → attach the slip), so steps are numbered.
         <ol className="space-y-5">
-          {settings.qrImagePath && (
+          {amountQr ? (
+            <PayStep n={1} title={t("stepScan")}>
+              <p className="text-sm text-foreground/75">{t("stepScanHintAmount")}</p>
+              {/* eslint-disable-next-line @next/next/no-img-element -- server-rendered data URL */}
+              <img
+                src={amountQr}
+                alt={t("qrAmountAlt", { amount: formatTHB(toHundredths(order.total), fmt.number) })}
+                className="mx-auto aspect-square w-full max-w-64 rounded-2xl bg-white p-2"
+              />
+              <a
+                href={amountQr}
+                download={`promptpay-${order.orderNumber}.png`}
+                className="mx-auto flex min-h-11 w-fit items-center gap-1.5 text-sm font-medium text-brand-strong underline-offset-4 hover:underline"
+              >
+                <Download className="size-4" aria-hidden /> {t("downloadQr")}
+              </a>
+            </PayStep>
+          ) : settings.qrImagePath && (
             <PayStep n={1} title={t("stepScan")}>
               <p className="text-sm text-foreground/75">{t("stepScanHint")}</p>
               <div className="relative mx-auto aspect-square w-full max-w-64 overflow-hidden rounded-2xl bg-white">
@@ -327,7 +350,7 @@ async function PaymentPanel({ order, locale, now }: { order: CustomerOrder; loca
               </a>
             </PayStep>
           )}
-          <PayStep n={settings.qrImagePath ? 2 : 1} title={t("stepTransfer")}>
+          <PayStep n={hasQr ? 2 : 1} title={t("stepTransfer")}>
             <dl className="divide-y rounded-2xl bg-background text-sm">
               <PayField label={t("amount")} value={formatTHB(toHundredths(order.total), fmt.number)} large>
                 <CopyButton
@@ -349,7 +372,7 @@ async function PaymentPanel({ order, locale, now }: { order: CustomerOrder; loca
             </dl>
             {instructions && <p className="text-sm whitespace-pre-line text-foreground/75">{instructions}</p>}
           </PayStep>
-          <PayStep n={settings.qrImagePath ? 3 : 2} title={t("stepUpload")}>
+          <PayStep n={hasQr ? 3 : 2} title={t("stepUpload")}>
             <SlipUpload orderNumber={order.orderNumber} />
           </PayStep>
         </ol>

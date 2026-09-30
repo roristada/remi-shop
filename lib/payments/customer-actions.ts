@@ -12,6 +12,7 @@ import { checkFileMeta, getExtension, IMAGE_FILE_TYPES, type FileTypeError } fro
 import { createSignedUpload, removeObjects, verifyUploadedObject, type SignedUpload } from "@/lib/storage/product-storage";
 import { isSlipPath, newSlipPath } from "@/lib/storage/payment-storage";
 import { notifyAdmins } from "@/lib/notifications/service";
+import { autoCheckSlip } from "@/lib/payments/auto-check";
 
 /** Codes map to `cart.slip.errors.*` translation keys. */
 export type SlipErrorCode = "LOGIN_REQUIRED" | "NOT_ALLOWED" | "ERROR" | "not_found" | FileTypeError;
@@ -48,10 +49,11 @@ export async function requestSlipUpload(
   return upload ? { ok: true, data: upload } : { ok: false, code: "ERROR" };
 }
 
+/** `approved`: the automatic check passed and the order is already complete. */
 export async function confirmSlipUpload(
   orderNumber: string,
   input: { path: string; fileName: string },
-): Promise<SlipResult> {
+): Promise<SlipResult<{ approved: boolean }>> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, code: "LOGIN_REQUIRED" };
 
@@ -69,8 +71,9 @@ export async function confirmSlipUpload(
   const verified = await verifyUploadedObject(BUCKETS.paymentSlips, input.path, input.fileName);
   if (!verified.ok) return { ok: false, code: verified.error };
 
+  let paymentId: string;
   try {
-    await prisma.$transaction(async (tx) => {
+    paymentId = await prisma.$transaction(async (tx) => {
       // Conditional update: a concurrent upload, cancel or expiry makes this match nothing.
       const { count } = await tx.order.updateMany({
         where: {
@@ -85,10 +88,11 @@ export async function confirmSlipUpload(
       });
       if (count !== 1) throw new Error("ORDER_STATE_CHANGED");
       // At most one non-rejected payment per order (partial unique index) also guards duplicates.
-      await tx.payment.create({
+      const payment = await tx.payment.create({
         data: { orderId: order.id, amount: order.total, slipPath: input.path, status: "WAITING" },
+        select: { id: true },
       });
-      await notifyAdmins(tx, "ADMIN_SLIP_SUBMITTED", { orderNumber: order.orderNumber });
+      return payment.id;
     });
   } catch (error) {
     await removeObjects(BUCKETS.paymentSlips, [input.path]);
@@ -100,6 +104,18 @@ export async function confirmSlipUpload(
   }
 
   console.info("Payment slip submitted", { orderId: order.id, userId: user.id });
+  // The slip is saved; the check can only move it on, so an error here leaves it for the admin.
+  const approved = await autoCheckSlip(paymentId).catch((error: unknown) => {
+    console.error("Slip auto-check failed", { paymentId, error });
+    return false;
+  });
+  if (!approved) {
+    await notifyAdmins(prisma, "ADMIN_SLIP_SUBMITTED", { orderNumber: order.orderNumber }).catch((error: unknown) =>
+      console.error("Admin slip notification failed", { orderId: order.id, error }),
+    );
+  }
+
   revalidatePath("/[locale]/orders/[orderNumber]", "page");
-  return { ok: true, data: undefined };
+  revalidatePath("/admin/payments");
+  return { ok: true, data: { approved } };
 }

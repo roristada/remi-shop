@@ -8,6 +8,7 @@ import { Pagination } from "@/components/shared/pagination";
 import { ReviewActions } from "@/components/admin/review-actions";
 import { approvePayment, rejectPayment } from "@/lib/payments/admin-actions";
 import { cn } from "@/lib/utils";
+import type { SlipCheckResult } from "@/lib/generated/prisma/enums";
 
 function one(v: string | string[] | undefined) {
   return typeof v === "string" ? v : undefined;
@@ -74,6 +75,17 @@ const SLIP_REJECT_REASONS = [
   "สลิปซ้ำกับคำสั่งซื้ออื่น",
 ] as const;
 
+/** Why the automatic check did not approve the slip; shown to help the admin decide quickly. */
+const AUTO_CHECK_LABELS: Record<Exclude<SlipCheckResult, "PASSED">, string> = {
+  AMOUNT_MISMATCH: "ยอดในสลิปไม่ตรงกับยอดคำสั่งซื้อ",
+  RECEIVER_MISMATCH: "บัญชีผู้รับไม่ใช่บัญชีร้าน",
+  DUPLICATE: "สลิปนี้เคยถูกใช้แล้ว",
+  BEFORE_ORDER: "โอนก่อนสร้างคำสั่งซื้อ",
+  NOT_FOUND: "ไม่พบรายการโอนนี้ที่ธนาคาร",
+  UNREADABLE: "อ่าน QR บนสลิปไม่ได้",
+  UNAVAILABLE: "ตรวจอัตโนมัติไม่ได้ (ระบบธนาคารหรือ SlipOK ขัดข้อง)",
+};
+
 function PaymentCard({ payment: p, tab }: { payment: ReviewPayment; tab: PaymentTab }) {
   const amount = toHundredths(p.amount);
   const orderTotal = toHundredths(p.order.total);
@@ -123,12 +135,24 @@ function PaymentCard({ payment: p, tab }: { payment: ReviewPayment; tab: Payment
               <dd>{p.order._count.payments} ครั้ง</dd>
             </>
           )}
+          {p.autoCheckResult && (
+            <>
+              <dt className="text-muted-foreground">ตรวจอัตโนมัติ</dt>
+              <dd className={p.autoCheckResult === "PASSED" ? undefined : "font-medium text-destructive"}>
+                {p.autoCheckResult === "PASSED" ? "ผ่าน" : `ไม่ผ่าน: ${AUTO_CHECK_LABELS[p.autoCheckResult]}`}
+              </dd>
+            </>
+          )}
           {p.reviewedAt && (
             <>
               <dt className="text-muted-foreground">ตรวจเมื่อ</dt>
               <dd>
                 {formatBangkokDateTime(p.reviewedAt)}
-                {p.reviewedBy ? ` โดย ${p.reviewedBy.displayName ?? p.reviewedBy.email}` : ""}
+                {p.reviewedBy
+                  ? ` โดย ${p.reviewedBy.displayName ?? p.reviewedBy.email}`
+                  : p.autoCheckResult === "PASSED"
+                    ? " (อนุมัติอัตโนมัติ)"
+                    : ""}
               </dd>
             </>
           )}

@@ -6,6 +6,9 @@ const serverSchema = z.object({
   DATABASE_URL: z.string().min(1),
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().optional(),
+  // Automatic slip check. Both unset = every slip is reviewed by hand.
+  SLIPOK_BRANCH_ID: z.string().optional(),
+  SLIPOK_API_KEY: z.string().optional(),
 });
 
 let cached: z.infer<typeof serverSchema> | undefined;
