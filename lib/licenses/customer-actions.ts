@@ -19,6 +19,7 @@ import { BUCKETS } from "@/lib/storage/buckets";
 import { checkFileMeta, getExtension, IMAGE_FILE_TYPES, type FileTypeError } from "@/lib/storage/file-types";
 import { createSignedUpload, removeObjects, verifyUploadedObject, type SignedUpload } from "@/lib/storage/product-storage";
 import { isArtworkPath, newArtworkPath } from "@/lib/storage/payment-storage";
+import { notifyAdmins } from "@/lib/notifications/service";
 
 /** Codes map to `shop.license.errors.*` translation keys. */
 export type LicenseErrorCode =
@@ -170,6 +171,7 @@ export async function submitLicenseRequest(input: unknown): Promise<LicenseResul
         },
         select: { id: true },
       });
+      await notifyAdmins(tx, "ADMIN_LICENSE_REQUESTED", { productNameTH: product.nameTH, productNameEN: product.nameEN });
       console.info("License request created", { requestId: request.id, userId: user.id, productId: product.id });
     });
   } catch (error) {

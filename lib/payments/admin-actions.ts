@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma/client";
 import { fail, ok, type ActionResult } from "@/lib/actions/result";
 import { normalizeRejectReason, REJECT_REASON_MAX } from "@/lib/payments/rules";
 import { idSchema } from "@/lib/validation/product";
+import { notifyUser } from "@/lib/notifications/service";
 
 class StaleReview extends Error {}
 
@@ -26,7 +27,10 @@ export async function approvePayment(paymentId: string): Promise<ActionResult> {
 
   try {
     await prisma.$transaction(async (tx) => {
-      const payment = await tx.payment.findUnique({ where: { id: paymentId }, select: { orderId: true } });
+      const payment = await tx.payment.findUnique({
+        where: { id: paymentId },
+        select: { orderId: true, order: { select: { userId: true, orderNumber: true } } },
+      });
       if (!payment) throw new StaleReview();
       const updated = await tx.payment.updateMany({
         where: { id: paymentId, status: { in: ["WAITING", "REVIEWING"] } },
@@ -37,6 +41,7 @@ export async function approvePayment(paymentId: string): Promise<ActionResult> {
         data: { status: "COMPLETED", paymentStatus: "APPROVED", paidAt: now },
       });
       if (updated.count !== 1 || order.count !== 1) throw new StaleReview();
+      await notifyUser(tx, payment.order.userId, "PAYMENT_APPROVED", { orderNumber: payment.order.orderNumber });
     });
   } catch (error) {
     if (error instanceof StaleReview) return fail("รายการนี้ถูกตรวจไปแล้ว กรุณารีเฟรชหน้า");
@@ -61,7 +66,10 @@ export async function rejectPayment(paymentId: string, reasonInput: string): Pro
 
   try {
     await prisma.$transaction(async (tx) => {
-      const payment = await tx.payment.findUnique({ where: { id: paymentId }, select: { orderId: true } });
+      const payment = await tx.payment.findUnique({
+        where: { id: paymentId },
+        select: { orderId: true, order: { select: { userId: true, orderNumber: true } } },
+      });
       if (!payment) throw new StaleReview();
       const updated = await tx.payment.updateMany({
         where: { id: paymentId, status: { in: ["WAITING", "REVIEWING"] } },
@@ -72,6 +80,7 @@ export async function rejectPayment(paymentId: string, reasonInput: string): Pro
         data: { status: "PAYMENT_REJECTED", paymentStatus: "REJECTED" },
       });
       if (updated.count !== 1 || order.count !== 1) throw new StaleReview();
+      await notifyUser(tx, payment.order.userId, "PAYMENT_REJECTED", { orderNumber: payment.order.orderNumber, reason });
     });
   } catch (error) {
     if (error instanceof StaleReview) return fail("รายการนี้ถูกตรวจไปแล้ว กรุณารีเฟรชหน้า");

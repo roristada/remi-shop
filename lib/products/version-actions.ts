@@ -22,6 +22,7 @@ import {
   type SignedUpload,
 } from "@/lib/storage/product-storage";
 import { revalidateCatalog } from "@/lib/products/revalidate";
+import { notifyProductBuyers } from "@/lib/notifications/service";
 
 const MAX_FILES_PER_VERSION = 30;
 
@@ -155,6 +156,52 @@ export async function setLatestVersion(versionId: string): Promise<ActionResult>
   console.info("[products] latest version changed", { productId: version.productId, versionId });
   revalidateCatalog();
   return ok(undefined, `ตั้ง v${version.versionNumber} เป็นเวอร์ชันล่าสุดแล้ว`);
+}
+
+/**
+ * Tells every buyer that this version is out. Only the latest version with files can be announced,
+ * and only once: claiming `notifiedAt` conditionally makes a double click send nothing twice.
+ */
+export async function notifyVersionBuyers(versionId: string): Promise<ActionResult> {
+  await requireAdmin();
+  const version = await findVersion(versionId);
+  if (!version) return fail("ไม่พบเวอร์ชัน");
+  if (!version.isLatest) return fail("แจ้งลูกค้าได้เฉพาะเวอร์ชันล่าสุด");
+  if (version.notifiedAt) return fail("แจ้งลูกค้าเรื่องเวอร์ชันนี้ไปแล้ว");
+
+  const [product, fileCount] = await Promise.all([
+    prisma.product.findUnique({
+      where: { id: version.productId },
+      select: { nameTH: true, nameEN: true, publishStatus: true },
+    }),
+    prisma.productVersionFile.count({ where: { versionId: version.id } }),
+  ]);
+  if (!product || product.publishStatus !== "PUBLISHED") return fail("สินค้ายังไม่เผยแพร่");
+  if (fileCount === 0) return fail("อัปโหลดไฟล์ของเวอร์ชันนี้ก่อน แล้วจึงแจ้งลูกค้า");
+
+  let notified: number;
+  try {
+    notified = await prisma.$transaction(async (tx) => {
+      const claimed = await tx.productVersion.updateMany({
+        where: { id: version.id, notifiedAt: null },
+        data: { notifiedAt: new Date() },
+      });
+      if (claimed.count !== 1) return -1;
+      return notifyProductBuyers(tx, version.productId, {
+        productNameTH: product.nameTH,
+        productNameEN: product.nameEN,
+        versionNumber: version.versionNumber,
+      });
+    });
+  } catch (error) {
+    console.error("[products] notify buyers failed", { versionId, error });
+    return fail("แจ้งลูกค้าไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+  }
+  if (notified < 0) return fail("แจ้งลูกค้าเรื่องเวอร์ชันนี้ไปแล้ว");
+
+  console.info("[products] buyers notified of version", { productId: version.productId, versionId, notified });
+  revalidateCatalog();
+  return ok(undefined, notified > 0 ? `แจ้งลูกค้าที่ซื้อแล้ว ${notified} คน` : "บันทึกแล้ว (ยังไม่มีลูกค้าที่ซื้อสินค้านี้)");
 }
 
 /** The latest version cannot be deleted — promote another version first. */

@@ -7,6 +7,7 @@ import { BunnyMark } from "@/components/shared/bunny-mark";
 import { LanguageSwitcher } from "./language-switcher";
 import { MobileNav } from "./mobile-nav";
 import { HeaderCartButton } from "@/components/cart/header-cart-button";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { NAV_LINKS } from "./nav-links";
 
 export async function SiteHeader() {
@@ -64,6 +65,7 @@ export async function SiteHeader() {
               <User />
             </Link>
           </Button>
+          <NotificationBell />
           <HeaderCartButton />
         </div>
       </div>

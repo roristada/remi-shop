@@ -1,0 +1,21 @@
+{
+  "title": "Notifications",
+  "label": "Notifications",
+  "labelUnread": "Notifications ({count} unread)",
+  "markAll": "Mark all as read",
+  "empty": "No notifications yet",
+  "loadMore": "Load more",
+  "error": "Couldn't load notifications",
+  "retry": "Try again",
+  "unread": "Unread",
+  "reason": "Reason: {reason}",
+  "types": {
+    "PRODUCT_UPDATED": "{product} has a new version v{version}, ready to download",
+    "PAYMENT_APPROVED": "Payment for order {orderNumber} is confirmed",
+    "PAYMENT_REJECTED": "The slip for order {orderNumber} was not approved",
+    "LICENSE_APPROVED": "Your license request for {product} is approved. Pay on My Licenses",
+    "LICENSE_REJECTED": "Your license request for {product} was not approved",
+    "ADMIN_SLIP_SUBMITTED": "New slip to review: order {orderNumber}",
+    "ADMIN_LICENSE_REQUESTED": "New license request: {product}"
+  }
+}

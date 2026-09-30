@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma/client";
 import { isForeignKeyViolation, isNotFound } from "@/lib/prisma/errors";
 import { fail, formString, invalid, ok, type ActionResult } from "@/lib/actions/result";
 import { idSchema } from "@/lib/validation/product";
+import { notifyUser } from "@/lib/notifications/service";
 import { generateOrderNumber } from "@/lib/orders/rules";
 import { normalizeRejectReason, REJECT_REASON_MAX } from "@/lib/payments/rules";
 import { LICENSE_PAYMENT_DAYS_MAX, LICENSE_PAYMENT_DAYS_MIN, licensePaymentDeadline } from "@/lib/licenses/rules";
@@ -156,7 +157,7 @@ export async function approveLicenseRequest(requestId: string): Promise<ActionRe
     await prisma.$transaction(async (tx) => {
       const request = await tx.licenseRequest.findUnique({
         where: { id: requestId },
-        select: { userId: true, total: true, status: true },
+        select: { userId: true, total: true, status: true, productNameTHSnapshot: true, productNameENSnapshot: true },
       });
       if (!request || request.status !== "PENDING_REVIEW") throw new StaleReview();
 
@@ -177,6 +178,10 @@ export async function approveLicenseRequest(requestId: string): Promise<ActionRe
         data: { status: "APPROVED", reviewedById: admin.id, reviewedAt: now, orderId: order.id, rejectReason: null },
       });
       if (updated.count !== 1) throw new StaleReview();
+      await notifyUser(tx, request.userId, "LICENSE_APPROVED", {
+        productNameTH: request.productNameTHSnapshot,
+        productNameEN: request.productNameENSnapshot,
+      });
     });
   } catch (error) {
     if (error instanceof StaleReview) return fail("คำขอนี้ถูกพิจารณาหรือยกเลิกไปแล้ว กรุณารีเฟรชหน้า");
@@ -198,11 +203,28 @@ export async function rejectLicenseRequest(requestId: string, reasonInput: strin
     return fail("กรุณาระบุเหตุผล", { reason: `กรุณาระบุเหตุผล (ไม่เกิน ${REJECT_REASON_MAX} ตัวอักษร)` });
   }
 
-  const { count } = await prisma.licenseRequest.updateMany({
-    where: { id: requestId, status: "PENDING_REVIEW" },
-    data: { status: "REJECTED", reviewedById: admin.id, reviewedAt: new Date(), rejectReason: reason },
-  });
-  if (count !== 1) return fail("คำขอนี้ถูกพิจารณาหรือยกเลิกไปแล้ว กรุณารีเฟรชหน้า");
+  try {
+    await prisma.$transaction(async (tx) => {
+      const { count } = await tx.licenseRequest.updateMany({
+        where: { id: requestId, status: "PENDING_REVIEW" },
+        data: { status: "REJECTED", reviewedById: admin.id, reviewedAt: new Date(), rejectReason: reason },
+      });
+      if (count !== 1) throw new StaleReview();
+      const request = await tx.licenseRequest.findUniqueOrThrow({
+        where: { id: requestId },
+        select: { userId: true, productNameTHSnapshot: true, productNameENSnapshot: true },
+      });
+      await notifyUser(tx, request.userId, "LICENSE_REJECTED", {
+        productNameTH: request.productNameTHSnapshot,
+        productNameEN: request.productNameENSnapshot,
+        reason,
+      });
+    });
+  } catch (error) {
+    if (error instanceof StaleReview) return fail("คำขอนี้ถูกพิจารณาหรือยกเลิกไปแล้ว กรุณารีเฟรชหน้า");
+    console.error("License reject failed", { requestId, error });
+    return fail("ปฏิเสธไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+  }
 
   console.info("License request rejected", { requestId, adminId: admin.id });
   revalidatePath("/admin/licenses");

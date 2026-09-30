@@ -1,0 +1,21 @@
+{
+  "title": "การแจ้งเตือน",
+  "label": "การแจ้งเตือน",
+  "labelUnread": "การแจ้งเตือน ({count} รายการที่ยังไม่อ่าน)",
+  "markAll": "อ่านทั้งหมด",
+  "empty": "ยังไม่มีการแจ้งเตือน",
+  "loadMore": "ดูเพิ่มเติม",
+  "error": "โหลดการแจ้งเตือนไม่สำเร็จ",
+  "retry": "ลองใหม่",
+  "unread": "ยังไม่อ่าน",
+  "reason": "เหตุผล: {reason}",
+  "types": {
+    "PRODUCT_UPDATED": "{product} มีเวอร์ชันใหม่ v{version} ดาวน์โหลดได้แล้ว",
+    "PAYMENT_APPROVED": "ยืนยันการชำระเงินคำสั่งซื้อ {orderNumber} แล้ว",
+    "PAYMENT_REJECTED": "สลิปของคำสั่งซื้อ {orderNumber} ไม่ผ่านการตรวจสอบ",
+    "LICENSE_APPROVED": "คำขอ License ของ {product} ได้รับอนุมัติแล้ว ชำระเงินได้ที่หน้า License ของฉัน",
+    "LICENSE_REJECTED": "คำขอ License ของ {product} ไม่ได้รับอนุมัติ",
+    "ADMIN_SLIP_SUBMITTED": "มีสลิปใหม่รอตรวจ: คำสั่งซื้อ {orderNumber}",
+    "ADMIN_LICENSE_REQUESTED": "มีคำขอ License ใหม่: {product}"
+  }
+}

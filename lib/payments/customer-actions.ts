@@ -11,6 +11,7 @@ import { BUCKETS } from "@/lib/storage/buckets";
 import { checkFileMeta, getExtension, IMAGE_FILE_TYPES, type FileTypeError } from "@/lib/storage/file-types";
 import { createSignedUpload, removeObjects, verifyUploadedObject, type SignedUpload } from "@/lib/storage/product-storage";
 import { isSlipPath, newSlipPath } from "@/lib/storage/payment-storage";
+import { notifyAdmins } from "@/lib/notifications/service";
 
 /** Codes map to `cart.slip.errors.*` translation keys. */
 export type SlipErrorCode = "LOGIN_REQUIRED" | "NOT_ALLOWED" | "ERROR" | "not_found" | FileTypeError;
@@ -87,6 +88,7 @@ export async function confirmSlipUpload(
       await tx.payment.create({
         data: { orderId: order.id, amount: order.total, slipPath: input.path, status: "WAITING" },
       });
+      await notifyAdmins(tx, "ADMIN_SLIP_SUBMITTED", { orderNumber: order.orderNumber });
     });
   } catch (error) {
     await removeObjects(BUCKETS.paymentSlips, [input.path]);

@@ -3,7 +3,10 @@ import Link from "next/link";
 import { BadgeCheck, Stamp, FolderOpen, LayoutDashboard, MessageSquareText, Package, Receipt, Settings, Tags, Users } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/guards";
 import { fontVariables } from "@/app/fonts";
+import { NextIntlClientProvider } from "next-intl";
 import { Toaster } from "@/components/ui/sonner";
+import { NotificationBell } from "@/components/notifications/notification-bell";
+import notificationMessages from "@/locales/th/notifications.json";
 import "../globals.css";
 
 export const metadata: Metadata = {
@@ -47,6 +50,12 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
           </nav>
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">
+          {/* Admin UI is Thai-only; the bell is the one shared component that needs messages. */}
+          <div className="flex items-center justify-end border-b bg-sidebar px-2 py-1">
+            <NextIntlClientProvider locale="th" messages={{ notifications: notificationMessages }} timeZone="Asia/Bangkok">
+              <NotificationBell />
+            </NextIntlClientProvider>
+          </div>
           <nav aria-label="Admin" className="flex gap-1 overflow-x-auto border-b bg-sidebar px-2 py-2 md:hidden">
             {ADMIN_NAV.map(({ href, label, icon: Icon }) => (
               <Link

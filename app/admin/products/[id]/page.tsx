@@ -150,6 +150,7 @@ export default async function EditProductPage({ params, searchParams }: PageProp
               versionNumber: v.versionNumber,
               releaseDate: toBangkokDateTimeLocal(v.releaseDate),
               releaseDateLabel: formatBangkokDateTime(v.releaseDate),
+              notifiedAtLabel: v.notifiedAt ? formatBangkokDateTime(v.notifiedAt) : null,
               releaseNotesTH: v.releaseNotesTH ?? "",
               releaseNotesEN: v.releaseNotesEN ?? "",
               isLatest: v.isLatest,

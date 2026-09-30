@@ -73,6 +73,17 @@ enum LicenseRequestStatus {
   CANCELLED
 }
 
+/// In-app (navbar) notification events. Customer types go to the order/request owner; ADMIN_* go to every admin.
+enum NotificationType {
+  PRODUCT_UPDATED
+  PAYMENT_APPROVED
+  PAYMENT_REJECTED
+  LICENSE_APPROVED
+  LICENSE_REJECTED
+  ADMIN_SLIP_SUBMITTED
+  ADMIN_LICENSE_REQUESTED
+}
+
 // ───────────────────────────── Users ─────────────────────────────
 
 /// 1:1 with auth.users (id = auth.users.id). Created by trigger on signup.
@@ -93,6 +104,7 @@ model Profile {
   licenseRequests  LicenseRequest[]
   reviewedLicenses LicenseRequest[] @relation("LicenseReviewer")
   reviews          Review[]
+  notifications    Notification[]
 
   @@map("profiles")
 }
@@ -262,15 +274,17 @@ model ProductImage {
 }
 
 model ProductVersion {
-  id             String   @id @default(uuid(7)) @db.Uuid
-  productId      String   @map("product_id") @db.Uuid
-  versionNumber  String   @map("version_number")
-  releaseDate    DateTime @default(now()) @map("release_date") @db.Timestamptz(6)
-  releaseNotesTH String?  @map("release_notes_th")
-  releaseNotesEN String?  @map("release_notes_en")
+  id             String    @id @default(uuid(7)) @db.Uuid
+  productId      String    @map("product_id") @db.Uuid
+  versionNumber  String    @map("version_number")
+  releaseDate    DateTime  @default(now()) @map("release_date") @db.Timestamptz(6)
+  releaseNotesTH String?   @map("release_notes_th")
+  releaseNotesEN String?   @map("release_notes_en")
   /// Exactly one latest per product (partial unique index in SQL migration).
-  isLatest       Boolean  @default(false) @map("is_latest")
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  isLatest       Boolean   @default(false) @map("is_latest")
+  /// When buyers were told about this version (admin "notify buyers"); set once, blocks resends.
+  notifiedAt     DateTime? @map("notified_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
   product Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
   files   ProductVersionFile[]
@@ -615,4 +629,23 @@ model Review {
   @@index([userId])
   @@index([isHidden, createdAt(sort: Desc)])
   @@map("reviews")
+}
+
+// ──────────────────────────── Notifications ────────────────────────────
+
+/// One row per recipient. The message is rendered from `type` + `params` in the viewer's language,
+/// and the link is derived from them too (lib/notifications/rules.ts), so no URL is ever stored.
+model Notification {
+  id        String           @id @default(uuid(7)) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  type      NotificationType
+  /// Snapshot values for the message: product names, order number, version, reject reason.
+  params    Json             @default("{}")
+  readAt    DateTime?        @map("read_at") @db.Timestamptz(6)
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("notifications")
 }

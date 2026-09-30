@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, FilePlus2, FileText, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { Bell, BellRing, CheckCircle2, FilePlus2, FileText, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -25,6 +25,7 @@ import {
   createVersion,
   deleteFile,
   deleteVersion,
+  notifyVersionBuyers,
   requestFileUpload,
   setLatestVersion,
   updateVersion,
@@ -40,6 +41,8 @@ export type ManagedVersion = {
   releaseNotesTH: string;
   releaseNotesEN: string;
   isLatest: boolean;
+  /** When buyers were notified about this version; null = not yet. */
+  notifiedAtLabel: string | null;
   files: { id: string; fileName: string; fileSize: number; fileType: string }[];
 };
 
@@ -129,8 +132,31 @@ function VersionCard({ version, buyerCount }: { version: ManagedVersion; buyerCo
             )}
           </h3>
           <p className="text-xs text-muted-foreground">วันที่ออก {version.releaseDateLabel}</p>
+          {version.notifiedAtLabel && (
+            <p className="flex items-center gap-1 text-xs text-muted-foreground">
+              <BellRing className="size-3.5" aria-hidden /> แจ้งลูกค้าแล้ว {version.notifiedAtLabel}
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap gap-1">
+          {version.isLatest && !version.notifiedAtLabel && version.files.length > 0 && (
+            <ConfirmDialog
+              trigger={
+                <Button size="sm" variant="outline" disabled={busy}>
+                  <Bell aria-hidden /> แจ้งลูกค้า
+                </Button>
+              }
+              title={`แจ้งลูกค้าเรื่อง v${version.versionNumber}?`}
+              description={
+                <p>
+                  ลูกค้าที่ซื้อสินค้านี้แล้ว{buyerCount > 0 ? ` ${buyerCount.toLocaleString("th-TH")} คน` : ""} จะได้รับการแจ้งเตือนว่ามีเวอร์ชันใหม่
+                  แจ้งได้ครั้งเดียวต่อเวอร์ชัน อัปโหลดไฟล์ให้ครบก่อนกด
+                </p>
+              }
+              confirmLabel="แจ้งลูกค้า"
+              onConfirm={() => refreshOn(() => notifyVersionBuyers(version.id))}
+            />
+          )}
           {!version.isLatest && (
             <Button
               size="sm"
