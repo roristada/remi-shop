@@ -34,7 +34,7 @@ import {
   setPrimaryImage,
   updateImageAlt,
 } from "@/lib/products/image-actions";
-import { acceptAttribute, IMAGE_FILE_TYPES } from "@/lib/storage/file-types";
+import { acceptAttribute, PRODUCT_IMAGE_FILE_TYPES } from "@/lib/storage/file-types";
 import { cn } from "@/lib/utils";
 
 export type ManagedImage = {
@@ -109,7 +109,7 @@ export function ImageManager({ productId, images }: { productId: string; images:
         <input
           ref={inputRef}
           type="file"
-          accept={acceptAttribute(IMAGE_FILE_TYPES)}
+          accept={acceptAttribute(PRODUCT_IMAGE_FILE_TYPES)}
           multiple
           hidden
           onChange={async (e) => {
@@ -124,7 +124,7 @@ export function ImageManager({ productId, images }: { productId: string; images:
           {uploading ? `กำลังอัปโหลด ${uploading}` : "เพิ่มรูปภาพ"}
         </Button>
         <p className="text-xs text-muted-foreground">
-          JPG, PNG, WEBP ไม่เกิน 5 MB ต่อรูป · ลาก <GripVertical className="inline size-3" aria-hidden /> เพื่อเรียงลำดับ ·
+          JPG, PNG, WEBP, GIF ไม่เกิน 5 MB ต่อรูป · ลาก <GripVertical className="inline size-3" aria-hidden /> เพื่อเรียงลำดับ ·
           รูปแรกที่อัปโหลดเป็นรูปหลักอัตโนมัติ
         </p>
       </div>

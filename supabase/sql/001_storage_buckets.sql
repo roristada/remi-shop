@@ -4,7 +4,7 @@
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values
-  ('product-previews', 'product-previews', true,  5242880, array['image/jpeg','image/png','image/webp']),
+  ('product-previews', 'product-previews', true,  5242880, array['image/jpeg','image/png','image/webp','image/gif']),
   ('digital-files',    'digital-files',    false, 5242880, null),
   ('payment-slips',    'payment-slips',    false, 5242880, array['image/jpeg','image/png','image/webp']),
   ('avatars',          'avatars',          false, 2097152, array['image/jpeg','image/png','image/webp']),

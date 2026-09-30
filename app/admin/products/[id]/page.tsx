@@ -23,6 +23,7 @@ import { ScheduleSummary } from "@/components/admin/schedule-summary";
 import { PublishControls } from "@/components/admin/publish-controls";
 import { ImageManager } from "@/components/admin/image-manager";
 import { VersionManager } from "@/components/admin/version-manager";
+import { FormSection } from "@/components/admin/form-controls";
 import { FlashToast } from "@/components/admin/flash-toast";
 import { LicensePricingEditor } from "@/components/admin/license-pricing-editor";
 import { getProductLicensePricing } from "@/lib/licenses/admin-queries";
@@ -112,29 +113,28 @@ export default async function EditProductPage({ params, searchParams }: PageProp
       <Tabs defaultValue="details" className="gap-4">
         <TabsList>
           <TabsTrigger value="details">รายละเอียด</TabsTrigger>
-          <TabsTrigger value="images">รูปภาพ ({product.images.length})</TabsTrigger>
           <TabsTrigger value="versions">เวอร์ชันและไฟล์ ({product.versions.length})</TabsTrigger>
           <TabsTrigger value="license">License ({licensePricing.filter((l) => l.price !== null).length})</TabsTrigger>
         </TabsList>
-        <TabsContent value="details">
+        <TabsContent value="details" className="space-y-6">
+          <FormSection title="รูปภาพ" description="รูปแรกคือรูปหลักที่แสดงหน้าร้าน">
+            <ImageManager
+              productId={product.id}
+              images={product.images.map((img) => ({
+                id: img.id,
+                url: previewImageUrl(img.imagePath),
+                altTextTH: img.altTextTH ?? "",
+                altTextEN: img.altTextEN ?? "",
+                isPrimary: img.isPrimary,
+              }))}
+            />
+          </FormSection>
           <ProductForm
             action={updateProduct.bind(null, product.id)}
             values={toFormValues(product)}
             categories={categories}
             softwareTags={softwareTags}
             submitLabel="บันทึก"
-          />
-        </TabsContent>
-        <TabsContent value="images">
-          <ImageManager
-            productId={product.id}
-            images={product.images.map((img) => ({
-              id: img.id,
-              url: previewImageUrl(img.imagePath),
-              altTextTH: img.altTextTH ?? "",
-              altTextEN: img.altTextEN ?? "",
-              isPrimary: img.isPrimary,
-            }))}
           />
         </TabsContent>
         <TabsContent value="versions">

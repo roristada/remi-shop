@@ -7,7 +7,7 @@ import { isUniqueViolation } from "@/lib/prisma/errors";
 import { fail, invalid, ok, type ActionResult } from "@/lib/actions/result";
 import { idSchema, imageAltSchema, uploadRequestSchema } from "@/lib/validation/product";
 import { BUCKETS } from "@/lib/storage/buckets";
-import { checkFileMeta, FILE_TYPE_ERROR_TH, getExtension, IMAGE_FILE_TYPES } from "@/lib/storage/file-types";
+import { checkFileMeta, FILE_TYPE_ERROR_TH, getExtension, PRODUCT_IMAGE_FILE_TYPES } from "@/lib/storage/file-types";
 import {
   createSignedUpload,
   isProductImagePath,
@@ -28,7 +28,7 @@ export async function requestImageUpload(
   const parsed = uploadRequestSchema.safeParse(input);
   if (!idSchema.safeParse(productId).success || !parsed.success) return fail("คำขอไม่ถูกต้อง");
 
-  const typeError = checkFileMeta(IMAGE_FILE_TYPES, parsed.data.fileName, parsed.data.size);
+  const typeError = checkFileMeta(PRODUCT_IMAGE_FILE_TYPES, parsed.data.fileName, parsed.data.size);
   if (typeError) return fail(FILE_TYPE_ERROR_TH[typeError]);
 
   const product = await prisma.product.findUnique({

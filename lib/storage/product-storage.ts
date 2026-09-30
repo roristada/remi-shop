@@ -9,6 +9,7 @@ import {
   type FileTypeError,
   DIGITAL_FILE_TYPES,
   IMAGE_FILE_TYPES,
+  PRODUCT_IMAGE_FILE_TYPES,
 } from "@/lib/storage/file-types";
 
 // Object keys are generated here, never taken from the browser.
@@ -26,7 +27,7 @@ export function newProductFilePath(productId: string, versionId: string, fileNam
 }
 
 export function isProductImagePath(path: string, productId: string): boolean {
-  return new RegExp(`^products/${productId}/${UUID}\\.(jpe?g|png|webp)$`).test(path);
+  return new RegExp(`^products/${productId}/${UUID}\\.(jpe?g|png|webp|gif)$`).test(path);
 }
 
 export function isProductFilePath(path: string, productId: string, versionId: string): boolean {
@@ -57,7 +58,12 @@ export async function verifyUploadedObject(
   fileName: string,
 ): Promise<{ ok: true; object: VerifiedObject } | { ok: false; error: FileTypeError | "not_found" }> {
   const storage = createAdminClient().storage.from(bucket);
-  const rules = bucket === BUCKETS.digitalFiles ? DIGITAL_FILE_TYPES : IMAGE_FILE_TYPES;
+  const rules =
+    bucket === BUCKETS.digitalFiles
+      ? DIGITAL_FILE_TYPES
+      : bucket === BUCKETS.productPreviews
+        ? PRODUCT_IMAGE_FILE_TYPES
+        : IMAGE_FILE_TYPES;
 
   const { data: info, error: infoError } = await storage.info(path);
   if (infoError || !info) return { ok: false, error: "not_found" };

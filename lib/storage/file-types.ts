@@ -8,6 +8,7 @@ const ascii = (s: string) => Array.from(s, (c) => c.charCodeAt(0));
 const ZIP: Signature[] = [{ bytes: [0x50, 0x4b, 0x03, 0x04] }, { bytes: [0x50, 0x4b, 0x05, 0x06] }];
 const PNG: Signature[] = [{ bytes: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] }];
 const JPEG: Signature[] = [{ bytes: [0xff, 0xd8, 0xff] }];
+const GIF: Signature[] = [{ bytes: ascii("GIF87a") }, { bytes: ascii("GIF89a") }];
 const WEBP: Signature[] = [{ bytes: [...ascii("RIFF"), null, null, null, null, ...ascii("WEBP")] }];
 const PDF: Signature[] = [{ bytes: ascii("%PDF-") }];
 const PSD: Signature[] = [{ bytes: ascii("8BPS") }];
@@ -70,6 +71,12 @@ export const IMAGE_FILE_TYPES: Record<string, FileRule> = {
   jpeg: { mime: "image/jpeg", signatures: JPEG },
   png: { mime: "image/png", signatures: PNG },
   webp: { mime: "image/webp", signatures: WEBP },
+};
+
+/** Product preview images also allow GIF (slips, QR and artworks stay JPG/PNG/WEBP). */
+export const PRODUCT_IMAGE_FILE_TYPES: Record<string, FileRule> = {
+  ...IMAGE_FILE_TYPES,
+  gif: { mime: "image/gif", signatures: GIF },
 };
 
 /** Rejected regardless of extension: executables, scripts, and HTML. */
