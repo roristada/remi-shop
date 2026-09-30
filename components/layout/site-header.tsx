@@ -16,12 +16,13 @@ export async function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
-      <div className="mx-auto flex h-16 max-w-6xl items-center gap-2 px-4">
+      <div className="mx-auto flex h-16 max-w-6xl items-center gap-1 px-4 sm:gap-2">
         <MobileNav />
-        <Link href="/" className="mr-2 flex shrink-0 items-center gap-2 font-bold tracking-tight whitespace-nowrap">
+        <Link href="/" className="flex shrink-0 items-center gap-1.5 font-bold tracking-tight whitespace-nowrap sm:mr-2 sm:gap-2">
           {/* Decorative: the wordmark beside it names the link. */}
-          <Image src="/brand/remi-mark.png" alt="" width={44} height={44} priority className="size-11" />
-          <span className="font-heading text-lg">{t("brand")}</span>
+          <Image src="/brand/remi-mark.png" alt="" width={44} height={44} priority className="size-9 sm:size-11" />
+          {/* Very narrow phones keep only the mark; the name stays for screen readers. */}
+          <span className="font-heading sr-only text-base min-[380px]:not-sr-only sm:text-lg">{t("brand")}</span>
         </Link>
 
         <nav aria-label={t("header.mainNav")} className="hidden items-center gap-1 md:flex">

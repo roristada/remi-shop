@@ -10,8 +10,8 @@ import { LogoutButton } from "@/components/account/logout-button";
 export async function AccountShell({ children }: { children: ReactNode }) {
   const t = await getTranslations("account");
   return (
-    <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 md:grid-cols-[220px_1fr]">
-      <aside className="space-y-4">
+    <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 px-4 py-10 md:grid-cols-[220px_minmax(0,1fr)]">
+      <aside className="min-w-0 space-y-4">
         <p className="font-heading px-3 text-lg font-medium">{t("title")}</p>
         <AccountNav />
         <LogoutButton />
