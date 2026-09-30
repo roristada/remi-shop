@@ -263,11 +263,25 @@ export async function duplicateProduct(productId: string): Promise<ActionResult>
       images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
       softwareTags: { select: { softwareTagId: true } },
       licensePrices: { select: { usageTypeId: true, price: true } },
+      variants: {
+        select: {
+          nameTH: true,
+          nameEN: true,
+          price: true,
+          discountPercent: true,
+          discountStartAt: true,
+          discountEndAt: true,
+          stockLimit: true,
+          isActive: true,
+          sortOrder: true,
+        },
+      },
     },
   });
   if (!source) return fail("ไม่พบสินค้า");
 
-  const { slug, nameTH, nameEN, images, softwareTags, licensePrices } = source;
+  // Variants are copied without files, like versions (files belong to the original's versions).
+  const { slug, nameTH, nameEN, images, softwareTags, licensePrices, variants } = source;
   // Explicit list: status, publish time, OG image and timestamps are deliberately not copied.
   const columns = {
     descriptionTH: source.descriptionTH,
@@ -308,6 +322,7 @@ export async function duplicateProduct(productId: string): Promise<ActionResult>
         folderSortOrder: (lastInFolder?._max.folderSortOrder ?? -1) + 1,
         softwareTags: { createMany: { data: softwareTags } },
         licensePrices: { createMany: { data: licensePrices } },
+        variants: { createMany: { data: variants } },
       },
       select: { id: true },
     });

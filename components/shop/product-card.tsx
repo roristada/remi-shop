@@ -15,7 +15,7 @@ import { isSoldOut } from "@/lib/products/stock";
 export function ProductCard({ product, priority = false }: { product: ProductCardData; priority?: boolean }) {
   const { price, stock } = product;
   const t = useTranslations("shop.badge");
-  const soldOut = isSoldOut(stock);
+  const soldOut = isSoldOut(stock) || product.variantsSoldOut;
   return (
     <article className="group relative flex w-full flex-col gap-3">
       <div className="relative aspect-square overflow-hidden rounded-2xl bg-secondary/60 ring-1 ring-black/5 ring-inset">
@@ -69,7 +69,10 @@ export function ProductCard({ product, priority = false }: { product: ProductCar
           </Link>
         </h3>
         <StarRating {...product.rating} />
-        <ProductPrice price={price} className="mt-auto" />
+        <div className="mt-auto flex items-baseline gap-1.5">
+          {product.priceFrom && <span className="text-xs text-muted-foreground">{t("fromPrice")}</span>}
+          <ProductPrice price={price} />
+        </div>
       </div>
     </article>
   );

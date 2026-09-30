@@ -57,7 +57,8 @@
     "saleEnded": "สิ้นสุดการขาย",
     "unavailable": "ไม่เปิดขาย",
     "soldOut": "สินค้าหมด",
-    "stock": "เหลือ {left}/{limit}"
+    "stock": "เหลือ {left}/{limit}",
+    "fromPrice": "เริ่มต้น"
   },
   "price": {
     "original": "ราคาปกติ",
@@ -103,7 +104,14 @@
     "noNotes": "ไม่มีบันทึกการเปลี่ยนแปลง",
     "related": "สินค้าอื่นในหมวดนี้",
     "soldOut": "สินค้านี้หมดแล้ว",
-    "stockLeft": "เหลือ {left} จาก {limit} ชิ้น"
+    "stockLeft": "เหลือ {left} จาก {limit} ชิ้น",
+    "chooseVariant": "เลือกแบบ",
+    "variantOwned": "คุณมีแบบนี้แล้ว",
+    "variantInOrder": "อยู่ในคำสั่งซื้อที่ยังไม่เสร็จ",
+    "variantInCart": "อยู่ในตะกร้าแล้ว",
+    "fromPrice": "เริ่มต้น",
+    "variantFiles": "ไฟล์ของแบบ {name}",
+    "sharedFiles": "ไฟล์สำหรับทุกแบบ"
   },
   "views": {
     "label": "มุมมอง",

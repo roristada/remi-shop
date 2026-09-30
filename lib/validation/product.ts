@@ -171,3 +171,27 @@ export const MAX_REORDER_ITEMS = 1000;
 
 /** Upper bound for one bulk admin action (a few pages of the product list). */
 export const MAX_BULK_ITEMS = 100;
+
+/** One purchasable option of a product. The sale window stays on the product. */
+export const variantSchema = z
+  .object({
+    nameTH: requiredText(80),
+    nameEN: requiredText(80),
+    price: money,
+    discountPercent: optionalPercent,
+    discountStartAt: optionalDateTime,
+    discountEndAt: optionalDateTime,
+    stockLimit,
+    sortOrder: z.coerce.number().int("ต้องเป็นจำนวนเต็ม").min(0, "ต้องไม่ติดลบ").max(10000, "ไม่เกิน 10000"),
+  })
+  .superRefine((d, ctx) => {
+    if (d.discountPercent !== null) {
+      if (!d.discountStartAt) ctx.addIssue({ code: "custom", path: ["discountStartAt"], message: "กรุณาระบุวันเริ่มส่วนลด" });
+      if (!d.discountEndAt) ctx.addIssue({ code: "custom", path: ["discountEndAt"], message: "กรุณาระบุวันสิ้นสุดส่วนลด" });
+    }
+    if (d.discountStartAt && d.discountEndAt && d.discountEndAt <= d.discountStartAt) {
+      ctx.addIssue({ code: "custom", path: ["discountEndAt"], message: "วันสิ้นสุดต้องอยู่หลังวันเริ่มส่วนลด" });
+    }
+  });
+
+export type VariantInput = z.infer<typeof variantSchema>;

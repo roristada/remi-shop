@@ -133,11 +133,14 @@ export function listedProductWhere(now: Date): Prisma.ProductWhereInput {
 }
 
 /** Mirrors isDiscountActive(): percent set and discountStartAt <= now <= discountEndAt. */
+/** A discount running now: the product's own (products without variants) or any active variant's. */
 export function activeDiscountWhere(now: Date): Prisma.ProductWhereInput {
+  const running = { discountPercent: { gt: 0 }, discountStartAt: { lte: now }, discountEndAt: { gte: now } };
   return {
-    discountPercent: { gt: 0 },
-    discountStartAt: { lte: now },
-    discountEndAt: { gte: now },
+    OR: [
+      { ...running, variants: { none: {} } },
+      { variants: { some: { isActive: true, ...running } } },
+    ],
   };
 }
 

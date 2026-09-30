@@ -27,6 +27,7 @@ import {
   deleteVersion,
   notifyVersionBuyers,
   requestFileUpload,
+  setFileVariant,
   setLatestVersion,
   updateVersion,
 } from "@/lib/products/version-actions";
@@ -43,8 +44,14 @@ export type ManagedVersion = {
   isLatest: boolean;
   /** When buyers were notified about this version; null = not yet. */
   notifiedAtLabel: string | null;
-  files: { id: string; fileName: string; fileSize: number; fileType: string }[];
+  /** variantId null = every buyer gets the file; set = only buyers of that variant. */
+  files: { id: string; fileName: string; fileSize: number; fileType: string; variantId: string | null }[];
 };
+
+/** Variants a file can be limited to (admin names are Thai). */
+export type FileVariantOption = { id: string; name: string };
+
+const SELECT_CLASS = "h-8 rounded-lg border bg-background px-2 text-xs";
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -65,10 +72,12 @@ export function VersionManager({
   productId,
   versions,
   buyerCount,
+  variants,
 }: {
   productId: string;
   versions: ManagedVersion[];
   buyerCount: number;
+  variants: FileVariantOption[];
 }) {
   return (
     <div className="space-y-4">
@@ -95,7 +104,7 @@ export function VersionManager({
       ) : (
         <ul className="space-y-4">
           {versions.map((v) => (
-            <VersionCard key={v.id} version={v} buyerCount={buyerCount} />
+            <VersionCard key={v.id} version={v} buyerCount={buyerCount} variants={variants} />
           ))}
         </ul>
       )}
@@ -103,13 +112,23 @@ export function VersionManager({
   );
 }
 
-function VersionCard({ version, buyerCount }: { version: ManagedVersion; buyerCount: number }) {
+function VersionCard({
+  version,
+  buyerCount,
+  variants,
+}: {
+  version: ManagedVersion;
+  buyerCount: number;
+  variants: FileVariantOption[];
+}) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
+  // "" = shared file (every buyer). Applies to the next upload batch.
+  const [uploadVariant, setUploadVariant] = useState("");
   const { upload, uploading } = useDirectUpload(
     (input) => requestFileUpload(version.id, input),
-    (input) => confirmFileUpload(version.id, input),
+    (input) => confirmFileUpload(version.id, { ...input, variantId: uploadVariant || null }),
   );
   const busy = pending || uploading !== null;
 
@@ -217,6 +236,25 @@ function VersionCard({ version, buyerCount }: { version: ManagedVersion; buyerCo
                 {f.fileName}
               </span>
               <span className="shrink-0 text-xs text-muted-foreground">{formatBytes(f.fileSize)}</span>
+              {variants.length > 0 && (
+                <select
+                  aria-label={`ผู้ที่ได้ไฟล์ ${f.fileName}`}
+                  className={SELECT_CLASS}
+                  value={f.variantId ?? ""}
+                  disabled={busy}
+                  onChange={(e) => {
+                    const value = e.currentTarget.value;
+                    startTransition(async () => void (await refreshOn(() => setFileVariant(f.id, value || null))));
+                  }}
+                >
+                  <option value="">ทุกตัวเลือก</option>
+                  {variants.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      เฉพาะ {v.name}
+                    </option>
+                  ))}
+                </select>
+              )}
               <ConfirmDialog
                 trigger={
                   <Button size="icon-sm" variant="ghost" aria-label={`ลบไฟล์ ${f.fileName}`} disabled={busy}>
@@ -239,7 +277,25 @@ function VersionCard({ version, buyerCount }: { version: ManagedVersion; buyerCo
         </ul>
       )}
 
-      <div>
+      <div className="flex flex-wrap items-center gap-2">
+        {variants.length > 0 && (
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            ไฟล์ที่อัปโหลดให้
+            <select
+              className={SELECT_CLASS}
+              value={uploadVariant}
+              disabled={busy}
+              onChange={(e) => setUploadVariant(e.currentTarget.value)}
+            >
+              <option value="">ผู้ซื้อทุกตัวเลือก</option>
+              {variants.map((v) => (
+                <option key={v.id} value={v.id}>
+                  เฉพาะผู้ซื้อ {v.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <input
           ref={inputRef}
           type="file"

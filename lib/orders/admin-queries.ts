@@ -31,7 +31,7 @@ const ORDER_ROW_SELECT = {
   createdAt: true,
   paidAt: true,
   user: { select: { email: true, displayName: true } },
-  items: { orderBy: { id: "asc" }, select: { productNameTHSnapshot: true, finalPrice: true } },
+  items: { orderBy: { id: "asc" }, select: { productNameTHSnapshot: true, variantNameTHSnapshot: true, finalPrice: true } },
   // LICENSE orders have no items; the request's usage types are what was paid for.
   licenseRequest: {
     select: {
@@ -74,5 +74,8 @@ export function orderLines(o: AdminOrderRow): { name: string; price: Prisma.Deci
     const product = o.licenseRequest.productNameTHSnapshot;
     return o.licenseRequest.items.map((i) => ({ name: `${product} — License: ${i.nameTHSnapshot}`, price: i.price }));
   }
-  return o.items.map((i) => ({ name: i.productNameTHSnapshot, price: i.finalPrice }));
+  return o.items.map((i) => ({
+    name: i.variantNameTHSnapshot ? `${i.productNameTHSnapshot} (${i.variantNameTHSnapshot})` : i.productNameTHSnapshot,
+    price: i.finalPrice,
+  }));
 }

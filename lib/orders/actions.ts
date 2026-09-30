@@ -7,7 +7,7 @@ import { getCurrentUser } from "@/lib/auth/guards";
 import { toLocale } from "@/lib/auth/redirect";
 import { prisma } from "@/lib/prisma/client";
 import { fromHundredths } from "@/lib/pricing/calculate";
-import { checkoutProductSelect, toCheckoutProduct } from "@/lib/cart/queries";
+import { checkoutProductSelect, checkoutVariantSelect, toCheckoutProduct } from "@/lib/cart/queries";
 import { cancelExpiredOrders, getOwnership } from "@/lib/orders/ownership";
 import { evaluateLine, generateOrderNumber, orderTotals } from "@/lib/orders/rules";
 import { orderNumberSchema } from "@/lib/orders/validation";
@@ -40,17 +40,24 @@ export async function checkout(localeInput: string, expectedTotal: number): Prom
       await tx.$executeRaw`select pg_advisory_xact_lock(hashtextextended(${user.id}, 0))`;
       await cancelExpiredOrders(user.id, now, tx);
 
-      const cartProductIds = (
-        await tx.cartItem.findMany({ where: { cart: { userId: user.id } }, select: { productId: true } })
-      ).map((i) => i.productId);
-      if (cartProductIds.length === 0) throw new CheckoutError("EMPTY");
-      // Checkouts of the same limited product queue here (id order, so no deadlock), and the
-      // stock count below then sees every order committed before us: the last unit sells once.
+      const cartLines = await tx.cartItem.findMany({
+        where: { cart: { userId: user.id } },
+        select: { productId: true, variantId: true },
+      });
+      if (cartLines.length === 0) throw new CheckoutError("EMPTY");
+      const cartProductIds = cartLines.map((i) => i.productId);
+      const cartVariantIds = cartLines.flatMap((i) => (i.variantId ? [i.variantId] : []));
+      // Checkouts of the same limited product or variant queue here (id order, so no deadlock),
+      // and the stock counts below then see every order committed before us: the last unit sells once.
       await tx.$queryRaw`select id from products where id = any(${cartProductIds}::uuid[]) and stock_limit is not null order by id for update`;
+      if (cartVariantIds.length > 0) {
+        await tx.$queryRaw`select id from product_variants where id = any(${cartVariantIds}::uuid[]) and stock_limit is not null order by id for update`;
+      }
 
       const items = await tx.cartItem.findMany({
         where: { cart: { userId: user.id } },
-        select: { product: { select: checkoutProductSelect(now) } },
+        orderBy: { createdAt: "asc" },
+        select: { product: { select: checkoutProductSelect(now) }, variant: { select: checkoutVariantSelect(now) } },
       });
       if (items.length === 0) throw new CheckoutError("EMPTY");
 
@@ -61,7 +68,7 @@ export async function checkout(localeInput: string, expectedTotal: number): Prom
         now,
         tx,
       );
-      const lines = products.map((p) => evaluateLine(toCheckoutProduct(p), ownership, now));
+      const lines = items.map((i) => evaluateLine(toCheckoutProduct(i.product, i.variant), ownership, now));
       if (lines.some((l) => l.problem)) throw new CheckoutError("CART_CHANGED");
 
       const totals = orderTotals(lines);
@@ -79,10 +86,13 @@ export async function checkout(localeInput: string, expectedTotal: number): Prom
           total: fromHundredths(totals.total),
           expiresAt: new Date(now.getTime() + expiryMinutes * 60_000),
           items: {
-            create: products.map((p, i) => ({
+            create: items.map(({ product: p, variant: v }, i) => ({
               productId: p.id,
+              variantId: v?.id ?? null,
               productNameTHSnapshot: p.nameTH,
               productNameENSnapshot: p.nameEN,
+              variantNameTHSnapshot: v?.nameTH ?? null,
+              variantNameENSnapshot: v?.nameEN ?? null,
               productVersionSnapshot: p.versions[0]?.versionNumber ?? null,
               unitPrice: fromHundredths(lines[i].price.unitPrice),
               discount: fromHundredths(lines[i].price.discount),
@@ -149,17 +159,23 @@ export async function reorderRejectedOrder(orderNumberInput: string, localeInput
 
   const order = await prisma.order.findFirst({
     where: { orderNumber: parsed.data, userId: user.id, kind: "PRODUCT", status: "PAYMENT_REJECTED" },
-    select: { items: { select: { productId: true } } },
+    select: {
+      items: {
+        select: { product: { select: checkoutProductSelect(now) }, variant: { select: checkoutVariantSelect(now) } },
+      },
+    },
   });
   if (!order) return { ok: false, code: "NOT_ALLOWED" };
 
   try {
-    const productIds = order.items.map((i) => i.productId);
-    const [products, ownership] = await Promise.all([
-      prisma.product.findMany({ where: { id: { in: productIds } }, select: checkoutProductSelect(now) }),
-      getOwnership(user.id, productIds, now),
-    ]);
-    const buyable = products.filter((p) => evaluateLine(toCheckoutProduct(p), ownership, now).problem === null);
+    const ownership = await getOwnership(
+      user.id,
+      order.items.map((i) => i.product.id),
+      now,
+    );
+    const buyable = order.items.filter(
+      (i) => evaluateLine(toCheckoutProduct(i.product, i.variant), ownership, now).problem === null,
+    );
     if (buyable.length === 0) return { ok: false, code: "NOTHING_TO_ORDER" };
 
     const cart = await prisma.cart.upsert({
@@ -169,7 +185,7 @@ export async function reorderRejectedOrder(orderNumberInput: string, localeInput
       select: { id: true },
     });
     await prisma.cartItem.createMany({
-      data: buyable.map((p) => ({ cartId: cart.id, productId: p.id })),
+      data: buyable.map((i) => ({ cartId: cart.id, productId: i.product.id, variantId: i.variant?.id ?? null })),
       skipDuplicates: true,
     });
   } catch (error) {

@@ -12,6 +12,7 @@ import { ProductPrice } from "@/components/shop/product-price";
 import { PageHeading } from "@/components/shop/page-heading";
 import { CheckoutButton, RemoveFromCartButton } from "@/components/cart/cart-controls";
 import { BackLink } from "@/components/shared/back-link";
+import { lineKey } from "@/lib/orders/rules";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/cart">): Promise<Metadata> {
   const { locale } = await params;
@@ -49,7 +50,7 @@ export default async function CartPage({ params }: PageProps<"/[locale]/cart">) 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <ul className="divide-y">
           {lines.map((line) => (
-            <li key={line.productId} className="flex gap-4 py-4 first:pt-0">
+            <li key={lineKey(line.productId, line.variantId)} className="flex gap-4 py-4 first:pt-0">
               <Link
                 href={`/product/${line.slug}`}
                 className="relative size-20 shrink-0 overflow-hidden rounded-xl bg-secondary/60 sm:size-24"
@@ -66,13 +67,18 @@ export default async function CartPage({ params }: PageProps<"/[locale]/cart">) 
                 <Link href={`/product/${line.slug}`} className="line-clamp-2 font-semibold hover:underline">
                   {line.name}
                 </Link>
+                {line.variantName && <p className="text-sm text-muted-foreground">{line.variantName}</p>}
                 {line.problem ? (
                   <p className="text-sm font-medium text-destructive">{t(`cart.problem.${line.problem}`)}</p>
                 ) : (
                   <ProductPrice price={line.price} />
                 )}
               </div>
-              <RemoveFromCartButton productId={line.productId} name={line.name} />
+              <RemoveFromCartButton
+                productId={line.productId}
+                variantId={line.variantId}
+                name={line.variantName ? `${line.name} · ${line.variantName}` : line.name}
+              />
             </li>
           ))}
         </ul>

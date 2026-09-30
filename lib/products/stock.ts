@@ -16,9 +16,19 @@ export function stockTakingOrderWhere(now: Date): Prisma.OrderWhereInput {
   };
 }
 
-/** Filtered relation count for a product select: `_count.orderItems` = units taken. */
+/**
+ * Filtered relation count for a product select: `_count.orderItems` = units of the product itself
+ * taken. Variant lines don't count here; each variant has its own stock (variantStockTakenCountSelect).
+ */
 export function stockTakenCountSelect(now: Date) {
-  return { orderItems: { where: { order: stockTakingOrderWhere(now) } } } satisfies Prisma.ProductCountOutputTypeSelect;
+  return {
+    orderItems: { where: { variantId: null, order: stockTakingOrderWhere(now) } },
+  } satisfies Prisma.ProductCountOutputTypeSelect;
+}
+
+/** Same as stockTakenCountSelect, for a variant select. */
+export function variantStockTakenCountSelect(now: Date) {
+  return { orderItems: { where: { order: stockTakingOrderWhere(now) } } } satisfies Prisma.ProductVariantCountOutputTypeSelect;
 }
 
 /** Stock of a product with a limit; null = unlimited. */

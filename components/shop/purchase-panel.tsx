@@ -2,15 +2,15 @@ import { useLocale, useTranslations } from "next-intl";
 import { CalendarClock, Download, RefreshCw, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddToCartButton } from "@/components/cart/add-to-cart-button";
-import type { PurchaseState } from "@/lib/cart/queries";
+import type { PurchaseOption } from "@/lib/cart/queries";
 import { intlLocale } from "@/i18n/localize";
 import { formatBangkokDateTime } from "@/lib/datetime";
 import type { ProductPrice as Price } from "@/lib/pricing/calculate";
 import type { ProductStatus } from "@/lib/products/status";
-import type { StockInfo } from "@/lib/products/stock";
 import { ProductPrice } from "./product-price";
 import { DiscountBadge } from "./discount-badge";
 import { CountdownTimer } from "./countdown-timer";
+import { VariantPurchase } from "./variant-purchase";
 
 type Props = {
   price: Price;
@@ -19,27 +19,38 @@ type Props = {
   saleEndAt: Date | null;
   now: Date;
   product: { id: string; slug: string };
-  purchaseState: PurchaseState;
-  stock: StockInfo;
+  /** From getPurchaseOptions: one option without variants, one per active variant, none if all are off. */
+  options: PurchaseOption[];
 };
 
 /** Price, sale state and the buy action. Every value here is computed server-side. */
-export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now, product, purchaseState, stock }: Props) {
+export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now, product, options }: Props) {
   const t = useTranslations("shop.product");
   const tCountdown = useTranslations("shop.countdown");
   const dateLocale = intlLocale(useLocale()).date;
-  const purchasable = status === "ACTIVE";
+  const hasVariants = options.length !== 1 || options[0].variantId !== null;
+  const single = hasVariants ? null : options[0];
+  // All variants switched off: nothing can be bought, like a disabled product.
+  const purchasable = status === "ACTIVE" && options.length > 0;
   // A buyer who owns it (or has it in an open order) still sees that state, not "sold out".
-  const soldOut = purchaseState === "soldOut";
+  const soldOut = single?.state === "soldOut";
+  // With variants the picker shows each price; otherwise (and when not on sale) the cheapest one.
+  const shownPrice = hasVariants && options.length > 0
+    ? options.reduce((min, o) => (o.price.finalPrice < min.price.finalPrice ? o : min)).price
+    : (single?.price ?? price);
+  const showVariantPicker = purchasable && hasVariants;
 
   return (
     <div className="space-y-4 rounded-3xl bg-secondary/45 p-5 sm:p-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <ProductPrice price={price} size="lg" />
-        {price.isDiscounted && <DiscountBadge percent={price.discountPercent} />}
-      </div>
+      {!showVariantPicker && (
+        <div className="flex flex-wrap items-center gap-3">
+          {hasVariants && <span className="text-sm text-muted-foreground">{t("fromPrice")}</span>}
+          <ProductPrice price={shownPrice} size="lg" />
+          {shownPrice.isDiscounted && <DiscountBadge percent={shownPrice.discountPercent} />}
+        </div>
+      )}
 
-      {purchasable && price.isDiscounted && price.discountEndsAt && (
+      {purchasable && !hasVariants && price.isDiscounted && price.discountEndsAt && (
         <CountdownTimer
           endsAt={price.discountEndsAt.toISOString()}
           serverNow={now.toISOString()}
@@ -68,7 +79,7 @@ export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now, prod
           {t("saleEnded")}
         </p>
       )}
-      {status === "DISABLED" && (
+      {(status === "DISABLED" || (status === "ACTIVE" && options.length === 0)) && (
         <p role="status" className="rounded-xl bg-muted px-3 py-2 text-sm font-medium">
           {t("unavailable")}
         </p>
@@ -78,8 +89,8 @@ export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now, prod
           {t("soldOut")}
         </p>
       )}
-      {purchasable && !soldOut && stock && (
-        <p className="text-sm font-medium">{t("stockLeft", { left: stock.left, limit: stock.limit })}</p>
+      {purchasable && !soldOut && single?.stock && (
+        <p className="text-sm font-medium">{t("stockLeft", { left: single.stock.left, limit: single.stock.limit })}</p>
       )}
       {purchasable && saleEndAt && (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -88,8 +99,10 @@ export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now, prod
         </p>
       )}
 
-      {purchasable && !soldOut ? (
-        <AddToCartButton productId={product.id} productSlug={product.slug} initialState={purchaseState} />
+      {showVariantPicker ? (
+        <VariantPurchase productId={product.id} productSlug={product.slug} options={options} serverNow={now.toISOString()} />
+      ) : purchasable && single && !soldOut ? (
+        <AddToCartButton productId={product.id} productSlug={product.slug} initialState={single.state} />
       ) : (
         <Button size="lg" className="h-12 w-full rounded-full text-base" disabled>
           <ShoppingBag aria-hidden /> {t("addToCart")}

@@ -162,6 +162,7 @@ function PaymentCard({ payment: p, tab }: { payment: ReviewPayment; tab: Payment
               <li key={i.id} className="flex justify-between gap-3 px-3 py-2">
                 <span className="min-w-0 truncate">
                   {i.productNameTHSnapshot}
+                  {i.variantNameTHSnapshot && <span> ({i.variantNameTHSnapshot})</span>}
                   {i.productVersionSnapshot && <span className="text-muted-foreground"> v{i.productVersionSnapshot}</span>}
                 </span>
                 <span className="shrink-0 tabular-nums">{formatTHB(toHundredths(i.finalPrice))}</span>

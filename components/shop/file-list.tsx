@@ -2,7 +2,8 @@ import { useLocale, useTranslations } from "next-intl";
 import { FileArchive } from "lucide-react";
 import { intlLocale } from "@/i18n/localize";
 
-export type FileListItem = { id: string; fileName: string; fileSize: number };
+/** `variantName` is set for a file only buyers of that variant get. */
+export type FileListItem = { id: string; fileName: string; fileSize: number; variantName?: string | null };
 
 function formatSize(bytes: number, locale: string) {
   const nf = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
@@ -27,6 +28,9 @@ export function FileList({ files }: { files: FileListItem[] }) {
             <span className="min-w-0 flex-1 truncate" title={f.fileName}>
               {f.fileName}
             </span>
+            {f.variantName && (
+              <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-xs">{f.variantName}</span>
+            )}
             <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{formatSize(f.fileSize, locale)}</span>
           </li>
         ))}

@@ -11,7 +11,7 @@ import {
 } from "@/lib/products/admin-queries";
 import { updateProduct } from "@/lib/products/admin-actions";
 import { listSoftwareTagOptions } from "@/lib/software-tags/queries";
-import { getProductStatus } from "@/lib/products/status";
+import { getDiscountWindowState, getProductStatus } from "@/lib/products/status";
 import { calculateProductPrice, formatTHB } from "@/lib/pricing/calculate";
 import { formatBangkokDateTime, toBangkokDateTimeLocal } from "@/lib/datetime";
 import { previewImageUrl } from "@/lib/storage/public-url";
@@ -23,11 +23,40 @@ import { ScheduleSummary } from "@/components/admin/schedule-summary";
 import { PublishControls } from "@/components/admin/publish-controls";
 import { ImageManager } from "@/components/admin/image-manager";
 import { VersionManager } from "@/components/admin/version-manager";
+import { VariantManager, type ManagedVariant } from "@/components/admin/variant-manager";
 import { FormSection } from "@/components/admin/form-controls";
 import { FlashToast } from "@/components/admin/flash-toast";
 import { LicensePricingEditor } from "@/components/admin/license-pricing-editor";
 import { getProductLicensePricing } from "@/lib/licenses/admin-queries";
 import { countStockTaken } from "@/lib/products/storefront-queries";
+
+function toManagedVariant(v: AdminProduct["variants"][number], now: Date): ManagedVariant {
+  const price = calculateProductPrice(v, now);
+  const window = getDiscountWindowState(v, now);
+  return {
+    id: v.id,
+    nameTH: v.nameTH,
+    nameEN: v.nameEN,
+    price: v.price.toString(),
+    discountPercent: v.discountPercent?.toString() ?? "",
+    discountStartAt: toBangkokDateTimeLocal(v.discountStartAt),
+    discountEndAt: toBangkokDateTimeLocal(v.discountEndAt),
+    stockLimit: v.stockLimit === null ? "" : String(v.stockLimit),
+    sortOrder: String(v.sortOrder),
+    isActive: v.isActive,
+    priceLabel: price.isDiscounted
+      ? `${formatTHB(price.finalPrice)} (ปกติ ${formatTHB(price.unitPrice)})`
+      : formatTHB(price.unitPrice),
+    discountLabel:
+      window === "NONE"
+        ? null
+        : `ส่วนลด ${v.discountPercent?.toString()}% ${formatBangkokDateTime(v.discountStartAt)} – ${formatBangkokDateTime(v.discountEndAt)}${
+            window === "ENDED" ? " (สิ้นสุดแล้ว)" : window === "UPCOMING" ? " (ยังไม่เริ่ม)" : ""
+          }`,
+    taken: v._count.orderItems,
+    fileCount: v._count.files,
+  };
+}
 
 function toFormValues(p: AdminProduct): ProductFormValues {
   const limit = p.downloadLimit;
@@ -116,6 +145,7 @@ export default async function EditProductPage({ params, searchParams }: PageProp
       <Tabs defaultValue="details" className="gap-4">
         <TabsList>
           <TabsTrigger value="details">รายละเอียด</TabsTrigger>
+          <TabsTrigger value="variants">ตัวเลือก ({product.variants.length})</TabsTrigger>
           <TabsTrigger value="versions">เวอร์ชันและไฟล์ ({product.versions.length})</TabsTrigger>
           <TabsTrigger value="license">License ({licensePricing.filter((l) => l.price !== null).length})</TabsTrigger>
         </TabsList>
@@ -139,7 +169,11 @@ export default async function EditProductPage({ params, searchParams }: PageProp
             softwareTags={softwareTags}
             submitLabel="บันทึก"
             stockTaken={stockTaken}
+            hasVariants={product.variants.length > 0}
           />
+        </TabsContent>
+        <TabsContent value="variants">
+          <VariantManager productId={product.id} variants={product.variants.map((v) => toManagedVariant(v, now))} />
         </TabsContent>
         <TabsContent value="versions">
           <VersionManager
@@ -155,8 +189,15 @@ export default async function EditProductPage({ params, searchParams }: PageProp
               releaseNotesEN: v.releaseNotesEN ?? "",
               isLatest: v.isLatest,
               // storagePath is intentionally not sent to the browser.
-              files: v.files.map((f) => ({ id: f.id, fileName: f.fileName, fileSize: f.fileSize, fileType: f.fileType })),
+              files: v.files.map((f) => ({
+                id: f.id,
+                fileName: f.fileName,
+                fileSize: f.fileSize,
+                fileType: f.fileType,
+                variantId: f.variantId,
+              })),
             }))}
+            variants={product.variants.map((v) => ({ id: v.id, name: v.nameTH }))}
           />
         </TabsContent>
         <TabsContent value="license">

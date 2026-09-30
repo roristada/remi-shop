@@ -253,13 +253,26 @@ function displayFileName(name: string): string {
   return base.replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, 255);
 }
 
+/** A variant id is accepted only if it is a variant of this product; null = shared file. */
+async function checkFileVariant(productId: string, variantId: unknown): Promise<string | null | undefined> {
+  if (variantId === null || variantId === undefined || variantId === "") return null;
+  if (typeof variantId !== "string" || !idSchema.safeParse(variantId).success) return undefined;
+  const found = await prisma.productVariant.count({ where: { id: variantId, productId } });
+  return found === 1 ? variantId : undefined;
+}
+
 export async function confirmFileUpload(
   versionId: string,
-  input: { path: string; fileName: string },
+  input: { path: string; fileName: string; variantId?: string | null },
 ): Promise<ActionResult> {
   await requireAdmin();
   const version = await findVersion(versionId);
   if (!version) return fail("ไม่พบเวอร์ชัน");
+  const variantId = await checkFileVariant(version.productId, input.variantId);
+  if (variantId === undefined) {
+    await removeObjects(BUCKETS.digitalFiles, [input.path].filter((p) => isProductFilePath(p, version.productId, version.id)));
+    return fail("ไม่พบตัวเลือกของสินค้านี้");
+  }
 
   const fileName = displayFileName(input.fileName);
   if (!isProductFilePath(input.path, version.productId, version.id)) return fail("คำขอไม่ถูกต้อง");
@@ -288,6 +301,7 @@ export async function confirmFileUpload(
         fileSize: verified.object.size,
         fileType: mimeFor(DIGITAL_FILE_TYPES, fileName),
         sortOrder: (max._max.sortOrder ?? -1) + 1,
+        variantId,
       },
     });
   } catch (error) {
@@ -300,6 +314,27 @@ export async function confirmFileUpload(
   console.info("[products] file uploaded", { productId: version.productId, versionId });
   revalidateCatalog();
   return ok(undefined, "อัปโหลดไฟล์แล้ว");
+}
+
+/**
+ * Moves a file between "every buyer" (null) and one variant. This changes who can download it,
+ * so the variant must belong to the file's product.
+ */
+export async function setFileVariant(fileId: string, variantIdInput: string | null): Promise<ActionResult> {
+  await requireAdmin();
+  if (!idSchema.safeParse(fileId).success) return fail("ไม่พบไฟล์");
+  const file = await prisma.productVersionFile.findUnique({
+    where: { id: fileId },
+    select: { version: { select: { productId: true } } },
+  });
+  if (!file) return fail("ไม่พบไฟล์");
+  const variantId = await checkFileVariant(file.version.productId, variantIdInput);
+  if (variantId === undefined) return fail("ไม่พบตัวเลือกของสินค้านี้");
+
+  await prisma.productVersionFile.update({ where: { id: fileId }, data: { variantId } });
+  console.info("[products] file variant changed", { productId: file.version.productId, fileId, variantId });
+  revalidateCatalog();
+  return ok(undefined, variantId ? "ไฟล์นี้จะให้เฉพาะผู้ซื้อตัวเลือกนี้" : "ไฟล์นี้จะให้ผู้ซื้อทุกตัวเลือก");
 }
 
 export async function deleteFile(fileId: string): Promise<ActionResult> {

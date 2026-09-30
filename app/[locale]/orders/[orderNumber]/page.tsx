@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { BackLink } from "@/components/shared/back-link";
 import { getOrderReviewStates } from "@/lib/reviews/queries";
 import { OrderReviewButton, ReviewPrompt, type OrderReviewItem } from "@/components/reviews/order-review-actions";
+import { lineKey } from "@/lib/orders/rules";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/orders/[orderNumber]">): Promise<Metadata> {
   const { locale, orderNumber } = await params;
@@ -112,7 +113,11 @@ export default async function OrderPage({ params }: PageProps<"/[locale]/orders/
                 const itemDiscount = toHundredths(item.discount);
                 const name = localized(locale, item.productNameTHSnapshot, item.productNameENSnapshot);
                 const image = item.product.images[0];
-                const files = downloads?.get(item.product.id);
+                const files = downloads?.get(lineKey(item.product.id, item.variantId));
+                const variantName =
+                  item.variantNameTHSnapshot && item.variantNameENSnapshot
+                    ? localized(locale, item.variantNameTHSnapshot, item.variantNameENSnapshot)
+                    : null;
                 return (
                   <li key={item.id} className="space-y-3 px-4 py-3.5 sm:px-5">
                     <div className="flex items-center gap-3">
@@ -131,6 +136,7 @@ export default async function OrderPage({ params }: PageProps<"/[locale]/orders/
                         <Link href={`/product/${item.product.slug}`} className="font-semibold hover:underline">
                           {name}
                         </Link>
+                        {variantName && <p className="text-sm text-muted-foreground">{variantName}</p>}
                         {item.productVersionSnapshot && (
                           <p className="text-xs text-muted-foreground">
                             {t("order.version", { version: item.productVersionSnapshot })}

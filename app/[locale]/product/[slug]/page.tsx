@@ -7,13 +7,12 @@ import { Link } from "@/i18n/navigation";
 import { localized } from "@/i18n/localize";
 import { publicEnv } from "@/lib/env";
 import { getCurrentUser } from "@/lib/auth/guards";
-import { getPurchaseState } from "@/lib/cart/queries";
+import { getPurchaseOptions } from "@/lib/cart/queries";
 import { calculateProductPrice, fromHundredths } from "@/lib/pricing/calculate";
 import { getProductStatus } from "@/lib/products/status";
 import { isSoldOut } from "@/lib/products/stock";
 import { schemaAvailability } from "@/lib/products/storefront";
 import {
-  getProductStock,
   getShopProduct,
   listRelatedProducts,
   releasedVersions,
@@ -107,8 +106,7 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
     // A license can be requested only while the product is on sale.
     status === "ACTIVE" ? getLicenseOffers(product.id) : Promise.resolve([]),
   ]);
-  const stock = await getProductStock(product.id, product.stockLimit, now);
-  const purchaseState = await getPurchaseState(userId, product.id, stock, now);
+  const purchaseOptions = await getPurchaseOptions(userId, product.id, locale, now);
   const wishlisted = userId ? await isWishlisted(userId, product.id) : false;
 
   const details = [
@@ -137,7 +135,7 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
       "@type": "Offer",
       price: fromHundredths(price.finalPrice),
       priceCurrency: "THB",
-      availability: schemaAvailability(status, isSoldOut(stock)),
+      availability: schemaAvailability(status, purchaseOptions.length > 0 && purchaseOptions.every((o) => isSoldOut(o.stock))),
       url: `${siteUrl}/${locale}/product/${product.slug}`,
       ...(price.discountEndsAt ? { priceValidUntil: price.discountEndsAt.toISOString().slice(0, 10) } : {}),
     },
@@ -200,8 +198,7 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
             saleEndAt={product.saleEndAt}
             now={now}
             product={{ id: product.id, slug: product.slug }}
-            purchaseState={purchaseState}
-            stock={stock}
+            options={purchaseOptions}
           />
 
           {details.length > 0 && (
@@ -220,7 +217,16 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
             </section>
           )}
 
-          {latest && latest.files.length > 0 && <FileList files={latest.files} />}
+          {latest && latest.files.length > 0 && (
+            <FileList
+              files={latest.files.map((f) => ({
+                id: f.id,
+                fileName: f.fileName,
+                fileSize: f.fileSize,
+                variantName: f.variant ? localized(locale, f.variant.nameTH, f.variant.nameEN) : null,
+              }))}
+            />
+          )}
 
           {licenseOffers.length > 0 && <LicenseOfferPanel offers={licenseOffers} productSlug={product.slug} />}
         </div>

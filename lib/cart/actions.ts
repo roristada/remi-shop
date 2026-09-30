@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma/client";
 import { isUniqueViolation } from "@/lib/prisma/errors";
 import { getOwnership } from "@/lib/orders/ownership";
 import { evaluateLine, type LineProblem } from "@/lib/orders/rules";
-import { checkoutProductSelect, toCheckoutProduct } from "@/lib/cart/queries";
+import { checkoutProductSelect, checkoutVariantSelect, toCheckoutProduct } from "@/lib/cart/queries";
 import { idSchema } from "@/lib/validation/product";
 import { localized } from "@/i18n/localize";
 import { previewImageUrl } from "@/lib/storage/public-url";
@@ -30,10 +30,12 @@ export async function getCartCount(): Promise<number> {
   return user ? countCartItems(user.id) : 0;
 }
 
-export async function addToCart(productId: string, locale: string): Promise<AddToCartResult> {
+/** Adds one line: the product, or one of its variants (`variantId`). Each variant is its own line. */
+export async function addToCart(productId: string, variantId: string | null, locale: string): Promise<AddToCartResult> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, code: "LOGIN_REQUIRED" };
   if (!idSchema.safeParse(productId).success) return { ok: false, code: "UNAVAILABLE" };
+  if (variantId !== null && !idSchema.safeParse(variantId).success) return { ok: false, code: "UNAVAILABLE" };
 
   const now = new Date();
   const product = await prisma.product.findUnique({
@@ -44,9 +46,14 @@ export async function addToCart(productId: string, locale: string): Promise<AddT
     },
   });
   if (!product) return { ok: false, code: "UNAVAILABLE" };
+  // Scoped to the product: a variant id of another product matches nothing.
+  const variant = variantId
+    ? await prisma.productVariant.findFirst({ where: { id: variantId, productId }, select: checkoutVariantSelect(now) })
+    : null;
+  if (variantId && !variant) return { ok: false, code: "UNAVAILABLE" };
 
   const ownership = await getOwnership(user.id, [product.id], now);
-  const { problem, price } = evaluateLine(toCheckoutProduct(product), ownership, now);
+  const { problem, price } = evaluateLine(toCheckoutProduct(product, variant), ownership, now);
   if (problem) return { ok: false, code: problem };
 
   try {
@@ -56,7 +63,7 @@ export async function addToCart(productId: string, locale: string): Promise<AddT
       update: {},
       select: { id: true },
     });
-    await prisma.cartItem.create({ data: { cartId: cart.id, productId: product.id } });
+    await prisma.cartItem.create({ data: { cartId: cart.id, productId: product.id, variantId: variant?.id ?? null } });
   } catch (error) {
     // Already in the cart (or a concurrent add won the race): adding is idempotent.
     if (!isUniqueViolation(error)) {
@@ -70,7 +77,9 @@ export async function addToCart(productId: string, locale: string): Promise<AddT
   return {
     ok: true,
     item: {
-      name: localized(locale, product.nameTH, product.nameEN),
+      name: variant
+        ? `${localized(locale, product.nameTH, product.nameEN)} · ${localized(locale, variant.nameTH, variant.nameEN)}`
+        : localized(locale, product.nameTH, product.nameEN),
       imageUrl: image ? previewImageUrl(image.imagePath) : null,
       finalPrice: price.finalPrice,
       unitPrice: price.unitPrice,
@@ -79,13 +88,14 @@ export async function addToCart(productId: string, locale: string): Promise<AddT
   };
 }
 
-export async function removeFromCart(productId: string): Promise<CartActionResult> {
+export async function removeFromCart(productId: string, variantId: string | null = null): Promise<CartActionResult> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, code: "LOGIN_REQUIRED" };
   if (!idSchema.safeParse(productId).success) return { ok: true };
+  if (variantId !== null && !idSchema.safeParse(variantId).success) return { ok: true };
 
-  // Scoped to the caller's own cart; a foreign productId simply matches nothing.
-  await prisma.cartItem.deleteMany({ where: { productId, cart: { userId: user.id } } });
+  // Scoped to the caller's own cart; a foreign id simply matches nothing.
+  await prisma.cartItem.deleteMany({ where: { productId, variantId, cart: { userId: user.id } } });
   revalidatePath("/[locale]/cart", "page");
   return { ok: true };
 }

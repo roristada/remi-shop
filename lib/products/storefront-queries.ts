@@ -5,7 +5,14 @@ import type { Prisma } from "@/lib/generated/prisma/client";
 import { localized } from "@/i18n/localize";
 import { calculateProductPrice, type ProductPrice } from "@/lib/pricing/calculate";
 import { getProductStatus, type ProductStatus } from "@/lib/products/status";
-import { stockTakenCountSelect, stockTakingOrderWhere, toStockInfo, type StockInfo } from "@/lib/products/stock";
+import {
+  isSoldOut,
+  stockTakenCountSelect,
+  stockTakingOrderWhere,
+  toStockInfo,
+  variantStockTakenCountSelect,
+  type StockInfo,
+} from "@/lib/products/stock";
 import { previewImageUrl } from "@/lib/storage/public-url";
 import { ratingAverage } from "@/lib/reviews/rules";
 import {
@@ -57,7 +64,18 @@ function cardSelect(userId: string | null, now: Date) {
     },
     wishlist: { where: { userId: userId ?? NO_USER }, select: { userId: true }, take: 1 },
     stockLimit: true,
-    _count: { select: stockTakenCountSelect(now) },
+    _count: { select: { ...stockTakenCountSelect(now), variants: true } },
+    variants: {
+      where: { isActive: true },
+      select: {
+        price: true,
+        discountPercent: true,
+        discountStartAt: true,
+        discountEndAt: true,
+        stockLimit: true,
+        _count: { select: variantStockTakenCountSelect(now) },
+      },
+    },
   } satisfies Prisma.ProductSelect;
 }
 
@@ -74,9 +92,38 @@ export type ProductCardData = {
   status: ProductStatus;
   wishlisted: boolean;
   rating: { average: number; count: number };
-  /** null = unlimited (no stock shown). */
+  /** null = unlimited (no stock shown). Always null for a product with variants. */
   stock: StockInfo;
+  /** Price is the cheapest active variant's ("from"). */
+  priceFrom: boolean;
+  /** Every active variant is sold out (products with variants only). */
+  variantsSoldOut: boolean;
 };
+
+/** Card price and stock: the product's own, or for a product with variants the cheapest active one. */
+function cardPricing(row: CardRow, now: Date): Pick<ProductCardData, "price" | "stock" | "priceFrom" | "variantsSoldOut"> {
+  if (row._count.variants === 0) {
+    return {
+      price: calculateProductPrice(row, now),
+      stock: toStockInfo(row.stockLimit, row._count.orderItems),
+      priceFrom: false,
+      variantsSoldOut: false,
+    };
+  }
+  const prices = row.variants.map((v) => calculateProductPrice(v, now));
+  const cheapest = prices.reduce<ReturnType<typeof calculateProductPrice> | null>(
+    (min, p) => (min === null || p.finalPrice < min.finalPrice ? p : min),
+    null,
+  );
+  return {
+    // No active variant: the product's own price, only for display (it cannot be bought).
+    price: cheapest ?? calculateProductPrice(row, now),
+    stock: null,
+    priceFrom: row.variants.length > 1,
+    variantsSoldOut:
+      row.variants.length > 0 && row.variants.every((v) => isSoldOut(toStockInfo(v.stockLimit, v._count.orderItems))),
+  };
+}
 
 function toCard(row: CardRow, locale: string, now: Date): ProductCardData {
   const name = localized(locale, row.nameTH, row.nameEN);
@@ -90,11 +137,10 @@ function toCard(row: CardRow, locale: string, now: Date): ProductCardData {
     image: image
       ? { url: previewImageUrl(image.imagePath), alt: localized(locale, image.altTextTH, image.altTextEN) || name }
       : null,
-    price: calculateProductPrice(row, now),
+    ...cardPricing(row, now),
     status: getProductStatus(row, now),
     wishlisted: row.wishlist.length > 0,
     rating: { average: ratingAverage(row.ratingSum, row.ratingCount), count: row.ratingCount },
-    stock: toStockInfo(row.stockLimit, row._count.orderItems),
   };
 }
 
@@ -411,7 +457,13 @@ export const getShopProduct = cache((slug: string) =>
           // Display metadata only — storagePath stays server-side.
           files: {
             orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-            select: { id: true, fileName: true, fileSize: true, fileType: true },
+            select: {
+              id: true,
+              fileName: true,
+              fileSize: true,
+              fileType: true,
+              variant: { select: { nameTH: true, nameEN: true } },
+            },
           },
         },
       },
@@ -442,11 +494,5 @@ export function listSitemapProducts() {
 
 /** Units held by open or completed orders (also shown to the admin next to the stock field). */
 export function countStockTaken(productId: string, now: Date): Promise<number> {
-  return prisma.orderItem.count({ where: { productId, order: stockTakingOrderWhere(now) } });
-}
-
-/** Units left for the product page; skips the count for unlimited products. */
-export async function getProductStock(productId: string, stockLimit: number | null, now: Date): Promise<StockInfo> {
-  if (stockLimit === null) return null;
-  return toStockInfo(stockLimit, await countStockTaken(productId, now));
+  return prisma.orderItem.count({ where: { productId, variantId: null, order: stockTakingOrderWhere(now) } });
 }

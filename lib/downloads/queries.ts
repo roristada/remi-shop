@@ -1,7 +1,8 @@
 import "server-only";
 import { prisma } from "@/lib/prisma/client";
 import type { Prisma } from "@/lib/generated/prisma/client";
-import { isDownloadLimitReached, isWithinRateLimit } from "@/lib/downloads/rules";
+import { lineKey } from "@/lib/orders/rules";
+import { canAccessFile, isDownloadLimitReached, isWithinRateLimit } from "@/lib/downloads/rules";
 
 export type DownloadAccess =
   | { ok: true; orderId: string; productId: string; storagePath: string; fileName: string; skipLog: boolean }
@@ -9,7 +10,7 @@ export type DownloadAccess =
 
 /**
  * Server-side authorization for one file: ownership (a COMPLETED, PRODUCT-kind order containing
- * this file's product) plus the per-file download limit. A click inside the rate-limit window
+ * this file's product, and for a variant file that variant) plus the per-file download limit. A click inside the rate-limit window
  * re-issues the same file without counting again (`skipLog`), so double-clicks and refreshes
  * don't burn through the limit.
  */
@@ -19,18 +20,21 @@ export async function checkDownloadAccess(userId: string, fileId: string, now: D
     select: {
       storagePath: true,
       fileName: true,
+      variantId: true,
       version: { select: { productId: true, product: { select: { downloadLimit: true } } } },
     },
   });
   if (!file) return { ok: false, code: "not_found" };
   const productId = file.version.productId;
 
-  const orderItem = await prisma.orderItem.findFirst({
+  const ownedLines = await prisma.orderItem.findMany({
     where: { productId, order: { userId, status: "COMPLETED", kind: "PRODUCT" } },
-    select: { orderId: true },
+    select: { orderId: true, variantId: true },
     orderBy: { order: { paidAt: "desc" } },
   });
-  if (!orderItem) return { ok: false, code: "forbidden" };
+  if (!canAccessFile(file.variantId, new Set(ownedLines.map((l) => l.variantId)))) return { ok: false, code: "forbidden" };
+  // The download is logged against the order that granted this file.
+  const orderItem = ownedLines.find((l) => file.variantId === null || l.variantId === file.variantId) ?? ownedLines[0];
 
   const [count, last] = await Promise.all([
     prisma.download.count({ where: { userId, fileId } }),
@@ -64,7 +68,7 @@ const VERSIONS_SELECT = {
     createdAt: true,
     files: {
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-      select: { id: true, fileName: true, fileSize: true, fileType: true },
+      select: { id: true, fileName: true, fileSize: true, fileType: true, variantId: true },
     },
   },
 } satisfies Prisma.Product$versionsArgs;
@@ -84,9 +88,17 @@ async function downloadCounts(userId: string, versions: VersionRow[]): Promise<M
   return out;
 }
 
-/** Versions that have files, each file with how often this customer has downloaded it. */
-function toDownloadVersions(versions: VersionRow[], countByFile: Map<string, number>) {
+/**
+ * Versions with files this buyer may get (see canAccessFile), each file with how often this
+ * customer has downloaded it. The download route re-checks access on every click.
+ */
+function toDownloadVersions(
+  versions: VersionRow[],
+  countByFile: Map<string, number>,
+  ownedVariants: ReadonlySet<string | null>,
+) {
   return versions
+    .map((v) => ({ ...v, files: v.files.filter((f) => canAccessFile(f.variantId, ownedVariants)) }))
     .filter((v) => v.files.length > 0)
     .map((v) => ({
       id: v.id,
@@ -105,19 +117,23 @@ function toDownloadVersions(versions: VersionRow[], countByFile: Map<string, num
 export type DownloadVersion = ReturnType<typeof toDownloadVersions>[number];
 
 /**
- * Downloadable files for the products of one of the caller's COMPLETED product orders, keyed
- * by productId. Ownership is part of the query; the download route re-authorizes every click.
+ * Downloadable files for the lines of one of the caller's COMPLETED product orders, keyed
+ * by lineKey(productId, variantId). Ownership is part of the query; the download route re-authorizes every click.
  */
 export async function listOrderDownloads(userId: string, orderId: string) {
   const items = await prisma.orderItem.findMany({
     where: { orderId, order: { userId, status: "COMPLETED", kind: "PRODUCT" } },
-    select: { product: { select: { id: true, downloadLimit: true, versions: VERSIONS_SELECT } } },
+    select: { variantId: true, product: { select: { id: true, downloadLimit: true, versions: VERSIONS_SELECT } } },
   });
   const countByFile = await downloadCounts(userId, items.flatMap((i) => i.product.versions));
+  // Each line shows what it grants: the shared files plus, for a variant line, that variant's.
   return new Map(
     items.map((i) => [
-      i.product.id,
-      { downloadLimit: i.product.downloadLimit, versions: toDownloadVersions(i.product.versions, countByFile) },
+      lineKey(i.product.id, i.variantId),
+      {
+        downloadLimit: i.product.downloadLimit,
+        versions: toDownloadVersions(i.product.versions, countByFile, new Set([i.variantId])),
+      },
     ]),
   );
 }
@@ -129,6 +145,9 @@ export async function listOwnedProducts(userId: string, page: number) {
     select: {
       orderId: true,
       productId: true,
+      variantId: true,
+      variantNameTHSnapshot: true,
+      variantNameENSnapshot: true,
       order: { select: { paidAt: true, createdAt: true } },
       product: {
         select: {
@@ -150,9 +169,21 @@ export async function listOwnedProducts(userId: string, page: number) {
     orderBy: { order: { createdAt: "desc" } },
   });
 
-  // One row per product: a customer can't rebuy an owned product, but dedupe defensively anyway.
+  // One row per product; a customer may own several of its variants, whose files are combined.
   const byProduct = new Map<string, (typeof rows)[number]>();
-  for (const r of rows) if (!byProduct.has(r.productId)) byProduct.set(r.productId, r);
+  const ownedVariants = new Map<string, Set<string | null>>();
+  const variantNames = new Map<string, { th: string; en: string }[]>();
+  for (const r of rows) {
+    if (!byProduct.has(r.productId)) byProduct.set(r.productId, r);
+    const owned = ownedVariants.get(r.productId) ?? new Set();
+    owned.add(r.variantId);
+    ownedVariants.set(r.productId, owned);
+    if (r.variantNameTHSnapshot && r.variantNameENSnapshot) {
+      const names = variantNames.get(r.productId) ?? [];
+      names.push({ th: r.variantNameTHSnapshot, en: r.variantNameENSnapshot });
+      variantNames.set(r.productId, names);
+    }
+  }
   const deduped = [...byProduct.values()];
 
   const total = deduped.length;
@@ -171,7 +202,8 @@ export async function listOwnedProducts(userId: string, page: number) {
       categoryNameEN: r.product.category.nameEN,
       image: r.product.images[0] ?? null,
       downloadLimit: r.product.downloadLimit,
-      versions: toDownloadVersions(r.product.versions, countByFile),
+      variantNames: variantNames.get(r.productId) ?? [],
+      versions: toDownloadVersions(r.product.versions, countByFile, ownedVariants.get(r.productId) ?? new Set()),
     })),
     total,
     pageCount,

@@ -12,6 +12,8 @@ import { emitCartAdded } from "./cart-events";
 
 type Props = {
   productId: string;
+  /** The chosen variant for a product with variants; null otherwise. */
+  variantId?: string | null;
   productSlug: string;
   initialState: PurchaseState;
 };
@@ -19,7 +21,7 @@ type Props = {
 const BUTTON = "h-12 w-full rounded-full text-base";
 
 /** Buy action for a purchasable product. The server re-checks everything on click. */
-export function AddToCartButton({ productId, productSlug, initialState }: Props) {
+export function AddToCartButton({ productId, variantId = null, productSlug, initialState }: Props) {
   const t = useTranslations("cart");
   const locale = useLocale();
   const router = useRouter();
@@ -64,7 +66,7 @@ export function AddToCartButton({ productId, productSlug, initialState }: Props)
 
   function onAdd() {
     startTransition(async () => {
-      const result = await addToCart(productId, locale);
+      const result = await addToCart(productId, variantId, locale);
       if (result.ok) {
         setState("inCart");
         emitCartAdded({ item: result.item, count: result.count });

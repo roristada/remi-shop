@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma/client";
 import type { Prisma, PublishStatus } from "@/lib/generated/prisma/client";
+import { stockTakingOrderWhere } from "@/lib/products/stock";
 
 export const ADMIN_PAGE_SIZE = 20;
 
@@ -67,6 +68,13 @@ export function getAdminProduct(id: string) {
       versions: {
         orderBy: [{ releaseDate: "desc" }, { createdAt: "desc" }],
         include: { files: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } },
+      },
+      variants: {
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        include: {
+          // orderItems = units taken now (open + completed orders), shown next to the stock.
+          _count: { select: { orderItems: { where: { order: stockTakingOrderWhere(new Date()) } }, files: true } },
+        },
       },
     },
   });

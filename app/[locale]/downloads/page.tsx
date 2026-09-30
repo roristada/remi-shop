@@ -81,6 +81,9 @@ function OwnedProductCard({ product: p, locale }: { product: OwnedProduct; local
             {name}
           </Link>
           <p className="text-xs text-muted-foreground">{categoryName}</p>
+          {p.variantNames.length > 0 && (
+            <p className="text-sm text-muted-foreground">{p.variantNames.map((v) => localized(locale, v.th, v.en)).join(", ")}</p>
+          )}
         </div>
       </div>
 

@@ -10,7 +10,15 @@ import { removeFromCart } from "@/lib/cart/actions";
 import { checkout } from "@/lib/orders/actions";
 import { emitCartChanged } from "./cart-events";
 
-export function RemoveFromCartButton({ productId, name }: { productId: string; name: string }) {
+export function RemoveFromCartButton({
+  productId,
+  variantId,
+  name,
+}: {
+  productId: string;
+  variantId: string | null;
+  name: string;
+}) {
   const t = useTranslations("cart");
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -23,7 +31,7 @@ export function RemoveFromCartButton({ productId, name }: { productId: string; n
       disabled={pending}
       onClick={() =>
         startTransition(async () => {
-          const result = await removeFromCart(productId);
+          const result = await removeFromCart(productId, variantId);
           if (!result.ok) toast.error(t(`errors.${result.code}`));
           emitCartChanged();
           router.refresh();

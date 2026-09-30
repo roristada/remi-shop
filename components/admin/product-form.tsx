@@ -71,6 +71,14 @@ function scheduleWarningsOf(data: unknown): Record<string, string | undefined> {
   return {};
 }
 
+function VariantsNotice() {
+  return (
+    <p className="rounded-xl bg-warning/10 p-3 text-sm font-medium text-warning">
+      สินค้านี้มีตัวเลือก ราคา ส่วนลด และสต็อกที่ใช้ขายจริงตั้งที่แท็บตัวเลือก ค่าในส่วนนี้ไม่ถูกใช้ (ราคาจะปรับเป็นราคาต่ำสุดของตัวเลือกอัตโนมัติ)
+    </p>
+  );
+}
+
 type Action = (prev: ActionResult<unknown> | null, formData: FormData) => Promise<ActionResult<unknown>>;
 
 function slugify(value: string) {
@@ -89,6 +97,7 @@ export function ProductForm({
   softwareTags,
   submitLabel,
   stockTaken,
+  hasVariants = false,
 }: {
   action: Action;
   values: ProductFormValues;
@@ -97,6 +106,8 @@ export function ProductForm({
   submitLabel: string;
   /** Units held by open or completed orders; edit page only. */
   stockTaken?: number;
+  /** Price, discount and stock then come from the variants (this price is kept at the cheapest). */
+  hasVariants?: boolean;
 }) {
   const [state, setState] = useState<ActionResult<unknown> | null>(null);
   const [pending, startTransition] = useTransition();
@@ -168,6 +179,7 @@ export function ProductForm({
       </FormSection>
 
       <FormSection title="ราคาและส่วนลด" description="ราคาจริงคำนวณที่ server ทุกครั้ง ส่วนลดใช้ได้เฉพาะในช่วงเวลาที่กำหนด (เวลาไทย)">
+        {hasVariants && <VariantsNotice />}
         <div className="grid gap-4 md:grid-cols-2">
           <TextInput label="ราคา (บาท)" name="price" inputMode="decimal" defaultValue={values.price} required error={err("price")} />
           <TextInput
@@ -232,6 +244,7 @@ export function ProductForm({
       </FormSection>
 
       <FormSection title="สต็อกสินค้า" description="เว้นว่าง = ไม่จำกัด ถ้ากำหนดไว้ หน้าร้านจะแสดงจำนวนที่เหลือ และปิดการขายเมื่อหมด">
+        {hasVariants && <VariantsNotice />}
         <div className="grid gap-4 md:grid-cols-2">
           <TextInput
             label="จำนวนสต็อก"

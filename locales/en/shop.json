@@ -57,7 +57,8 @@
     "saleEnded": "Sale ended",
     "unavailable": "Unavailable",
     "soldOut": "Sold out",
-    "stock": "{left}/{limit} left"
+    "stock": "{left}/{limit} left",
+    "fromPrice": "From"
   },
   "price": {
     "original": "Regular price",
@@ -103,7 +104,14 @@
     "noNotes": "No release notes.",
     "related": "More in this category",
     "soldOut": "This product is sold out.",
-    "stockLeft": "{left} of {limit} left"
+    "stockLeft": "{left} of {limit} left",
+    "chooseVariant": "Choose an option",
+    "variantOwned": "You own this option",
+    "variantInOrder": "In an unfinished order",
+    "variantInCart": "In your cart",
+    "fromPrice": "From",
+    "variantFiles": "Files for {name}",
+    "sharedFiles": "Files for every option"
   },
   "views": {
     "label": "View",

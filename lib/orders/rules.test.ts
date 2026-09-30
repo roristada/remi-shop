@@ -5,6 +5,7 @@ import {
   generateOrderNumber,
   isOrderExpired,
   isOrderOpen,
+  lineKey,
   orderTotals,
   type CheckoutProduct,
   type OwnershipContext,
@@ -22,6 +23,9 @@ const product: CheckoutProduct = {
   saleEndAt: null,
   categoryActive: true,
   stock: null,
+  variantId: null,
+  variantRequired: false,
+  variantActive: true,
 };
 const none: OwnershipContext = { owned: new Set(), inOpenOrder: new Set() };
 
@@ -32,16 +36,33 @@ test("evaluateLine: purchasable", () => {
 });
 
 test("evaluateLine: owned and open-order products are blocked", () => {
-  assert.equal(evaluateLine(product, { owned: new Set(["p1"]), inOpenOrder: new Set() }, now).problem, "OWNED");
-  assert.equal(evaluateLine(product, { owned: new Set(), inOpenOrder: new Set(["p1"]) }, now).problem, "IN_ORDER");
+  assert.equal(evaluateLine(product, { owned: new Set([lineKey("p1", null)]), inOpenOrder: new Set() }, now).problem, "OWNED");
+  assert.equal(evaluateLine(product, { owned: new Set(), inOpenOrder: new Set([lineKey("p1", null)]) }, now).problem, "IN_ORDER");
 });
 
 test("evaluateLine: sold out only when a limited product has no unit left", () => {
   assert.equal(evaluateLine({ ...product, stock: { limit: 1, left: 0 } }, none, now).problem, "SOLD_OUT");
   assert.equal(evaluateLine({ ...product, stock: { limit: 3, left: 1 } }, none, now).problem, null);
   // A buyer who already owns it sees "owned", not "sold out".
-  const owned = { owned: new Set(["p1"]), inOpenOrder: new Set<string>() };
+  const owned = { owned: new Set([lineKey("p1", null)]), inOpenOrder: new Set<string>() };
   assert.equal(evaluateLine({ ...product, stock: { limit: 1, left: 0 } }, owned, now).problem, "OWNED");
+});
+
+test("evaluateLine: variants are owned and bought one line at a time", () => {
+  const variantA = { ...product, variantRequired: true, variantId: "va" };
+  const ownsA = { owned: new Set([lineKey("p1", "va")]), inOpenOrder: new Set<string>() };
+  assert.equal(evaluateLine(variantA, ownsA, now).problem, "OWNED");
+  // Owning variant A does not block variant B of the same product.
+  assert.equal(evaluateLine({ ...variantA, variantId: "vb" }, ownsA, now).problem, null);
+  // A pre-variant purchase of the product does not block buying a variant.
+  const ownsProduct = { owned: new Set([lineKey("p1", null)]), inOpenOrder: new Set<string>() };
+  assert.equal(evaluateLine(variantA, ownsProduct, now).problem, null);
+});
+
+test("evaluateLine: a product with variants needs an active variant", () => {
+  assert.equal(evaluateLine({ ...product, variantRequired: true }, none, now).problem, "UNAVAILABLE");
+  const off = { ...product, variantRequired: true, variantId: "va", variantActive: false };
+  assert.equal(evaluateLine(off, none, now).problem, "UNAVAILABLE");
 });
 
 test("evaluateLine: unavailable states", () => {

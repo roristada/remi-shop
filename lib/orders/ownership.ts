@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma/client";
 import type { Prisma } from "@/lib/generated/prisma/client";
-import type { OwnershipContext } from "@/lib/orders/rules";
+import { lineKey, type OwnershipContext } from "@/lib/orders/rules";
 import { stockTakingOrderWhere } from "@/lib/products/stock";
 
 type Db = Prisma.TransactionClient | typeof prisma;
@@ -17,7 +17,7 @@ export function cancelExpiredOrders(userId: string, now: Date, db: Db = prisma) 
   });
 }
 
-/** Which of `productIds` the customer already owns or has reserved in an open order. */
+/** Which lines (see lineKey) of `productIds` the customer already owns or has reserved in an open order. */
 export async function getOwnership(
   userId: string,
   productIds: string[],
@@ -32,10 +32,10 @@ export async function getOwnership(
       // was uploaded keeps the order open even past the unpaid deadline.
       order: { userId, ...stockTakingOrderWhere(now) },
     },
-    select: { productId: true, order: { select: { status: true } } },
+    select: { productId: true, variantId: true, order: { select: { status: true } } },
   });
   const owned = new Set<string>();
   const inOpenOrder = new Set<string>();
-  for (const i of items) (i.order.status === "COMPLETED" ? owned : inOpenOrder).add(i.productId);
+  for (const i of items) (i.order.status === "COMPLETED" ? owned : inOpenOrder).add(lineKey(i.productId, i.variantId));
   return { owned, inOpenOrder };
 }

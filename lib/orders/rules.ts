@@ -3,36 +3,63 @@ import { calculateProductPrice, type PriceInput, type ProductPrice } from "@/lib
 import { getProductStatus, type ProductStatusInput } from "@/lib/products/status";
 import { isSoldOut, type StockInfo } from "@/lib/products/stock";
 
-// Pure checkout rules (no DB). Personal purchases are once per customer per product.
+// Pure checkout rules (no DB). Personal purchases are once per customer per line: a product
+// without variants, or one variant of a product (a customer may own several variants).
 
 /** Why a cart line cannot be bought right now. */
 export type LineProblem = "UNAVAILABLE" | "OWNED" | "IN_ORDER" | "SOLD_OUT";
 
+/**
+ * One purchasable line. For a variant line the price, discount and stock are the variant's;
+ * the sale window and category are always the product's.
+ */
 export type CheckoutProduct = PriceInput &
   ProductStatusInput & {
     id: string;
     categoryActive: boolean;
     /** null = unlimited stock. */
     stock: StockInfo;
+    variantId: string | null;
+    /** The product has variants, so a line without one cannot be bought. */
+    variantRequired: boolean;
+    /** false for a variant the admin switched off. Always true without a variant. */
+    variantActive: boolean;
   };
 
+/** Identity of a purchasable line: the variant when there is one, else the product. */
+export function lineKey(productId: string, variantId: string | null): string {
+  return variantId ? `v:${variantId}` : `p:${productId}`;
+}
+
 export type OwnershipContext = {
-  /** Products in a COMPLETED order of this customer. */
+  /** Line keys (see lineKey) in a COMPLETED order of this customer. */
   owned: ReadonlySet<string>;
-  /** Products in an order that is still open (awaiting payment or review). */
+  /** Line keys in an order that is still open (awaiting payment or review). */
   inOpenOrder: ReadonlySet<string>;
 };
 
-export type CheckoutLine = { productId: string; price: ProductPrice; problem: LineProblem | null };
+export type CheckoutLine = {
+  productId: string;
+  variantId: string | null;
+  price: ProductPrice;
+  problem: LineProblem | null;
+};
 
 export function evaluateLine(product: CheckoutProduct, ctx: OwnershipContext, now: Date): CheckoutLine {
   const price = calculateProductPrice(product, now);
+  const key = lineKey(product.id, product.variantId);
   let problem: LineProblem | null = null;
-  if (ctx.owned.has(product.id)) problem = "OWNED";
-  else if (ctx.inOpenOrder.has(product.id)) problem = "IN_ORDER";
-  else if (!product.categoryActive || getProductStatus(product, now) !== "ACTIVE") problem = "UNAVAILABLE";
-  else if (isSoldOut(product.stock)) problem = "SOLD_OUT";
-  return { productId: product.id, price, problem };
+  if (ctx.owned.has(key)) problem = "OWNED";
+  else if (ctx.inOpenOrder.has(key)) problem = "IN_ORDER";
+  else if (
+    !product.categoryActive ||
+    getProductStatus(product, now) !== "ACTIVE" ||
+    (product.variantRequired && !product.variantId) ||
+    !product.variantActive
+  ) {
+    problem = "UNAVAILABLE";
+  } else if (isSoldOut(product.stock)) problem = "SOLD_OUT";
+  return { productId: product.id, variantId: product.variantId, price, problem };
 }
 
 export type OrderTotals = { subtotal: number; discount: number; total: number };
