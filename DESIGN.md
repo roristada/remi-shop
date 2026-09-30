@@ -145,7 +145,8 @@ A pastel pair (pink accent, powder-blue surface) on cool paper, anchored by soft
 - **Blush Mist** (blush-mist): the faint pink wash for hover rows, the countdown chip and small highlights.
 
 ### Neutral
-- **Paper White** (paper-white): page and card background. Slightly cool, never pure #fff.
+- **Paper White** (paper-white): card and panel background (panels at 80% over the page gradient). Slightly cool, never pure #fff.
+- **Page gradient** (`.bg-page-gradient`, on the storefront `<main>`): paper white with a soft sakura-pink glow in the top-left corner and a powder-sky glow in the bottom-right corner of the screen (fixed to the viewport), chosen by the owner so pages are not flat white. Corners only: text never sits on saturated pink, and cards/panels stay paper-white.
 - **Graphite** (graphite): all body and heading text, the active chip fill, step numbers. Soft instead of black.
 - **Pencil Gray** (pencil-gray): secondary text (meta, counts, hints). Darkened from the brief's #777777 so it passes AA on paper *and* on powder-sky and fog surfaces.
 - **Fog** (fog): muted fills (skeletons, neutral badges, image-less tiles, empty star outlines).
@@ -218,7 +219,7 @@ Soft, rounded and quietly confident.
 - **Category tabs** (recommended-products rail): the same chip vocabulary, horizontally scrollable on phones, never wrapping into a grid.
 
 ### Cards / Containers
-- **Product tile:** frameless. The square image well (25px radius, powder-sky, inset ring) *is* the card; category, software, name, rating and price sit below it with no box. The whole tile is one stretched link. Hovering scales the image 1.04 (disabled under reduced motion).
+- **Product tile:** framed. One paper-white card (radius 1.5rem, `shadow-soft`, hairline ring, 8px inner padding) holds the square image well (rounded, powder-sky while loading) and, below it, category, software, name, rating and price, so each product reads as one unit on the page gradient (owner request; the earlier frameless tile made neighbouring products blur together). The whole card is one stretched link; hover lifts the shadow slightly.
 - **Panels** (purchase, payment, cart summary, filters, hero): powder-sky at about 45–60%, 31px radius, 24–32px padding, no border.
 - **Never nest cards:** inside a panel, group rows with a paper `dl` and dividers, not another card.
 

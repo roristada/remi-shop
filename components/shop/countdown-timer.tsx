@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Clock } from "lucide-react";
 import { useRouter } from "@/i18n/navigation";
+import { cn } from "@/lib/utils";
 
 type Props = {
   /** ISO timestamp of the deadline. */
@@ -12,6 +13,8 @@ type Props = {
   serverNow: string;
   label: string;
   endedLabel: string;
+  /** "sm" = compact chip for product cards. */
+  size?: "md" | "sm";
 };
 
 function split(ms: number) {
@@ -25,7 +28,8 @@ const pad = (n: number) => String(n).padStart(2, "0");
  * Display only. Deadlines (discount end, payment window) are enforced server-side; when the
  * countdown reaches zero the page refreshes so the server can re-evaluate.
  */
-export function CountdownTimer({ endsAt, serverNow, label, endedLabel }: Props) {
+export function CountdownTimer({ endsAt, serverNow, label, endedLabel, size = "md" }: Props) {
+  const sm = size === "sm";
   const t = useTranslations("shop.countdown");
   const router = useRouter();
   const end = new Date(endsAt).getTime();
@@ -48,19 +52,24 @@ export function CountdownTimer({ endsAt, serverNow, label, endedLabel }: Props) 
   }, [end, serverNow, router]);
 
   // Nothing before mount: avoids a server/client mismatch in the ticking value.
-  if (remaining === null) return <div className="h-9" aria-hidden />;
+  if (remaining === null) return <div className={sm ? "h-7" : "h-9"} aria-hidden />;
 
   if (remaining < 0) {
-    return <p className="text-sm text-muted-foreground">{endedLabel}</p>;
+    return <p className={cn("text-muted-foreground", sm ? "text-xs" : "text-sm")}>{endedLabel}</p>;
   }
 
   const { days, h, m, s } = split(remaining);
   return (
-    <p className="inline-flex h-9 items-center gap-2 rounded-full bg-accent px-3 text-sm">
-      <Clock className="size-4 text-brand-strong" aria-hidden />
+    <p
+      className={cn(
+        "inline-flex items-center rounded-full bg-accent",
+        sm ? "min-h-7 max-w-full flex-wrap gap-x-1.5 px-2.5 py-1 text-xs" : "h-9 gap-2 px-3 text-sm",
+      )}
+    >
+      <Clock className={cn("text-brand-strong", sm ? "size-3.5" : "size-4")} aria-hidden />
       <span>{label}</span>
       {/* Screen readers get the text once; the ticking value is not announced every second. */}
-      <span className="font-semibold tabular-nums" aria-live="off">
+      <span className="font-semibold whitespace-nowrap tabular-nums" aria-live="off">
         {days > 0 && `${t("days", { count: days })} `}
         {pad(h)}:{pad(m)}:{pad(s)}
       </span>

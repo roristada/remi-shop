@@ -98,6 +98,10 @@ export type ProductCardData = {
   priceFrom: boolean;
   /** Every active variant is sold out (products with variants only). */
   variantsSoldOut: boolean;
+  /** ISO sale start while the product is SCHEDULED (card countdown); null otherwise. */
+  opensAt: string | null;
+  /** Server time at render, so the card countdown can correct a wrong browser clock. */
+  serverNow: string;
 };
 
 /** Card price and stock: the product's own, or for a product with variants the cheapest active one. */
@@ -139,6 +143,8 @@ function toCard(row: CardRow, locale: string, now: Date): ProductCardData {
       : null,
     ...cardPricing(row, now),
     status: getProductStatus(row, now),
+    opensAt: getProductStatus(row, now) === "SCHEDULED" && row.saleStartAt ? row.saleStartAt.toISOString() : null,
+    serverNow: now.toISOString(),
     wishlisted: row.wishlist.length > 0,
     rating: { average: ratingAverage(row.ratingSum, row.ratingCount), count: row.ratingCount },
   };

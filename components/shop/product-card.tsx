@@ -10,15 +10,17 @@ import { ProductStatusTag } from "./product-status-tag";
 import { StarRating } from "./star-rating";
 import { WishlistButton } from "./wishlist-button";
 import { isSoldOut } from "@/lib/products/stock";
+import { CountdownTimer } from "./countdown-timer";
 
-/** Gallery-style tile: the preview image is the card; text sits below it without a frame. */
+/** Framed tile: image and details share one paper-white card, so each product reads as a unit on the page gradient. */
 export function ProductCard({ product, priority = false }: { product: ProductCardData; priority?: boolean }) {
   const { price, stock } = product;
   const t = useTranslations("shop.badge");
+  const tCountdown = useTranslations("shop.countdown");
   const soldOut = isSoldOut(stock) || product.variantsSoldOut;
   return (
-    <article className="group relative flex w-full flex-col gap-3">
-      <div className="relative aspect-square overflow-hidden rounded-2xl bg-secondary/60 ring-1 ring-black/5 ring-inset">
+    <article className="group relative flex w-full flex-col gap-3 rounded-3xl bg-card p-2 pb-3 shadow-soft ring-1 ring-black/5 transition-shadow duration-300 hover:shadow-md motion-reduce:transition-none">
+      <div className="relative aspect-square overflow-hidden rounded-2xl bg-secondary/60">
         {product.image ? (
           <Image
             src={product.image.url}
@@ -51,7 +53,7 @@ export function ProductCard({ product, priority = false }: { product: ProductCar
           />
         </div>
       </div>
-      <div className="flex flex-1 flex-col gap-1 px-0.5">
+      <div className="flex flex-1 flex-col gap-1 px-1.5">
         {/* Which app a file is for is the buyer's first question, so it rides with the category. */}
         <p className="truncate text-xs text-muted-foreground">
           {product.categoryName}
@@ -63,12 +65,22 @@ export function ProductCard({ product, priority = false }: { product: ProductCar
           {/* Stretched link: the whole tile is clickable, with one link in the tab order. */}
           <Link
             href={`/product/${product.slug}`}
-            className="after:absolute after:inset-0 after:rounded-2xl after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring focus-visible:after:ring-offset-4"
+            className="after:absolute after:inset-0 after:rounded-3xl after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring focus-visible:after:ring-offset-2"
           >
             {product.name}
           </Link>
         </h3>
         <StarRating {...product.rating} />
+        {/* Visual only: at zero the page refreshes and the server decides it is on sale. */}
+        {product.opensAt && (
+          <CountdownTimer
+            endsAt={product.opensAt}
+            serverNow={product.serverNow}
+            label={tCountdown("opensIn")}
+            endedLabel={tCountdown("opened")}
+            size="sm"
+          />
+        )}
         <div className="mt-auto flex items-baseline gap-1.5">
           {product.priceFrom && <span className="text-xs text-muted-foreground">{t("fromPrice")}</span>}
           <ProductPrice price={price} />
