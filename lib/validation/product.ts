@@ -147,11 +147,6 @@ export const versionSchema = z.object({
   setLatest: z.boolean(),
 });
 
-export const imageAltSchema = z.object({
-  altTextTH: optionalText(200),
-  altTextEN: optionalText(200),
-});
-
 export const uploadRequestSchema = z.object({
   fileName: z.string().trim().min(1).max(255),
   size: z.number().int().positive(),

@@ -4,8 +4,8 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma/client";
 import { isUniqueViolation } from "@/lib/prisma/errors";
-import { fail, invalid, ok, type ActionResult } from "@/lib/actions/result";
-import { idSchema, imageAltSchema, uploadRequestSchema } from "@/lib/validation/product";
+import { fail, ok, type ActionResult } from "@/lib/actions/result";
+import { idSchema, uploadRequestSchema } from "@/lib/validation/product";
 import { BUCKETS } from "@/lib/storage/buckets";
 import { MAX_PRODUCT_FILE_SIZE } from "@/lib/storage/buckets";
 import { checkFileMeta, FILE_TYPE_ERROR_TH, getExtension, PRODUCT_IMAGE_FILE_TYPES } from "@/lib/storage/file-types";
@@ -135,21 +135,6 @@ export async function reorderImages(productId: string, orderedIds: string[]): Pr
 
   revalidateCatalog();
   return ok(undefined, "บันทึกลำดับรูปแล้ว");
-}
-
-export async function updateImageAlt(
-  imageId: string,
-  input: { altTextTH: string; altTextEN: string },
-): Promise<ActionResult> {
-  await requireAdmin();
-  const parsed = imageAltSchema.safeParse(input);
-  if (!parsed.success) return invalid(parsed.error);
-  const image = await findImage(imageId);
-  if (!image) return fail("ไม่พบรูปภาพ");
-
-  await prisma.productImage.update({ where: { id: image.id }, data: parsed.data });
-  revalidateCatalog();
-  return ok(undefined, "บันทึกคำอธิบายรูปแล้ว");
 }
 
 export async function deleteImage(imageId: string): Promise<ActionResult> {

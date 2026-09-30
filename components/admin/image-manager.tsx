@@ -24,7 +24,7 @@ import { GripVertical, ImagePlus, Loader2, Star, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
-import { runWithToast, TextInput } from "@/components/admin/form-controls";
+import { runWithToast } from "@/components/admin/form-controls";
 import { useDirectUpload } from "@/components/admin/use-direct-upload";
 import {
   confirmImageUpload,
@@ -32,7 +32,6 @@ import {
   reorderImages,
   requestImageUpload,
   setPrimaryImage,
-  updateImageAlt,
 } from "@/lib/products/image-actions";
 import { acceptAttribute, PRODUCT_IMAGE_FILE_TYPES } from "@/lib/storage/file-types";
 import { cn } from "@/lib/utils";
@@ -40,8 +39,6 @@ import { cn } from "@/lib/utils";
 export type ManagedImage = {
   id: string;
   url: string;
-  altTextTH: string;
-  altTextEN: string;
   isPrimary: boolean;
 };
 
@@ -147,7 +144,6 @@ export function ImageManager({ productId, images }: { productId: string; images:
                     if (done) router.refresh();
                     return done;
                   }}
-                  onAltSaved={() => router.refresh()}
                 />
               ))}
             </ul>
@@ -164,14 +160,12 @@ function SortableImageCard({
   disabled,
   onSetPrimary,
   onDelete,
-  onAltSaved,
 }: {
   image: ManagedImage;
   index: number;
   disabled: boolean;
   onSetPrimary: () => void;
   onDelete: () => Promise<boolean>;
-  onAltSaved: () => void;
 }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: image.id,
@@ -190,7 +184,7 @@ function SortableImageCard({
       <div className="relative aspect-[4/3] bg-muted">
         <Image
           src={image.url}
-          alt={image.altTextTH || `รูปที่ ${index + 1}`}
+          alt={`รูปที่ ${index + 1}`}
           fill
           sizes="(min-width: 1280px) 33vw, (min-width: 640px) 50vw, 100vw"
           className="pointer-events-none object-cover select-none"
@@ -217,7 +211,6 @@ function SortableImageCard({
         </span>
       </div>
       <div className="space-y-3 p-3">
-        <AltTextForm image={image} disabled={disabled} onSaved={onAltSaved} />
         <div className="flex flex-wrap gap-1">
           {!image.isPrimary && (
             <Button size="sm" variant="outline" disabled={disabled} onClick={onSetPrimary}>
@@ -239,34 +232,5 @@ function SortableImageCard({
         </div>
       </div>
     </li>
-  );
-}
-
-function AltTextForm({ image, disabled, onSaved }: { image: ManagedImage; disabled: boolean; onSaved: () => void }) {
-  const [th, setTh] = useState(image.altTextTH);
-  const [en, setEn] = useState(image.altTextEN);
-  const [pending, startTransition] = useTransition();
-  const dirty = th !== image.altTextTH || en !== image.altTextEN;
-
-  return (
-    <div className="space-y-2">
-      <TextInput label="Alt text (ไทย)" value={th} maxLength={200} onChange={(e) => setTh(e.target.value)} className="h-9" />
-      <TextInput label="Alt text (English)" value={en} maxLength={200} onChange={(e) => setEn(e.target.value)} className="h-9" />
-      {dirty && (
-        <Button
-          size="sm"
-          variant="secondary"
-          disabled={disabled || pending}
-          onClick={() =>
-            startTransition(async () => {
-              if (await runWithToast(() => updateImageAlt(image.id, { altTextTH: th, altTextEN: en }))) onSaved();
-            })
-          }
-        >
-          {pending && <Loader2 className="animate-spin" aria-hidden />}
-          บันทึก alt text
-        </Button>
-      )}
-    </div>
   );
 }

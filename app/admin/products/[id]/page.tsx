@@ -156,8 +156,6 @@ export default async function EditProductPage({ params, searchParams }: PageProp
               images={product.images.map((img) => ({
                 id: img.id,
                 url: previewImageUrl(img.imagePath),
-                altTextTH: img.altTextTH ?? "",
-                altTextEN: img.altTextEN ?? "",
                 isPrimary: img.isPrimary,
               }))}
             />
