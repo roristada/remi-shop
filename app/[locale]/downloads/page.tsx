@@ -11,7 +11,6 @@ import { PageHeading } from "@/components/shop/page-heading";
 import { ShopPagination } from "@/components/shop/shop-pagination";
 import { FormMessage } from "@/components/auth/form-fields";
 import { DownloadVersions } from "@/components/downloads/download-versions";
-import { BackLink } from "@/components/shared/back-link";
 
 const ERROR_CODES = ["not_found", "forbidden", "limit_reached", "error"] as const;
 
@@ -35,8 +34,7 @@ export default async function DownloadsPage({ params, searchParams }: PageProps<
   ]);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 px-4 py-8 sm:py-12">
-      <BackLink href="/account">{(await getTranslations("common.state"))("backToAccount")}</BackLink>
+    <div className="space-y-6">
       <PageHeading title={t("title")} subtitle={t("resultCount", { count: total })} />
       {errorCode && <FormMessage tone="error">{t(`errors.${errorCode}`)}</FormMessage>}
 
