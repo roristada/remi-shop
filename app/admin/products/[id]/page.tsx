@@ -30,6 +30,8 @@ import { LicensePricingEditor } from "@/components/admin/license-pricing-editor"
 import { getProductLicensePricing } from "@/lib/licenses/admin-queries";
 import { countStockTaken } from "@/lib/products/storefront-queries";
 
+const HIDE_INACTIVE = "data-[state=inactive]:hidden";
+
 function toManagedVariant(v: AdminProduct["variants"][number], now: Date): ManagedVariant {
   const price = calculateProductPrice(v, now);
   const window = getDiscountWindowState(v, now);
@@ -149,7 +151,8 @@ export default async function EditProductPage({ params, searchParams }: PageProp
           <TabsTrigger value="versions">เวอร์ชันและไฟล์ ({product.versions.length})</TabsTrigger>
           <TabsTrigger value="license">License ({licensePricing.filter((l) => l.price !== null).length})</TabsTrigger>
         </TabsList>
-        <TabsContent value="details" className="space-y-6">
+        {/* forceMount + hidden keeps unsaved edits when switching tabs. */}
+        <TabsContent value="details" forceMount className={`space-y-6 ${HIDE_INACTIVE}`}>
           <FormSection title="รูปภาพ" description="รูปแรกคือรูปหลักที่แสดงหน้าร้าน">
             <ImageManager
               productId={product.id}
@@ -168,12 +171,13 @@ export default async function EditProductPage({ params, searchParams }: PageProp
             submitLabel="บันทึก"
             stockTaken={stockTaken}
             hasVariants={product.variants.length > 0}
+            saveOnlyWhenDirty
           />
         </TabsContent>
-        <TabsContent value="variants">
+        <TabsContent value="variants" forceMount className={HIDE_INACTIVE}>
           <VariantManager productId={product.id} variants={product.variants.map((v) => toManagedVariant(v, now))} />
         </TabsContent>
-        <TabsContent value="versions">
+        <TabsContent value="versions" forceMount className={HIDE_INACTIVE}>
           <VersionManager
             productId={product.id}
             buyerCount={buyerCount}
@@ -198,7 +202,7 @@ export default async function EditProductPage({ params, searchParams }: PageProp
             variants={product.variants.map((v) => ({ id: v.id, name: v.nameTH }))}
           />
         </TabsContent>
-        <TabsContent value="license">
+        <TabsContent value="license" forceMount className={HIDE_INACTIVE}>
           <LicensePricingEditor productId={product.id} rows={licensePricing} />
         </TabsContent>
       </Tabs>

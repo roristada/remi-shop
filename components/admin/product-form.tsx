@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState, useTransition, type FormEvent } from "react";
-import { Loader2, Wand2 } from "lucide-react";
+import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
+import { Loader2, Save, Wand2 } from "lucide-react";
+import { SaveBar, useSaveShortcut, useUnsavedWarning } from "@/components/admin/save-bar";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { FormSection, SelectInput, TextArea, TextInput, useResultToast } from "@/components/admin/form-controls";
@@ -90,15 +91,7 @@ function slugify(value: string) {
     .slice(0, 100);
 }
 
-export function ProductForm({
-  action,
-  values,
-  categories,
-  softwareTags,
-  submitLabel,
-  stockTaken,
-  hasVariants = false,
-}: {
+type ProductFormProps = {
   action: Action;
   values: ProductFormValues;
   categories: { id: string; nameTH: string; status: string }[];
@@ -108,19 +101,68 @@ export function ProductForm({
   stockTaken?: number;
   /** Price, discount and stock then come from the variants (this price is kept at the cheapest). */
   hasVariants?: boolean;
-}) {
+  /** Edit page: the save bar appears only after a change and offers "ยกเลิก". */
+  saveOnlyWhenDirty?: boolean;
+};
+
+export function ProductForm(props: ProductFormProps) {
+  // "ยกเลิก" remounts the form, so every field (including custom inputs) returns to `values`.
+  const [formKey, setFormKey] = useState(0);
+  return <ProductFormBody key={formKey} {...props} onDiscard={() => setFormKey((k) => k + 1)} />;
+}
+
+/** Field values as one comparable string; files are compared by name only. */
+function serializeForm(form: HTMLFormElement): string {
+  return JSON.stringify([...new FormData(form).entries()].map(([k, v]) => [k, typeof v === "string" ? v : v.name]));
+}
+
+function ProductFormBody({
+  action,
+  values,
+  categories,
+  softwareTags,
+  submitLabel,
+  stockTaken,
+  hasVariants = false,
+  saveOnlyWhenDirty = false,
+  onDiscard,
+}: ProductFormProps & { onDiscard: () => void }) {
   const [state, setState] = useState<ActionResult<unknown> | null>(null);
   const [pending, startTransition] = useTransition();
   const [limitMode, setLimitMode] = useState(values.downloadLimitMode);
   const slugRef = useRef<HTMLInputElement>(null);
   const nameENRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const savedRef = useRef<string | null>(null);
+  const [dirty, setDirty] = useState(false);
   useResultToast(state);
+  useUnsavedWarning(dirty);
+  useSaveShortcut(() => formRef.current?.requestSubmit(), (dirty || !saveOnlyWhenDirty) && !pending, formRef);
+
+  useEffect(() => {
+    if (formRef.current) savedRef.current = serializeForm(formRef.current);
+  }, []);
+
+  // Custom inputs update their hidden fields after the event, so compare on the next tick.
+  const checkDirty = () =>
+    setTimeout(() => {
+      if (formRef.current && savedRef.current !== null) setDirty(serializeForm(formRef.current) !== savedRef.current);
+    }, 0);
 
   // Submitting via onSubmit (not the `action` prop) keeps the user's input on validation errors.
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    startTransition(async () => setState(await action(state, formData)));
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+    const submitted = serializeForm(form);
+    startTransition(async () => {
+      const result = await action(state, formData);
+      setState(result);
+      if (result.ok) {
+        savedRef.current = submitted;
+        setDirty(serializeForm(form) !== submitted);
+      }
+    });
   }
 
   const err = (name: string) => (state && !state.ok ? state.fieldErrors?.[name] : undefined);
@@ -128,7 +170,15 @@ export function ProductForm({
   const warn = (name: string) => (state?.ok ? scheduleWarningsOf(state.data)[name] : undefined);
 
   return (
-    <form onSubmit={onSubmit} className="space-y-6" noValidate>
+    <form
+      ref={formRef}
+      onSubmit={onSubmit}
+      onInput={checkDirty}
+      onChange={checkDirty}
+      onClick={checkDirty}
+      className="space-y-6"
+      noValidate
+    >
       <FormSection title="ข้อมูลสินค้า">
         <div className="grid gap-4 md:grid-cols-2">
           <TextInput label="ชื่อสินค้า (ไทย)" name="nameTH" defaultValue={values.nameTH} maxLength={150} required error={err("nameTH")} />
@@ -301,12 +351,17 @@ export function ProductForm({
         </div>
       </FormSection>
 
-      <div className="sticky bottom-0 -mx-4 flex justify-end border-t bg-background/90 px-4 py-3 backdrop-blur md:static md:mx-0 md:border-0 md:bg-transparent md:p-0">
+      <SaveBar dirty={dirty || pending} idleMessage={saveOnlyWhenDirty ? undefined : "กด Ctrl+S เพื่อบันทึกได้"}>
+        {saveOnlyWhenDirty && (
+          <Button type="button" variant="outline" disabled={pending} className="h-10 rounded-full px-5" onClick={onDiscard}>
+            ยกเลิก
+          </Button>
+        )}
         <Button type="submit" disabled={pending} aria-busy={pending} className="h-10 rounded-full px-6">
-          {pending && <Loader2 className="animate-spin" aria-hidden />}
+          {pending ? <Loader2 className="animate-spin" aria-hidden /> : <Save aria-hidden />}
           {submitLabel}
         </Button>
-      </div>
+      </SaveBar>
     </form>
   );
 }

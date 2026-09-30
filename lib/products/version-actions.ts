@@ -2,6 +2,7 @@
 
 import { requireAdmin } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma/client";
+import type { Prisma } from "@/lib/generated/prisma/client";
 import { isForeignKeyViolation, isUniqueViolation } from "@/lib/prisma/errors";
 import { fail, formString, invalid, ok, type ActionResult } from "@/lib/actions/result";
 import { idSchema, uploadRequestSchema, versionSchema } from "@/lib/validation/product";
@@ -239,8 +240,7 @@ export async function requestFileUpload(
 
   const version = await findVersion(versionId);
   if (!version) return fail("ไม่พบเวอร์ชัน");
-  const fileCount = await prisma.productVersionFile.count({ where: { versionId: version.id } });
-  if (fileCount >= MAX_FILES_PER_VERSION) return fail(`ไฟล์ได้สูงสุด ${MAX_FILES_PER_VERSION} ไฟล์ต่อเวอร์ชัน`);
+  // The per-version file limit is checked by saveVersionFiles, after pending deletes are counted.
 
   const path = newProductFilePath(version.productId, version.id, parsed.data.fileName);
   const upload = await createSignedUpload(BUCKETS.digitalFiles, path);
@@ -261,104 +261,144 @@ async function checkFileVariant(productId: string, variantId: unknown): Promise<
   return found === 1 ? variantId : undefined;
 }
 
-export async function confirmFileUpload(
-  versionId: string,
-  input: { path: string; fileName: string; variantId?: string | null },
-): Promise<ActionResult> {
+export type VersionFileChanges = {
+  /** Objects already uploaded with keys from requestFileUpload; rows are created only here. */
+  uploads: { path: string; fileName: string; variantId: string | null }[];
+  moves: { fileId: string; variantId: string | null }[];
+  deletes: string[];
+};
+
+/**
+ * Applies every staged file change of one version at once: new files, moves between
+ * "every buyer" (null) and one variant, and deletes. These change who can download what,
+ * so every file must belong to the version and every variant to its product. Nothing is
+ * applied unless everything is valid; uploaded objects are discarded when the save fails.
+ */
+export async function saveVersionFiles(versionId: string, changes: VersionFileChanges): Promise<ActionResult> {
   await requireAdmin();
-  const version = await findVersion(versionId);
+  const version = await prisma.productVersion.findUnique({
+    where: { id: idSchema.safeParse(versionId).success ? versionId : "" },
+    select: { id: true, productId: true, isLatest: true, product: { select: { publishStatus: true } } },
+  });
   if (!version) return fail("ไม่พบเวอร์ชัน");
-  const variantId = await checkFileVariant(version.productId, input.variantId);
-  if (variantId === undefined) {
-    await removeObjects(BUCKETS.digitalFiles, [input.path].filter((p) => isProductFilePath(p, version.productId, version.id)));
-    return fail("ไม่พบตัวเลือกของสินค้านี้");
+
+  const uploads = Array.isArray(changes?.uploads) ? changes.uploads : [];
+  const moves = Array.isArray(changes?.moves) ? changes.moves : [];
+  const deletes = Array.isArray(changes?.deletes) ? changes.deletes : [];
+  // Only keys issued for this version may ever be removed from Storage here.
+  const uploadedPaths = uploads
+    .map((u) => u?.path)
+    .filter((p): p is string => typeof p === "string" && isProductFilePath(p, version.productId, version.id));
+  const reject = async (message: string) => {
+    await removeUnsavedUploads(uploadedPaths);
+    return fail(message);
+  };
+
+  if (uploads.length + moves.length + deletes.length === 0) return ok(undefined, "ไม่มีการเปลี่ยนแปลง");
+  if (uploads.length > MAX_FILES_PER_VERSION || moves.length > MAX_FILES_PER_VERSION || deletes.length > MAX_FILES_PER_VERSION) {
+    return reject("คำขอไม่ถูกต้อง");
   }
 
-  const fileName = displayFileName(input.fileName);
-  if (!isProductFilePath(input.path, version.productId, version.id)) return fail("คำขอไม่ถูกต้อง");
-  if (!fileName || getExtension(input.path) !== getExtension(fileName)) {
-    // The key is one we issued for this version, so the uploaded object is safe to discard.
-    await removeObjects(BUCKETS.digitalFiles, [input.path]);
-    return fail("คำขอไม่ถูกต้อง");
+  const variantCache = new Map<unknown, string | null | undefined>();
+  const variantFor = async (input: unknown) => {
+    if (!variantCache.has(input)) variantCache.set(input, await checkFileVariant(version.productId, input));
+    return variantCache.get(input);
+  };
+
+  // Existing files: every id must belong to this version.
+  const deleteIds = [...new Set(deletes)];
+  const moveList: { fileId: string; variantId: string | null }[] = [];
+  for (const move of moves) {
+    if (!idSchema.safeParse(move?.fileId).success) return reject("ไม่พบไฟล์");
+    const variantId = await variantFor(move.variantId);
+    if (variantId === undefined) return reject("ไม่พบตัวเลือกของสินค้านี้");
+    if (!deleteIds.includes(move.fileId)) moveList.push({ fileId: move.fileId, variantId });
+  }
+  if (!deleteIds.every((id) => typeof id === "string" && idSchema.safeParse(id).success)) return reject("ไม่พบไฟล์");
+  const touchedIds = [...new Set([...deleteIds, ...moveList.map((m) => m.fileId)])];
+  const existing = await prisma.productVersionFile.findMany({
+    where: { versionId: version.id },
+    select: { id: true, storagePath: true, sortOrder: true },
+  });
+  const existingIds = new Set(existing.map((f) => f.id));
+  if (!touchedIds.every((id) => existingIds.has(id))) return reject("ไม่พบไฟล์");
+
+  const finalCount = existing.length - deleteIds.length + uploads.length;
+  if (finalCount > MAX_FILES_PER_VERSION) return reject(`ไฟล์ได้สูงสุด ${MAX_FILES_PER_VERSION} ไฟล์ต่อเวอร์ชัน`);
+  if (finalCount === 0 && version.isLatest && version.product.publishStatus === "PUBLISHED") {
+    return reject("สินค้าเผยแพร่อยู่ ต้องเหลือไฟล์ในเวอร์ชันล่าสุดอย่างน้อย 1 ไฟล์ (เพิ่มไฟล์ใหม่ก่อน หรือเปลี่ยนเป็นฉบับร่าง)");
   }
 
-  const verified = await verifyUploadedObject(BUCKETS.digitalFiles, input.path, fileName);
-  if (!verified.ok) {
-    return fail(verified.error === "not_found" ? "ไม่พบไฟล์ที่อัปโหลด" : FILE_TYPE_ERROR_TH[verified.error]);
+  // New files: key issued for this version, extension unchanged, stored bytes verified.
+  let sortOrder = existing.reduce((max, f) => Math.max(max, f.sortOrder), -1);
+  const creates: Prisma.ProductVersionFileCreateManyInput[] = [];
+  for (const upload of uploads) {
+    const fileName = displayFileName(typeof upload?.fileName === "string" ? upload.fileName : "");
+    const path = upload?.path;
+    if (typeof path !== "string" || !isProductFilePath(path, version.productId, version.id)) return reject("คำขอไม่ถูกต้อง");
+    if (!fileName || getExtension(path) !== getExtension(fileName)) return reject("คำขอไม่ถูกต้อง");
+    const variantId = await variantFor(upload.variantId);
+    if (variantId === undefined) return reject("ไม่พบตัวเลือกของสินค้านี้");
+    const verified = await verifyUploadedObject(BUCKETS.digitalFiles, path, fileName);
+    if (!verified.ok) {
+      return reject(`${fileName}: ${verified.error === "not_found" ? "ไม่พบไฟล์ที่อัปโหลด" : FILE_TYPE_ERROR_TH[verified.error]}`);
+    }
+    creates.push({
+      versionId: version.id,
+      fileName,
+      storagePath: path,
+      // Size comes from Storage, not from the browser.
+      fileSize: verified.object.size,
+      fileType: mimeFor(DIGITAL_FILE_TYPES, fileName),
+      sortOrder: ++sortOrder,
+      variantId,
+    });
   }
 
   try {
-    const max = await prisma.productVersionFile.aggregate({
-      where: { versionId: version.id },
-      _max: { sortOrder: true },
-    });
-    await prisma.productVersionFile.create({
-      data: {
-        versionId: version.id,
-        fileName,
-        storagePath: input.path,
-        // Size comes from Storage, not from the browser.
-        fileSize: verified.object.size,
-        fileType: mimeFor(DIGITAL_FILE_TYPES, fileName),
-        sortOrder: (max._max.sortOrder ?? -1) + 1,
-        variantId,
-      },
-    });
+    await prisma.$transaction([
+      prisma.productVersionFile.deleteMany({ where: { id: { in: deleteIds }, versionId: version.id } }),
+      ...moveList.map((m) =>
+        prisma.productVersionFile.update({ where: { id: m.fileId, versionId: version.id }, data: { variantId: m.variantId } }),
+      ),
+      prisma.productVersionFile.createMany({ data: creates }),
+    ]);
   } catch (error) {
-    if (isUniqueViolation(error)) return ok(undefined); // same upload confirmed twice
-    await removeObjects(BUCKETS.digitalFiles, [input.path]);
-    console.error("[products] file create failed", { versionId, message: (error as Error).message });
-    return fail("บันทึกไฟล์ไม่สำเร็จ");
+    console.error("[products] version files save failed", { versionId, message: (error as Error).message });
+    return reject(isUniqueViolation(error) ? CONCURRENT_EDIT : "บันทึกไฟล์ไม่สำเร็จ");
   }
 
-  console.info("[products] file uploaded", { productId: version.productId, versionId });
+  // Storage objects of deleted rows go only after the rows are gone.
+  const deletedPaths = existing.filter((f) => deleteIds.includes(f.id)).map((f) => f.storagePath);
+  await removeObjects(BUCKETS.digitalFiles, deletedPaths);
+
+  console.info("[products] version files saved", {
+    productId: version.productId,
+    versionId,
+    uploaded: creates.length,
+    moved: moveList.length,
+    deleted: deleteIds.length,
+  });
   revalidateCatalog();
-  return ok(undefined, "อัปโหลดไฟล์แล้ว");
+  return ok(undefined, "บันทึกไฟล์แล้ว");
 }
 
-/**
- * Moves a file between "every buyer" (null) and one variant. This changes who can download it,
- * so the variant must belong to the file's product.
- */
-export async function setFileVariant(fileId: string, variantIdInput: string | null): Promise<ActionResult> {
+/** Removes objects uploaded for a save that never reached saveVersionFiles (e.g. a later upload failed). */
+export async function discardFileUploads(versionId: string, paths: string[]): Promise<ActionResult> {
   await requireAdmin();
-  if (!idSchema.safeParse(fileId).success) return fail("ไม่พบไฟล์");
-  const file = await prisma.productVersionFile.findUnique({
-    where: { id: fileId },
-    select: { version: { select: { productId: true } } },
-  });
-  if (!file) return fail("ไม่พบไฟล์");
-  const variantId = await checkFileVariant(file.version.productId, variantIdInput);
-  if (variantId === undefined) return fail("ไม่พบตัวเลือกของสินค้านี้");
-
-  await prisma.productVersionFile.update({ where: { id: fileId }, data: { variantId } });
-  console.info("[products] file variant changed", { productId: file.version.productId, fileId, variantId });
-  revalidateCatalog();
-  return ok(undefined, variantId ? "ไฟล์นี้จะให้เฉพาะผู้ซื้อตัวเลือกนี้" : "ไฟล์นี้จะให้ผู้ซื้อทุกตัวเลือก");
+  const version = await findVersion(versionId);
+  if (!version) return fail("ไม่พบเวอร์ชัน");
+  if (!Array.isArray(paths) || paths.length > MAX_FILES_PER_VERSION) return fail("คำขอไม่ถูกต้อง");
+  await removeUnsavedUploads(
+    paths.filter((p) => typeof p === "string" && isProductFilePath(p, version.productId, version.id)),
+  );
+  return ok(undefined);
 }
 
-export async function deleteFile(fileId: string): Promise<ActionResult> {
-  await requireAdmin();
-  if (!idSchema.safeParse(fileId).success) return fail("ไม่พบไฟล์");
-  const file = await prisma.productVersionFile.findUnique({
-    where: { id: fileId },
-    include: {
-      version: {
-        select: { isLatest: true, productId: true, product: { select: { publishStatus: true } }, _count: { select: { files: true } } },
-      },
-    },
-  });
-  if (!file) return fail("ไม่พบไฟล์");
-
-  const { version } = file;
-  if (version.isLatest && version.product.publishStatus === "PUBLISHED" && version._count.files <= 1) {
-    return fail("สินค้าเผยแพร่อยู่ ต้องเหลือไฟล์ในเวอร์ชันล่าสุดอย่างน้อย 1 ไฟล์ (เพิ่มไฟล์ใหม่ก่อน หรือเปลี่ยนเป็นฉบับร่าง)");
-  }
-
-  await prisma.productVersionFile.delete({ where: { id: file.id } });
-  await removeObjects(BUCKETS.digitalFiles, [file.storagePath]);
-
-  console.info("[products] file deleted", { productId: version.productId, fileId });
-  revalidateCatalog();
-  return ok(undefined, "ลบไฟล์แล้ว");
+/** Removes uploaded objects that have no file row. A key with a row is a saved file, never an orphan. */
+async function removeUnsavedUploads(paths: string[]) {
+  if (paths.length === 0) return;
+  const saved = await prisma.productVersionFile.findMany({ where: { storagePath: { in: paths } }, select: { storagePath: true } });
+  const savedPaths = new Set(saved.map((f) => f.storagePath));
+  await removeObjects(BUCKETS.digitalFiles, paths.filter((p) => !savedPaths.has(p)));
 }
