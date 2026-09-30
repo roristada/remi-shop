@@ -119,7 +119,7 @@ function LicenseCard({ request: r }: { request: ReviewLicenseRequest }) {
         ) : (
           <div className="grid aspect-[3/4] place-items-center rounded-xl bg-muted text-sm text-muted-foreground">
             <span className="flex flex-col items-center gap-2">
-              <ImageOff className="size-5" aria-hidden /> โหลดรูปผลงานไม่ได้
+              <ImageOff className="size-5" aria-hidden /> {r.hasArtwork ? "โหลดรูปผลงานไม่ได้" : "ลูกค้ายังไม่ได้แนบรูปผลงาน"}
             </span>
           </div>
         )}

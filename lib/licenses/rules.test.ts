@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { canCancelLicenseRequest, licensePaymentDeadline, licenseStage, pickLicenseLines } from "./rules";
+import { canCancelLicenseRequest, canEditLicenseRequest, licenseEditDeadline, licensePaymentDeadline, licenseStage, pickLicenseLines } from "./rules";
 
 const offers = [
   { usageTypeId: "a", nameTH: "สินค้า", nameEN: "Merch", price: "500.00" },
@@ -55,4 +55,14 @@ test("only pending requests can be cancelled by the customer", () => {
 test("licensePaymentDeadline adds whole days", () => {
   const at = new Date("2026-09-26T10:00:00Z");
   assert.equal(licensePaymentDeadline(at, 3).toISOString(), "2026-09-29T10:00:00.000Z");
+});
+
+test("canEditLicenseRequest allows live requests for 30 days only", () => {
+  const created = new Date("2026-09-01T00:00:00Z");
+  const day = 24 * 60 * 60 * 1000;
+  assert.equal(canEditLicenseRequest("PENDING_REVIEW", created, new Date(created.getTime() + 29 * day)), true);
+  assert.equal(canEditLicenseRequest("APPROVED", created, new Date(created.getTime() + 29 * day)), true);
+  assert.equal(canEditLicenseRequest("PENDING_REVIEW", created, licenseEditDeadline(created)), false);
+  assert.equal(canEditLicenseRequest("REJECTED", created, created), false);
+  assert.equal(canEditLicenseRequest("CANCELLED", created, created), false);
 });

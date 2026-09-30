@@ -483,8 +483,8 @@ model LicenseRequest {
   artistContact         String               @map("artist_contact")
   platform              String
   note                  String?
-  /// Object key inside the private `license-artworks` bucket.
-  artworkPath           String               @map("artwork_path")
+  /// Object key inside the private `license-artworks` bucket; null until the customer attaches it.
+  artworkPath           String?              @map("artwork_path")
   total                 Decimal              @db.Decimal(10, 2)
   status                LicenseRequestStatus @default(PENDING_REVIEW)
   rejectReason          String?              @map("reject_reason")

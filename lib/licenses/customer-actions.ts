@@ -8,8 +8,13 @@ import type { FieldErrors } from "@/lib/validation/auth";
 import { fromHundredths } from "@/lib/pricing/calculate";
 import { getProductStatus } from "@/lib/products/status";
 import { idSchema, uploadRequestSchema } from "@/lib/validation/product";
-import { licenseSubmitSchema } from "@/lib/licenses/validation";
-import { MAX_OPEN_LICENSE_REQUESTS, pickLicenseLines } from "@/lib/licenses/rules";
+import { licenseEditSchema, licenseSubmitSchema } from "@/lib/licenses/validation";
+import {
+  canEditLicenseRequest,
+  LICENSE_EDIT_WINDOW_MS,
+  MAX_OPEN_LICENSE_REQUESTS,
+  pickLicenseLines,
+} from "@/lib/licenses/rules";
 import { BUCKETS } from "@/lib/storage/buckets";
 import { checkFileMeta, getExtension, IMAGE_FILE_TYPES, type FileTypeError } from "@/lib/storage/file-types";
 import { createSignedUpload, removeObjects, verifyUploadedObject, type SignedUpload } from "@/lib/storage/product-storage";
@@ -24,6 +29,7 @@ export type LicenseErrorCode =
   | "PRICE_CHANGED"
   | "TOO_MANY"
   | "NOT_ALLOWED"
+  | "EDIT_CLOSED"
   | "ERROR"
   | "not_found"
   | FileTypeError;
@@ -36,6 +42,30 @@ class RequestError extends Error {
   constructor(readonly code: LicenseErrorCode) {
     super(code);
   }
+}
+
+/** A path in the input only counts when it is a key we issued to this customer. */
+function ownArtworkPath(input: unknown, userId: string): string | null {
+  const raw = typeof input === "object" && input !== null && "artworkPath" in input ? input.artworkPath : null;
+  return typeof raw === "string" && isArtworkPath(raw, userId) ? raw : null;
+}
+
+/**
+ * Validates an optional artwork: nothing sent is fine; anything sent must be our own key with a
+ * matching extension and a real image. Deletes the object on failure (verify does it for bad files).
+ */
+async function checkArtwork(
+  ownPath: string | null,
+  sentPath: string | null | undefined,
+  fileName: string | null | undefined,
+): Promise<LicenseErrorCode | null> {
+  if (!sentPath && !fileName) return null;
+  if (!ownPath || !fileName || getExtension(ownPath) !== getExtension(fileName)) {
+    if (ownPath) await removeObjects(BUCKETS.licenseArtworks, [ownPath]);
+    return "NOT_ALLOWED";
+  }
+  const verified = await verifyUploadedObject(BUCKETS.licenseArtworks, ownPath, fileName);
+  return verified.ok ? null : verified.error;
 }
 
 /** One-time token for the artwork image, under a key scoped to the caller. */
@@ -60,9 +90,7 @@ export async function submitLicenseRequest(input: unknown): Promise<LicenseResul
   const user = await getCurrentUser();
   if (!user) return { ok: false, code: "LOGIN_REQUIRED" };
 
-  const rawPath = typeof input === "object" && input !== null && "artworkPath" in input ? input.artworkPath : null;
-  // Only a key we issued to this customer may ever be deleted or attached.
-  const ownPath = typeof rawPath === "string" && isArtworkPath(rawPath, user.id) ? rawPath : null;
+  const ownPath = ownArtworkPath(input, user.id);
   const discard = async () => {
     if (ownPath) await removeObjects(BUCKETS.licenseArtworks, [ownPath]);
   };
@@ -73,13 +101,9 @@ export async function submitLicenseRequest(input: unknown): Promise<LicenseResul
     return { ok: false, code: "INVALID", fieldErrors: zodFieldErrors(parsed.error) };
   }
   const data = parsed.data;
-  if (!ownPath || getExtension(ownPath) !== getExtension(data.artworkFileName)) {
-    await discard();
-    return { ok: false, code: "NOT_ALLOWED" };
-  }
-
-  const verified = await verifyUploadedObject(BUCKETS.licenseArtworks, ownPath, data.artworkFileName);
-  if (!verified.ok) return { ok: false, code: verified.error };
+  // The artwork is optional; when one is sent it must be a verified object we issued.
+  const artworkCode = await checkArtwork(ownPath, data.artworkPath, data.artworkFileName);
+  if (artworkCode) return { ok: false, code: artworkCode };
 
   const now = new Date();
   try {
@@ -175,4 +199,79 @@ export async function cancelLicenseRequest(requestId: string): Promise<{ ok: boo
   revalidatePath("/[locale]/account/licenses", "page");
   revalidatePath("/admin/licenses");
   return { ok: true };
+}
+
+/**
+ * Customer edits a request's details and/or attaches (or replaces) the artwork, for 30 days after
+ * submitting. Usage types and the locked price cannot change; to change those, cancel and resubmit.
+ */
+export async function updateLicenseRequest(requestId: string, input: unknown): Promise<LicenseResult> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, code: "LOGIN_REQUIRED" };
+  if (!idSchema.safeParse(requestId).success) return { ok: false, code: "NOT_ALLOWED" };
+
+  const ownPath = ownArtworkPath(input, user.id);
+  const discard = async () => {
+    if (ownPath) await removeObjects(BUCKETS.licenseArtworks, [ownPath]);
+  };
+
+  const parsed = licenseEditSchema.safeParse(input);
+  if (!parsed.success) {
+    await discard();
+    return { ok: false, code: "INVALID", fieldErrors: zodFieldErrors(parsed.error) };
+  }
+  const data = parsed.data;
+
+  // Ownership is part of the lookup: another customer's id is indistinguishable from a missing one.
+  const existing = await prisma.licenseRequest.findFirst({
+    where: { id: requestId, userId: user.id },
+    select: { status: true, createdAt: true, artworkPath: true },
+  });
+  if (!existing || !canEditLicenseRequest(existing.status, existing.createdAt)) {
+    await discard();
+    return { ok: false, code: "EDIT_CLOSED" };
+  }
+
+  const artworkCode = await checkArtwork(ownPath, data.artworkPath, data.artworkFileName);
+  if (artworkCode) return { ok: false, code: artworkCode };
+
+  try {
+    // Status and window are re-checked in the write so a decision made meanwhile wins.
+    const { count } = await prisma.licenseRequest.updateMany({
+      where: {
+        id: requestId,
+        userId: user.id,
+        status: { in: ["PENDING_REVIEW", "APPROVED"] },
+        createdAt: { gt: new Date(Date.now() - LICENSE_EDIT_WINDOW_MS) },
+      },
+      data: {
+        buyerName: data.buyerName,
+        buyerEmail: data.buyerEmail,
+        buyerContact: data.buyerContact,
+        artistName: data.artistName,
+        artistContact: data.artistContact,
+        platform: data.platform,
+        note: data.note,
+        ...(ownPath ? { artworkPath: ownPath } : {}),
+      },
+    });
+    if (count === 0) {
+      await discard();
+      return { ok: false, code: "EDIT_CLOSED" };
+    }
+  } catch (error) {
+    await discard();
+    console.error("License request update failed", { requestId, userId: user.id, error });
+    return { ok: false, code: "ERROR" };
+  }
+
+  // The replaced artwork is no longer referenced.
+  if (ownPath && existing.artworkPath && existing.artworkPath !== ownPath) {
+    await removeObjects(BUCKETS.licenseArtworks, [existing.artworkPath]);
+  }
+
+  console.info("License request edited by customer", { requestId, userId: user.id, artwork: Boolean(ownPath) });
+  revalidatePath("/[locale]/account/licenses", "page");
+  revalidatePath("/admin/licenses");
+  return { ok: true, data: undefined };
 }

@@ -15,8 +15,8 @@ import { createClient } from "@/lib/supabase/client";
 import { zodFieldErrors } from "@/lib/actions/result";
 import type { FieldErrors } from "@/lib/validation/auth";
 import { formatTHB } from "@/lib/pricing/calculate";
-import { LICENSE_LIMITS, licenseRequestFieldsSchema } from "@/lib/licenses/validation";
-import { requestArtworkUpload, submitLicenseRequest } from "@/lib/licenses/customer-actions";
+import { LICENSE_LIMITS, licenseEditFieldsSchema, licenseRequestFieldsSchema } from "@/lib/licenses/validation";
+import { requestArtworkUpload, submitLicenseRequest, updateLicenseRequest } from "@/lib/licenses/customer-actions";
 import { MAX_FILE_SIZE } from "@/lib/storage/buckets";
 import { cn } from "@/lib/utils";
 
@@ -25,17 +25,39 @@ const EXTENSIONS = /\.(jpe?g|png|webp)$/i;
 
 export type LicenseFormOffer = { usageTypeId: string; name: string; description: string | null; price: number };
 
+export type LicenseFormValues = {
+  buyerName: string;
+  buyerEmail: string;
+  buyerContact: string;
+  artistName: string;
+  artistContact: string;
+  platform: string;
+  note: string;
+};
+
+/** Editing a submitted request: details and artwork only; the chosen types and price stay locked. */
+export type LicenseFormEdit = {
+  requestId: string;
+  values: LicenseFormValues;
+  lines: { id: string; name: string; price: number }[];
+  total: number;
+  hasArtwork: boolean;
+  /** ISO time the edit window closes. */
+  editableUntil: string;
+};
+
 type Props = {
   productId: string;
   offers: LicenseFormOffer[];
   defaults: { buyerName: string; buyerEmail: string };
+  edit?: LicenseFormEdit;
 };
 
 /**
  * Commercial license request. The total shown here is only echoed back for comparison; the server
  * re-prices from the database and locks that price. The artwork goes straight to private storage.
  */
-export function LicenseRequestForm({ productId, offers, defaults }: Props) {
+export function LicenseRequestForm({ productId, offers, defaults, edit }: Props) {
   const t = useTranslations("shop.license");
   const locale = useLocale();
   const router = useRouter();
@@ -53,7 +75,18 @@ export function LicenseRequestForm({ productId, offers, defaults }: Props) {
     if (previewRef.current) URL.revokeObjectURL(previewRef.current);
   }, []);
 
-  const total = offers.filter((o) => selected.has(o.usageTypeId)).reduce((sum, o) => sum + o.price, 0);
+  const total = edit
+    ? edit.total
+    : offers.filter((o) => selected.has(o.usageTypeId)).reduce((sum, o) => sum + o.price, 0);
+  const values: LicenseFormValues = edit?.values ?? {
+    buyerName: defaults.buyerName,
+    buyerEmail: defaults.buyerEmail,
+    buyerContact: "",
+    artistName: "",
+    artistContact: "",
+    platform: "",
+    note: "",
+  };
   const money = (satang: number) => formatTHB(satang, intlLocale(locale).number);
   const errorText = (key: string) => (fieldErrors[key] ? t(`errors.${fieldErrors[key]}`) : undefined);
 
@@ -100,7 +133,7 @@ export function LicenseRequestForm({ productId, offers, defaults }: Props) {
     setFormError(null);
     const form = new FormData(e.currentTarget);
     const text = (name: string) => String(form.get(name) ?? "");
-    const fields = {
+    const details = {
       buyerName: text("buyerName"),
       buyerEmail: text("buyerEmail"),
       buyerContact: text("buyerContact"),
@@ -108,33 +141,33 @@ export function LicenseRequestForm({ productId, offers, defaults }: Props) {
       artistContact: text("artistContact"),
       platform: text("platform"),
       note: text("note"),
-      usageTypeIds: [...selected],
     };
-    const parsed = licenseRequestFieldsSchema.safeParse(fields);
+    const fields = { ...details, usageTypeIds: [...selected] };
+    const parsed = edit ? licenseEditFieldsSchema.safeParse(details) : licenseRequestFieldsSchema.safeParse(fields);
     const errors: FieldErrors = parsed.success ? {} : zodFieldErrors(parsed.error);
     // Array item errors (e.g. `usageTypeIds.0`) collapse onto the group.
     for (const key of Object.keys(errors)) if (key.startsWith("usageTypeIds.")) errors.usageTypeIds ??= "pick_usage";
-    if (!file) errors.artwork = "artwork_required";
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) return focusFirstError(errors);
 
     startTransition(async () => {
-      const target = await requestArtworkUpload({ fileName: file!.name, size: file!.size });
-      if (!target.ok) return setFormError(t(`errors.${target.code}`));
+      // The artwork is optional: upload only when one was chosen.
+      let artwork: { artworkPath: string; artworkFileName: string } | null = null;
+      if (file) {
+        const target = await requestArtworkUpload({ fileName: file.name, size: file.size });
+        if (!target.ok) return setFormError(t(`errors.${target.code}`));
 
-      const { bucket, path, token } = target.data;
-      const { error: uploadError } = await createClient()
-        .storage.from(bucket)
-        .uploadToSignedUrl(path, token, file!, { contentType: file!.type || "image/jpeg" });
-      if (uploadError) return setFormError(t("errors.ERROR"));
+        const { bucket, path, token } = target.data;
+        const { error: uploadError } = await createClient()
+          .storage.from(bucket)
+          .uploadToSignedUrl(path, token, file, { contentType: file.type || "image/jpeg" });
+        if (uploadError) return setFormError(t("errors.ERROR"));
+        artwork = { artworkPath: path, artworkFileName: file.name };
+      }
 
-      const result = await submitLicenseRequest({
-        ...fields,
-        productId,
-        expectedTotal: total,
-        artworkPath: path,
-        artworkFileName: file!.name,
-      });
+      const result = edit
+        ? await updateLicenseRequest(edit.requestId, { ...details, ...artwork })
+        : await submitLicenseRequest({ ...fields, productId, expectedTotal: total, ...artwork });
       if (!result.ok) {
         if (result.fieldErrors) {
           setFieldErrors(result.fieldErrors);
@@ -142,7 +175,7 @@ export function LicenseRequestForm({ productId, offers, defaults }: Props) {
         }
         return setFormError(t(`errors.${result.code}`));
       }
-      router.push("/account/licenses?submitted=1");
+      router.push(edit ? "/account/licenses?updated=1" : "/account/licenses?submitted=1");
     });
   }
 
@@ -160,7 +193,22 @@ export function LicenseRequestForm({ productId, offers, defaults }: Props) {
     >
       {formError && <FormMessage tone="error">{formError}</FormMessage>}
 
-      <fieldset className="space-y-3">
+      {edit && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold">{t("usageTitle")}</h2>
+          <p className="text-sm text-foreground/70">{t("editLockedHint")}</p>
+          <ul className="divide-y rounded-2xl border bg-muted/40">
+            {edit.lines.map((l) => (
+              <li key={l.id} className="flex items-start justify-between gap-3 px-4 py-3">
+                <span className="font-medium">{l.name}</span>
+                <span className="shrink-0 font-medium tabular-nums">{money(l.price)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <fieldset className={cn("space-y-3", edit && "hidden")} disabled={Boolean(edit)}>
         <legend className="mb-1 text-lg font-semibold">{t("usageTitle")}</legend>
         <p className="text-sm text-foreground/70">{t("usageHint")}</p>
         <ul
@@ -196,11 +244,12 @@ export function LicenseRequestForm({ productId, offers, defaults }: Props) {
 
       <fieldset className="grid gap-4 sm:grid-cols-2">
         <legend className="mb-3 text-lg font-semibold">{t("buyerTitle")}</legend>
-        <Field name="buyerName" label={t("buyerName")} defaultValue={defaults.buyerName} maxLength={LICENSE_LIMITS.name} autoComplete="name" error={errorText("buyerName")} />
-        <Field name="buyerEmail" label={t("buyerEmail")} type="email" defaultValue={defaults.buyerEmail} maxLength={LICENSE_LIMITS.email} autoComplete="email" error={errorText("buyerEmail")} />
+        <Field name="buyerName" label={t("buyerName")} defaultValue={values.buyerName} maxLength={LICENSE_LIMITS.name} autoComplete="name" error={errorText("buyerName")} />
+        <Field name="buyerEmail" label={t("buyerEmail")} type="email" defaultValue={values.buyerEmail} maxLength={LICENSE_LIMITS.email} autoComplete="email" error={errorText("buyerEmail")} />
         <Field
           name="buyerContact"
           label={t("buyerContact")}
+          defaultValue={values.buyerContact}
           hint={t("contactHint")}
           maxLength={LICENSE_LIMITS.contact}
           wrapperClassName="sm:col-span-2"
@@ -211,18 +260,21 @@ export function LicenseRequestForm({ productId, offers, defaults }: Props) {
       <fieldset className="grid gap-4 sm:grid-cols-2">
         <legend className="mb-1 text-lg font-semibold">{t("artistTitle")}</legend>
         <p className="text-sm text-foreground/70 sm:col-span-2">{t("artistHint")}</p>
-        <Field name="artistName" label={t("artistName")} maxLength={LICENSE_LIMITS.name} error={errorText("artistName")} />
-        <Field name="artistContact" label={t("artistContact")} hint={t("contactHint")} maxLength={LICENSE_LIMITS.contact} error={errorText("artistContact")} />
+        <Field name="artistName" label={t("artistName")} defaultValue={values.artistName} maxLength={LICENSE_LIMITS.name} error={errorText("artistName")} />
+        <Field name="artistContact" label={t("artistContact")} defaultValue={values.artistContact} hint={t("contactHint")} maxLength={LICENSE_LIMITS.contact} error={errorText("artistContact")} />
       </fieldset>
 
       <fieldset className="space-y-4">
         <legend className="mb-3 text-lg font-semibold">{t("usageDetailTitle")}</legend>
-        <Field name="platform" label={t("platform")} hint={t("platformHint")} maxLength={LICENSE_LIMITS.platform} error={errorText("platform")} />
+        <Field name="platform" label={t("platform")} defaultValue={values.platform} hint={t("platformHint")} maxLength={LICENSE_LIMITS.platform} error={errorText("platform")} />
 
         <div className="space-y-1.5">
-          <Label htmlFor={artworkId}>{t("artwork")}</Label>
+          <Label htmlFor={artworkId}>
+            {t("artwork")} <span className="font-normal text-muted-foreground">{t("optional")}</span>
+          </Label>
           <p id={`${artworkId}-hint`} className="text-xs text-muted-foreground">
             {t("artworkHint")}
+            {edit?.hasArtwork && ` ${t("artworkAttached")}`}
           </p>
           <input
             id={artworkId}
@@ -259,7 +311,7 @@ export function LicenseRequestForm({ productId, offers, defaults }: Props) {
           )}
         </div>
 
-        <TextAreaField name="note" label={t("note")} hint={t("noteHint")} maxLength={LICENSE_LIMITS.note} error={errorText("note")} />
+        <TextAreaField name="note" label={t("note")} defaultValue={values.note} hint={t("noteHint")} maxLength={LICENSE_LIMITS.note} error={errorText("note")} />
       </fieldset>
 
       <div className="sticky bottom-0 -mx-4 space-y-3 border-t bg-background/95 px-4 py-4 backdrop-blur sm:static sm:mx-0 sm:rounded-3xl sm:border-0 sm:bg-secondary/45 sm:p-6">
@@ -271,9 +323,13 @@ export function LicenseRequestForm({ productId, offers, defaults }: Props) {
         </div>
         <Button type="submit" size="lg" className="h-12 w-full rounded-full text-base" disabled={pending} aria-busy={pending}>
           {pending && <Loader2 className="animate-spin" aria-hidden />}
-          {pending ? t("submitting") : t("submit")}
+          {edit ? (pending ? t("saving") : t("save")) : pending ? t("submitting") : t("submit")}
         </Button>
-        <p className="text-xs text-foreground/70">{t("submitHint")}</p>
+        <p className="text-xs text-foreground/70">
+          {edit
+            ? t("editHint", { date: new Intl.DateTimeFormat(intlLocale(locale).date, { dateStyle: "medium", timeZone: "Asia/Bangkok" }).format(new Date(edit.editableUntil)) })
+            : t("submitHint")}
+        </p>
       </div>
     </form>
   );

@@ -69,6 +69,24 @@ export function canCancelLicenseRequest(status: LicenseRequestStatus): boolean {
   return status === "PENDING_REVIEW";
 }
 
+/** How long after submitting a customer may edit the request's details or attach the artwork. */
+export const LICENSE_EDIT_WINDOW_DAYS = 30;
+const DAY_MS = 24 * 60 * 60 * 1000;
+export const LICENSE_EDIT_WINDOW_MS = LICENSE_EDIT_WINDOW_DAYS * DAY_MS;
+
+/** End of the edit window (exclusive). */
+export function licenseEditDeadline(createdAt: Date): Date {
+  return new Date(createdAt.getTime() + LICENSE_EDIT_WINDOW_MS);
+}
+
+/**
+ * Details and artwork stay editable for 30 days while the request is live (waiting or approved).
+ * The chosen usage types and price are locked at submit and never editable.
+ */
+export function canEditLicenseRequest(status: LicenseRequestStatus, createdAt: Date, now: Date = new Date()): boolean {
+  return (status === "PENDING_REVIEW" || status === "APPROVED") && now < licenseEditDeadline(createdAt);
+}
+
 export const LICENSE_PAYMENT_DAYS_MIN = 1;
 export const LICENSE_PAYMENT_DAYS_MAX = 30;
 

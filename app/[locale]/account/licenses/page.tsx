@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { BriefcaseBusiness, ChevronRight } from "lucide-react";
+import { BriefcaseBusiness, ChevronRight, Pencil } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { intlLocale, localized } from "@/i18n/localize";
 import { requireUser } from "@/lib/auth/guards";
 import { formatBangkokDateTime } from "@/lib/datetime";
 import { formatTHB, toHundredths } from "@/lib/pricing/calculate";
 import { listLicenseRequestsForUser, type CustomerLicenseRequest } from "@/lib/licenses/queries";
-import { canCancelLicenseRequest, licenseStage, type LicenseStage } from "@/lib/licenses/rules";
+import { canCancelLicenseRequest, canEditLicenseRequest, licenseEditDeadline, licenseStage, type LicenseStage } from "@/lib/licenses/rules";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FormMessage } from "@/components/auth/form-fields";
@@ -54,6 +54,7 @@ export default async function AccountLicensesPage({ params, searchParams }: Page
         <p className="text-sm text-muted-foreground">{t("intro")}</p>
       </div>
       {sp.submitted === "1" && <FormMessage tone="success">{t("submitted")}</FormMessage>}
+      {sp.updated === "1" && <FormMessage tone="success">{t("updated")}</FormMessage>}
 
       {items.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-3xl bg-secondary/45 px-4 py-16 text-center">
@@ -79,6 +80,7 @@ function LicenseCard({ request: r, locale, t }: { request: CustomerLicenseReques
   const fmt = intlLocale(locale);
   const stage = licenseStage(r.status, r.order?.status ?? null);
   const payable = r.order && (stage === "AWAITING_PAYMENT" || stage === "PAYMENT_REJECTED");
+  const editable = canEditLicenseRequest(r.status, r.createdAt);
 
   return (
     <li className="space-y-4 rounded-3xl border p-4 sm:p-5">
@@ -149,12 +151,30 @@ function LicenseCard({ request: r, locale, t }: { request: CustomerLicenseReques
         </p>
       )}
 
-      {(payable || canCancelLicenseRequest(r.status)) && (
+      {editable && r.artworkPath === null && (
+        <p role="note" className="rounded-2xl bg-secondary/60 px-4 py-3 text-sm">
+          {t("artworkMissing")}
+        </p>
+      )}
+      {editable && (
+        <p className="text-xs text-muted-foreground">
+          {t("editableUntil", { date: formatBangkokDateTime(licenseEditDeadline(r.createdAt), fmt.date) })}
+        </p>
+      )}
+
+      {(payable || editable || canCancelLicenseRequest(r.status)) && (
         <div className="flex flex-wrap items-center gap-2 border-t pt-4">
           {payable && r.order && (
             <Button asChild className="h-11 rounded-full px-5">
               <Link href={`/orders/${r.order.orderNumber}`}>
                 {t("pay")} <ChevronRight aria-hidden />
+              </Link>
+            </Button>
+          )}
+          {editable && (
+            <Button asChild variant="outline" className="h-11 rounded-full px-5">
+              <Link href={`/account/licenses/${r.id}/edit`}>
+                <Pencil aria-hidden /> {r.artworkPath === null ? t("attachArtwork") : t("edit")}
               </Link>
             </Button>
           )}

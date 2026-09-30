@@ -31,10 +31,21 @@ export const licenseRequestFieldsSchema = z.object({
 
 export type LicenseRequestFields = z.input<typeof licenseRequestFieldsSchema>;
 
+/** The artwork is optional: it can be attached later while the request is editable. */
+const artworkFields = {
+  artworkPath: z.string().min(1).max(300).nullish(),
+  artworkFileName: z.string().trim().min(1).max(255).nullish(),
+};
+
 export const licenseSubmitSchema = licenseRequestFieldsSchema.extend({
   productId: z.uuid(),
   /** Total the customer saw (satang); only compared, never charged. */
   expectedTotal: z.number().int().nonnegative(),
-  artworkPath: z.string().min(1).max(300),
-  artworkFileName: z.string().trim().min(1).max(255),
+  ...artworkFields,
 });
+
+/** Edit keeps the usage types and price as submitted. */
+export const licenseEditFieldsSchema = licenseRequestFieldsSchema.omit({ usageTypeIds: true });
+export type LicenseEditFields = z.input<typeof licenseEditFieldsSchema>;
+
+export const licenseEditSchema = licenseEditFieldsSchema.extend(artworkFields);

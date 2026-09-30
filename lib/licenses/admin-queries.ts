@@ -53,9 +53,10 @@ export async function listLicenseRequestsForReview(tab: LicenseTab, page: number
   // Artwork lives in a private bucket: short-lived signed URLs, generated per page view.
   const urls = await createSignedViewUrls(
     BUCKETS.licenseArtworks,
-    rows.map((r) => r.artworkPath),
+    rows.flatMap((r) => (r.artworkPath ? [r.artworkPath] : [])),
   );
-  const items = rows.map((r) => ({ ...r, artworkUrl: urls.get(r.artworkPath) ?? null }));
+  const items = rows.map((r) => ({ ...r, hasArtwork: r.artworkPath !== null,
+    artworkUrl: r.artworkPath ? (urls.get(r.artworkPath) ?? null) : null }));
   return { items, total, pendingCount, pageCount: Math.max(1, Math.ceil(total / LICENSE_REVIEW_PAGE_SIZE)) };
 }
 

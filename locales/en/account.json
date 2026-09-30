@@ -57,6 +57,11 @@
       "REJECTED": "Not approved",
       "CANCELLED": "Cancelled",
       "PAYMENT_CANCELLED": "Cancelled (not paid)"
-    }
+    },
+    "updated": "Changes saved",
+    "edit": "Edit request",
+    "attachArtwork": "Attach artwork",
+    "artworkMissing": "No artwork attached yet. You can add it any time while the request is still editable.",
+    "editableUntil": "You can edit this request until {date}"
   }
 }

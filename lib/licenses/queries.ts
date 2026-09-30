@@ -47,6 +47,7 @@ export async function listLicenseRequestsForUser(userId: string, page: number, n
         rejectReason: true,
         reviewedAt: true,
         createdAt: true,
+        artworkPath: true,
         product: { select: { slug: true } },
         items: { orderBy: { id: "asc" }, select: { id: true, nameTHSnapshot: true, nameENSnapshot: true, price: true } },
         order: { select: { orderNumber: true, status: true, expiresAt: true, paidAt: true } },
@@ -61,4 +62,28 @@ export type CustomerLicenseRequest = Awaited<ReturnType<typeof listLicenseReques
 export async function getLicensePaymentDays(): Promise<number> {
   const s = await prisma.storeSetting.findUnique({ where: { id: 1 }, select: { licensePaymentDays: true } });
   return s?.licensePaymentDays ?? 3;
+}
+
+/** One of the caller's own requests, with what the edit form needs. Ownership is part of the query. */
+export function getLicenseRequestForEdit(userId: string, requestId: string) {
+  return prisma.licenseRequest.findFirst({
+    where: { id: requestId, userId },
+    select: {
+      id: true,
+      productNameTHSnapshot: true,
+      productNameENSnapshot: true,
+      buyerName: true,
+      buyerEmail: true,
+      buyerContact: true,
+      artistName: true,
+      artistContact: true,
+      platform: true,
+      note: true,
+      artworkPath: true,
+      total: true,
+      status: true,
+      createdAt: true,
+      items: { orderBy: { id: "asc" }, select: { id: true, nameTHSnapshot: true, nameENSnapshot: true, price: true } },
+    },
+  });
 }

@@ -135,7 +135,7 @@
     "platform": "Platform",
     "platformHint": "For example Etsy, Shopee, YouTube, a publisher",
     "artwork": "Finished artwork",
-    "artworkHint": "JPG, PNG or WEBP up to 5 MB. Only the store can see it.",
+    "artworkHint": "JPG, PNG or WEBP up to 5 MB. Only the store can see it. You can attach it later, within 30 days of sending the request.",
     "artworkChoose": "Choose artwork image",
     "artworkChange": "Change image",
     "artworkPreview": "Preview of the chosen artwork",
@@ -163,8 +163,18 @@
       "unsupported_type": "Only JPG, PNG or WEBP",
       "too_large": "Files must be 5 MB or smaller",
       "empty": "The file is empty",
-      "signature_mismatch": "This file is not a valid image"
-    }
+      "signature_mismatch": "This file is not a valid image",
+      "EDIT_CLOSED": "This request can no longer be edited (over 30 days, or the store has decided on it)."
+    },
+    "optional": "(optional)",
+    "artworkAttached": "An image is attached. Choose a new one to replace it.",
+    "editTitle": "Edit license request",
+    "editIntro": "Update the details or attach the artwork for {product}",
+    "editLockedHint": "The types of use and the price were locked when you sent the request. To change them, cancel and send a new request.",
+    "editHint": "You can edit until {date}",
+    "editClosed": "This request can no longer be edited (over 30 days, or the store has decided on it).",
+    "save": "Save changes",
+    "saving": "Saving..."
   },
   "rating": {
     "count": "{count, plural, one {# review} other {# reviews}}",
