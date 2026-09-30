@@ -83,21 +83,21 @@ export default async function AdminOrdersPage({ searchParams }: PageProps<"/admi
       ) : (
         <div className="overflow-hidden rounded-2xl border bg-card shadow-soft">
           <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>คำสั่งซื้อ</TableHead>
-                <TableHead>ผู้ซื้อ</TableHead>
+            <TableHeader className="bg-muted/50">
+              <TableRow className="hover:bg-transparent [&>th]:h-11 [&>th]:text-xs [&>th]:font-medium [&>th]:text-muted-foreground">
+                <TableHead className="w-48 pl-4">คำสั่งซื้อ</TableHead>
+                <TableHead className="w-56">ผู้ซื้อ</TableHead>
                 <TableHead className="hidden md:table-cell">สินค้า</TableHead>
-                <TableHead className="text-right">ยอดรวม</TableHead>
-                <TableHead>สถานะ</TableHead>
+                <TableHead className="w-28 pr-6 text-right">ยอดรวม</TableHead>
+                <TableHead className="w-32 pr-4">สถานะ</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.map((o) => {
                 const lines = orderLines(o);
                 return (
-                  <TableRow key={o.id}>
-                    <TableCell className="whitespace-nowrap">
+                  <TableRow key={o.id} className="hover:bg-muted/40">
+                    <TableCell className="pl-4 whitespace-nowrap">
                       <p className="font-medium tabular-nums">{o.orderNumber}</p>
                       <p className="text-xs text-muted-foreground">{formatBangkokDateTime(o.createdAt)}</p>
                     </TableCell>
@@ -105,15 +105,22 @@ export default async function AdminOrdersPage({ searchParams }: PageProps<"/admi
                       <p className="truncate">{o.user.displayName ?? "—"}</p>
                       <p className="truncate text-xs text-muted-foreground">{o.user.email}</p>
                     </TableCell>
-                    <TableCell className="hidden max-w-72 md:table-cell">
-                      <p className="truncate">{lines[0]?.name ?? "—"}</p>
+                    <TableCell className="hidden max-w-0 md:table-cell">
+                      <p className="flex items-center gap-1.5">
+                        {o.kind === "LICENSE" && (
+                          <Badge className="shrink-0 bg-secondary text-secondary-foreground">License</Badge>
+                        )}
+                        <span className="truncate" title={lines[0]?.name}>
+                          {lines[0]?.name ?? "—"}
+                        </span>
+                      </p>
                       {lines.length > 1 && <p className="text-xs text-muted-foreground">และอีก {lines.length - 1} รายการ</p>}
                     </TableCell>
-                    <TableCell className="text-right whitespace-nowrap tabular-nums">
+                    <TableCell className="pr-6 text-right font-medium whitespace-nowrap tabular-nums">
                       {formatTHB(toHundredths(o.total))}
                     </TableCell>
-                    <TableCell>
-                      <Badge className={cn(ORDER_STATUS_STYLES[o.status])}>{ORDER_STATUS_LABEL_TH[o.status]}</Badge>
+                    <TableCell className="pr-4">
+                      <Badge className={cn("whitespace-nowrap", ORDER_STATUS_STYLES[o.status])}>{ORDER_STATUS_LABEL_TH[o.status]}</Badge>
                     </TableCell>
                   </TableRow>
                 );

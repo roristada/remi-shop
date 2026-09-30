@@ -55,28 +55,33 @@ export function CategoryManager({ categories }: { categories: ManagedCategory[] 
       ) : (
         <div className="overflow-hidden rounded-2xl border bg-card shadow-soft">
           <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-16">ลำดับ</TableHead>
+            <TableHeader className="bg-muted/50">
+              <TableRow className="hover:bg-transparent [&>th]:h-11 [&>th]:text-xs [&>th]:font-medium [&>th]:text-muted-foreground">
+                <TableHead className="w-16 pl-4">ลำดับ</TableHead>
                 <TableHead>ชื่อ</TableHead>
-                <TableHead className="hidden sm:table-cell">Slug</TableHead>
-                <TableHead className="text-right">สินค้า</TableHead>
-                <TableHead>สถานะ</TableHead>
-                <TableHead>
+                <TableHead className="hidden w-36 sm:table-cell">Slug</TableHead>
+                <TableHead className="w-20 pr-6 text-right">สินค้า</TableHead>
+                <TableHead className="w-24">สถานะ</TableHead>
+                <TableHead className="w-24 pr-4">
                   <span className="sr-only">จัดการ</span>
                 </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {categories.map((c) => (
-                <TableRow key={c.id}>
-                  <TableCell>{c.sortOrder}</TableCell>
-                  <TableCell>
-                    <p className="font-medium">{c.nameTH}</p>
-                    <p className="text-xs text-muted-foreground">{c.nameEN}</p>
+                <TableRow key={c.id} className="hover:bg-muted/40">
+                  <TableCell className="pl-4 text-muted-foreground tabular-nums">{c.sortOrder}</TableCell>
+                  <TableCell className="max-w-0">
+                    <p className="font-medium">
+                      {c.nameTH} <span className="font-normal text-muted-foreground">· {c.nameEN}</span>
+                    </p>
+                    {/* The description is shown on the shop's category page; a preview helps spot empty ones. */}
+                    <p className="truncate text-xs text-muted-foreground" title={c.descriptionTH || undefined}>
+                      {c.descriptionTH || <span className="italic">ยังไม่มีคำอธิบาย</span>}
+                    </p>
                   </TableCell>
-                  <TableCell className="hidden font-mono text-xs sm:table-cell">{c.slug}</TableCell>
-                  <TableCell className="text-right">{c.productCount}</TableCell>
+                  <TableCell className="hidden font-mono text-xs text-muted-foreground sm:table-cell">{c.slug}</TableCell>
+                  <TableCell className="pr-6 text-right font-medium tabular-nums">{c.productCount}</TableCell>
                   <TableCell>
                     {c.status === "ACTIVE" ? (
                       <Badge className="bg-success/10 text-success">แสดง</Badge>
@@ -84,8 +89,8 @@ export function CategoryManager({ categories }: { categories: ManagedCategory[] 
                       <Badge className="bg-muted text-muted-foreground">ซ่อน</Badge>
                     )}
                   </TableCell>
-                  <TableCell>
-                    <div className="flex justify-end gap-1">
+                  <TableCell className="pr-4">
+                    <div className="flex justify-end gap-0.5">
                       <CategoryDialog
                         title={`แก้ไข ${c.nameTH}`}
                         category={c}
@@ -95,10 +100,26 @@ export function CategoryManager({ categories }: { categories: ManagedCategory[] 
                           </Button>
                         }
                       />
-                      {c.productCount === 0 && (
+                      {c.productCount > 0 ? (
+                        // Kept visible (disabled) so every row's buttons line up and the reason is discoverable.
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          disabled
+                          aria-label={`ลบ ${c.nameTH} ไม่ได้ เพราะมีสินค้า`}
+                          title="มีสินค้าในหมวดนี้ ลบไม่ได้ — ใช้ “ซ่อน” แทน"
+                        >
+                          <Trash2 />
+                        </Button>
+                      ) : (
                         <ConfirmDialog
                           trigger={
-                            <Button size="icon-sm" variant="ghost" aria-label={`ลบ ${c.nameTH}`}>
+                            <Button
+                              size="icon-sm"
+                              variant="ghost"
+                              className="text-destructive hover:text-destructive"
+                              aria-label={`ลบ ${c.nameTH}`}
+                            >
                               <Trash2 />
                             </Button>
                           }
