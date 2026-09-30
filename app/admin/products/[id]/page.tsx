@@ -80,6 +80,15 @@ export default async function EditProductPage({ params, searchParams }: PageProp
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       {sp.created && <FlashToast message="สร้างสินค้าแล้ว — เพิ่มรูปและเวอร์ชันต่อได้เลย" />}
+      {sp.duplicated && (
+        <FlashToast
+          message={
+            sp.imageCopyFailed
+              ? "ทำสำเนาแล้ว แต่คัดลอกรูปบางรูปไม่สำเร็จ — เพิ่มเวอร์ชันและไฟล์ก่อนเผยแพร่"
+              : "ทำสำเนาแล้ว (ฉบับร่าง) — เพิ่มเวอร์ชันและไฟล์ก่อนเผยแพร่"
+          }
+        />
+      )}
       <Link href="/admin/products" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ChevronLeft className="size-4" aria-hidden /> สินค้าทั้งหมด
       </Link>

@@ -153,3 +153,6 @@ export const folderSchema = z.object({
 
 /** Upper bound for one drag-reorder request (folders or products in a folder). */
 export const MAX_REORDER_ITEMS = 1000;
+
+/** Upper bound for one bulk admin action (a few pages of the product list). */
+export const MAX_BULK_ITEMS = 100;

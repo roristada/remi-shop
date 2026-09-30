@@ -15,7 +15,10 @@ import {
 import { Button } from "@/components/ui/button";
 
 type ConfirmDialogProps = {
-  trigger: ReactNode;
+  /** Omit when opening from elsewhere (e.g. a menu item) via `open` / `onOpenChange`. */
+  trigger?: ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   title: string;
   description: ReactNode;
   confirmLabel?: string;
@@ -27,6 +30,8 @@ type ConfirmDialogProps = {
 
 export function ConfirmDialog({
   trigger,
+  open: controlledOpen,
+  onOpenChange,
   title,
   description,
   confirmLabel = "ยืนยัน",
@@ -34,12 +39,17 @@ export function ConfirmDialog({
   destructive = false,
   onConfirm,
 }: ConfirmDialogProps) {
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const open = controlledOpen ?? uncontrolledOpen;
+  const setOpen = (v: boolean) => {
+    setUncontrolledOpen(v);
+    onOpenChange?.(v);
+  };
 
   return (
     <AlertDialog open={open} onOpenChange={(v) => !pending && setOpen(v)}>
-      <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
+      {trigger && <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>}
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>

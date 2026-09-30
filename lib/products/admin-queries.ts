@@ -49,6 +49,7 @@ export async function listAdminProducts({ q, categoryId, publishStatus, page }: 
         category: { select: { nameTH: true } },
         images: { where: { isPrimary: true }, select: { imagePath: true, altTextTH: true }, take: 1 },
         versions: { where: { isLatest: true }, select: { versionNumber: true }, take: 1 },
+        _count: { select: { orderItems: true } },
       },
     }),
   ]);

@@ -1,6 +1,5 @@
-import Image from "next/image";
 import Link from "next/link";
-import { ImageOff, MonitorCog, Plus, Search } from "lucide-react";
+import { LayoutGrid, List, MonitorCog, Plus, Search } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/guards";
 import { listAdminProducts, listCategoryOptions } from "@/lib/products/admin-queries";
 import { getProductStatus } from "@/lib/products/status";
@@ -10,17 +9,22 @@ import { previewImageUrl } from "@/lib/storage/public-url";
 import { idSchema } from "@/lib/validation/product";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ProductStatusBadge } from "@/components/admin/product-status-badge";
+import { ProductList, type AdminProductRow, type ProductListView } from "@/components/admin/product-list";
 import { Pagination } from "@/components/shared/pagination";
 import { FlashToast } from "@/components/admin/flash-toast";
 import { SelectInput } from "@/components/admin/form-controls";
 import type { PublishStatus } from "@/lib/generated/prisma/enums";
+import { cn } from "@/lib/utils";
 
 const PUBLISH_FILTERS: { value: PublishStatus; label: string }[] = [
   { value: "DRAFT", label: "ฉบับร่าง" },
   { value: "PUBLISHED", label: "เผยแพร่" },
   { value: "DISABLED", label: "ปิดการขาย" },
+];
+
+const VIEWS: { value: ProductListView; label: string; icon: typeof List }[] = [
+  { value: "list", label: "รายการ", icon: List },
+  { value: "grid", label: "การ์ด", icon: LayoutGrid },
 ];
 
 function one(v: string | string[] | undefined) {
@@ -35,6 +39,7 @@ export default async function AdminProductsPage({ searchParams }: PageProps<"/ad
   const q = one(sp.q)?.trim().slice(0, 100) || undefined;
   const categoryId = idSchema.safeParse(one(sp.category)).success ? one(sp.category) : undefined;
   const status = PUBLISH_FILTERS.find((f) => f.value === one(sp.status))?.value;
+  const view: ProductListView = one(sp.view) === "grid" ? "grid" : "list";
   const page = Math.max(1, Math.min(10_000, Number.parseInt(one(sp.page) ?? "1", 10) || 1));
 
   const [{ items, total, pageCount }, categories] = await Promise.all([
@@ -42,7 +47,32 @@ export default async function AdminProductsPage({ searchParams }: PageProps<"/ad
     listCategoryOptions(),
   ]);
   const now = new Date();
-  const params = { q, category: categoryId, status };
+  const params = { q, category: categoryId, status, view: view === "grid" ? view : undefined };
+
+  const rows: AdminProductRow[] = items.map((p) => {
+    const price = calculateProductPrice(p, now);
+    return {
+      id: p.id,
+      nameTH: p.nameTH,
+      nameEN: p.nameEN,
+      versionNumber: p.versions[0]?.versionNumber ?? null,
+      categoryName: p.category.nameTH,
+      imageUrl: p.images[0] ? previewImageUrl(p.images[0].imagePath) : null,
+      price: formatTHB(price.finalPrice),
+      originalPrice: price.isDiscounted ? formatTHB(price.unitPrice) : null,
+      status: getProductStatus(p, now),
+      publishStatus: p.publishStatus,
+      updatedAt: formatBangkokDateTime(p.updatedAt),
+      hasOrders: p._count.orderItems > 0,
+    };
+  });
+
+  const viewHref = (v: ProductListView) => {
+    const qs = new URLSearchParams();
+    for (const [k, val] of Object.entries({ ...params, view: v === "grid" ? v : undefined })) if (val) qs.set(k, val);
+    const str = qs.toString();
+    return str ? `/admin/products?${str}` : "/admin/products";
+  };
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -67,6 +97,7 @@ export default async function AdminProductsPage({ searchParams }: PageProps<"/ad
       </div>
 
       <form className="flex flex-wrap gap-2 rounded-2xl border bg-card p-3 shadow-soft" role="search">
+        {view === "grid" && <input type="hidden" name="view" value="grid" />}
         <label className="relative min-w-48 flex-1">
           <span className="sr-only">ค้นหา</span>
           <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
@@ -92,6 +123,21 @@ export default async function AdminProductsPage({ searchParams }: PageProps<"/ad
         <Button type="submit" variant="secondary" className="h-10 rounded-xl px-4">
           กรอง
         </Button>
+        <nav aria-label="มุมมอง" className="ml-auto flex rounded-xl border p-0.5">
+          {VIEWS.map(({ value, label, icon: Icon }) => (
+            <Link
+              key={value}
+              href={viewHref(value)}
+              aria-current={view === value ? "page" : undefined}
+              className={cn(
+                "inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm text-muted-foreground hover:text-foreground",
+                view === value && "bg-secondary font-medium text-foreground",
+              )}
+            >
+              <Icon className="size-4" aria-hidden /> {label}
+            </Link>
+          ))}
+        </nav>
       </form>
 
       {items.length === 0 ? (
@@ -102,63 +148,7 @@ export default async function AdminProductsPage({ searchParams }: PageProps<"/ad
           </p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border bg-card shadow-soft">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-16">
-                  <span className="sr-only">รูป</span>
-                </TableHead>
-                <TableHead>สินค้า</TableHead>
-                <TableHead className="hidden md:table-cell">หมวดหมู่</TableHead>
-                <TableHead className="text-right">ราคา</TableHead>
-                <TableHead>สถานะ</TableHead>
-                <TableHead className="hidden lg:table-cell">แก้ไขล่าสุด</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((p) => {
-                const price = calculateProductPrice(p, now);
-                const image = p.images[0];
-                return (
-                  <TableRow key={p.id}>
-                    <TableCell>
-                      <div className="relative size-12 overflow-hidden rounded-lg bg-muted">
-                        {image ? (
-                          <Image src={previewImageUrl(image.imagePath)} alt="" fill sizes="48px" className="object-cover" />
-                        ) : (
-                          <ImageOff className="absolute inset-0 m-auto size-4 text-muted-foreground" aria-hidden />
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="max-w-72">
-                      <Link href={`/admin/products/${p.id}`} className="font-medium hover:underline">
-                        {p.nameTH}
-                      </Link>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {p.nameEN}
-                        {p.versions[0] ? ` · v${p.versions[0].versionNumber}` : " · ยังไม่มีเวอร์ชัน"}
-                      </p>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">{p.category.nameTH}</TableCell>
-                    <TableCell className="text-right whitespace-nowrap">
-                      {price.isDiscounted && (
-                        <span className="mr-1 text-xs text-muted-foreground line-through">{formatTHB(price.unitPrice)}</span>
-                      )}
-                      {formatTHB(price.finalPrice)}
-                    </TableCell>
-                    <TableCell>
-                      <ProductStatusBadge status={getProductStatus(p, now)} />
-                    </TableCell>
-                    <TableCell className="hidden text-xs text-muted-foreground lg:table-cell">
-                      {formatBangkokDateTime(p.updatedAt)}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
+        <ProductList rows={rows} view={view} />
       )}
 
       <Pagination page={page} pageCount={pageCount} params={params} basePath="/admin/products" />
