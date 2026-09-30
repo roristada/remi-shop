@@ -4,23 +4,41 @@ import { hasShopFilters, parseShopFilters, schemaAvailability, shopFilterParams,
 import { localized } from "../../i18n/localize";
 
 test("parseShopFilters defaults", () => {
-  assert.deepEqual(parseShopFilters({}), { q: undefined, category: undefined, folder: undefined, sort: "newest", sale: false, page: 1 });
+  assert.deepEqual(parseShopFilters({}), { q: undefined, category: [], folder: undefined, software: [], price: undefined, sort: "newest", sale: false, page: 1 });
 });
 
 test("parseShopFilters accepts valid values", () => {
-  const f = parseShopFilters({ q: "  brush ", category: "Brushes", sort: "price-asc", sale: "1", page: "3" });
-  assert.deepEqual(f, { q: "brush", category: "brushes", folder: undefined, sort: "price-asc", sale: true, page: 3 });
+  const f = parseShopFilters({
+    q: "  brush ",
+    category: ["Brushes", "fonts", "brushes"],
+    price: "100-300",
+    sort: "price-asc",
+    sale: "1",
+    page: "3",
+  });
+  assert.deepEqual(f, {
+    q: "brush",
+    category: ["brushes", "fonts"],
+    folder: undefined,
+    software: [],
+    price: "100-300",
+    sort: "price-asc",
+    sale: true,
+    page: 3,
+  });
 });
 
 test("parseShopFilters rejects invalid values", () => {
   const f = parseShopFilters({
     q: ["a", "b"],
     category: "../etc",
+    software: "not-a-uuid",
+    price: "cheap",
     sort: "price; drop",
     sale: "true",
     page: "-5",
   });
-  assert.deepEqual(f, { q: undefined, category: undefined, folder: undefined, sort: "newest", sale: false, page: 1 });
+  assert.deepEqual(f, { q: undefined, category: [], folder: undefined, software: [], price: undefined, sort: "newest", sale: false, page: 1 });
   assert.equal(parseShopFilters({ page: "999999" }).page, 10_000);
   assert.equal(parseShopFilters({ page: "abc" }).page, 1);
   assert.equal(parseShopFilters({ q: "x".repeat(300) }).q?.length, 100);
@@ -28,20 +46,10 @@ test("parseShopFilters rejects invalid values", () => {
 });
 
 test("shopFilterParams omits defaults", () => {
-  assert.deepEqual(shopFilterParams(parseShopFilters({})), {
-    q: undefined,
-    category: undefined,
-    folder: undefined,
-    sort: undefined,
-    sale: undefined,
-  });
-  assert.deepEqual(shopFilterParams(parseShopFilters({ sort: "name", sale: "1" })), {
-    q: undefined,
-    category: undefined,
-    folder: undefined,
-    sort: "name",
-    sale: "1",
-  });
+  const none = { q: undefined, category: undefined, folder: undefined, software: undefined, price: undefined };
+  assert.deepEqual(shopFilterParams(parseShopFilters({})), { ...none, sort: undefined, sale: undefined });
+  assert.deepEqual(shopFilterParams(parseShopFilters({ sort: "name", sale: "1" })), { ...none, sort: "name", sale: "1" });
+  assert.deepEqual(shopFilterParams(parseShopFilters({ category: "fonts" })).category, ["fonts"]);
 });
 
 test("shopOrderBy sorts by the locale's name", () => {
