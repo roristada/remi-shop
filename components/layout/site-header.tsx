@@ -1,9 +1,9 @@
+import Image from "next/image";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Search, User } from "lucide-react";
 import { Link, getPathname } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { BunnyMark } from "@/components/shared/bunny-mark";
 import { LanguageSwitcher } from "./language-switcher";
 import { MobileNav } from "./mobile-nav";
 import { HeaderCartButton } from "@/components/cart/header-cart-button";
@@ -19,7 +19,8 @@ export async function SiteHeader() {
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-2 px-4">
         <MobileNav />
         <Link href="/" className="mr-2 flex shrink-0 items-center gap-2 font-bold tracking-tight whitespace-nowrap">
-          <BunnyMark className="size-8 text-logo-pink" />
+          {/* Decorative: the wordmark beside it names the link. */}
+          <Image src="/brand/remi-mark.png" alt="" width={44} height={44} priority className="size-11" />
           <span className="font-heading text-lg">{t("brand")}</span>
         </Link>
 

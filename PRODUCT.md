@@ -36,7 +36,7 @@ Core flow: Home → Shop (by folder or full grid with filters) → Product detai
 ## Brand Commitments
 
 - Name: **Remi Shop** (not "Aellly", which only ever existed in a reference mockup).
-- Logo: a simple pink bunny-face mark, supplied as two JPGs (`template/S__5398532_0.jpg`, a face with closed/sleepy eyes; `template/S__5398533_0.jpg`, a blank/faceless variant) — hand-authored as SVG for use on colored surfaces and as the favicon.
+- Logo: an illustrated pastel cat wearing round glasses (`template/445 huabaiwuji (2).png`, transparent PNG supplied by the owner), used in the header and as the favicon set. It replaced the earlier bunny-face mark on 2026-10-01.
 - Existing pink accent `#F5BFD4` (sakura-pink) stays; the logo's own pink (~`#EC3A92`) is a second, more saturated brand pink usable where legible pink is needed (verify contrast before using for text).
 - Voice: soft, cute, premium-feeling, never a loud "sale!" marketplace voice; Thai-first phrasing throughout.
 

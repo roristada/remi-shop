@@ -1,6 +1,6 @@
 ---
 name: Remi Shop
-description: Thai-first store for digital-art files (brushes, textures, presets, fonts), styled as a soft swatch board with a bunny mark and a real, honest storefront hero.
+description: Thai-first store for digital-art files (brushes, textures, presets, fonts), styled as a soft swatch board with a cat-with-glasses mark and a real, honest storefront hero.
 colors:
   sakura-pink: "#f5bfd4"
   cherry-ink: "#b0426b"
@@ -114,9 +114,9 @@ components:
 
 **Creative North Star: "The Swatch Board"**
 
-Remi Shop reads like a clean board where an artist pins swatches of their brushes and palettes. The artwork is the loudest thing on every page; the interface is soft paper, quiet type and rounded tiles that hold the work without competing with it. The signature is the home hero's fanned swatch stack: preview tiles tilted like cards pinned to a board, one real preview on top. A small pink bunny — the shop's mark — sits in the header and the favicon; it is a brand touch, not a mascot that appears throughout the UI.
+Remi Shop reads like a clean board where an artist pins swatches of their brushes and palettes. The artwork is the loudest thing on every page; the interface is soft paper, quiet type and rounded tiles that hold the work without competing with it. The signature is the home hero's fanned swatch stack: preview tiles tilted like cards pinned to a board, one real preview on top. A small pastel cat in glasses — the shop's mark — sits in the header and the favicon; it is a brand touch, not a mascot that appears throughout the UI.
 
-The mood is cute and gentle but still premium: pastel pink and powder blue on near-white paper, generous whitespace and friendly rounded Thai type. Cute comes from softness, roundness and small moments (a swatch fanning in, a check mark after copying, the bunny mark), never from clutter, stickers or loud color. Thai is the primary language, so every decision is checked against Thai text first: tone marks, line height and word length.
+The mood is cute and gentle but still premium: pastel pink and powder blue on near-white paper, generous whitespace and friendly rounded Thai type. Cute comes from softness, roundness and small moments (a swatch fanning in, a check mark after copying, the cat mark), never from clutter, stickers or loud color. Thai is the primary language, so every decision is checked against Thai text first: tone marks, line height and word length.
 
 The store is a boutique, single-seller shop, not a dense multi-vendor marketplace: no banner walls, no seller badges, no shouting discount stamps stacked on top of each other. It is allowed exactly one deliberate "hero" moment per page (the home hero panel, the sale/announcement slot) — a bounded, tasteful use of tinted background, not a habit. Not generic corporate SaaS, and not a dark or neon gamer look. V1 is light theme only.
 
@@ -124,7 +124,7 @@ The store is a boutique, single-seller shop, not a dense multi-vendor marketplac
 
 **Key Characteristics:**
 - Artwork first: real product previews carry the color; UI surfaces stay pale.
-- Sakura pink is a small-mark accent, powder blue is the surface, graphite is the voice; the bunny's own logo-pink is reserved for the mark itself and large display accents.
+- Sakura pink is a small-mark accent, powder blue is the surface, graphite is the voice; logo-pink is reserved for large display accents and large display accents.
 - Everything rounded: pills for actions and chips, 25–31px corners for tiles and panels.
 - Depth by tone (tinted panels on paper), with one soft shadow for lifted items.
 - Thai-first type: Mitr for titles, Anuphan for reading, an occasional Charmonman script line for warmth; no negative tracking anywhere.
@@ -138,7 +138,7 @@ A pastel pair (pink accent, powder-blue surface) on cool paper, anchored by soft
 ### Primary
 - **Sakura Pink** (sakura-pink): the one brand *fill* accent. Fills primary buttons (add to cart, checkout, search), swatch placeholders and the hero panel's own small highlights. It is too light to carry text or icons on white (1.6:1), so it is only ever a fill with graphite text on it.
 - **Cherry Ink** (cherry-ink): the readable pink. Links ("view all"), the active step in the order stepper, category labels on product pages, checkbox accents, filled star ratings and focus rings (at 80% opacity to stay ≥3:1). Use it whenever pink must be read at body/UI size.
-- **Logo Pink** (logo-pink): the bunny mark's own, more saturated pink (measured contrast: 3.7:1 for white-on-logo-pink, 3.4:1 for logo-pink-on-white/fog — enough for a large mark or ≥24px display text, not enough for body text, buttons or small icons). Reserved for: the bunny mark itself, and the Charmonman script accent line when it needs a color instead of graphite. Never used for button labels, links, small icons or any AA-body-text role — cherry-ink keeps that job.
+- **Logo Pink** (logo-pink): the brand's more saturated pink (from the original logo) (measured contrast: 3.7:1 for white-on-logo-pink, 3.4:1 for logo-pink-on-white/fog — enough for a large mark or ≥24px display text, not enough for body text, buttons or small icons). Reserved for: the bunny mark itself, and the Charmonman script accent line when it needs a color instead of graphite. Never used for button labels, links, small icons or any AA-body-text role — cherry-ink keeps that job.
 
 ### Secondary
 - **Powder Sky** (powder-sky): the working surface. Filter bar, purchase panel, payment panel, cart summary, footer, product image wells and the home hero panel, usually at 40–60% opacity over paper. It groups content without borders.
@@ -230,7 +230,7 @@ Soft, rounded and quietly confident.
 - **Header search:** a real, submittable field (not decoration) — 40px pill, paper-on-blur, submits to `/search?q=`.
 
 ### Navigation
-- **Header:** sticky, translucent paper with blur, 64px tall, the bunny mark plus the Mitr wordmark ("Remi Shop"), a search field, then icon controls. Text links on desktop, a left sheet menu on phones (including the language switch). Icon controls are 44px circles.
+- **Header:** sticky, translucent paper with blur, 64px tall, the cat mark plus the Mitr wordmark ("Remi Shop"), a search field, then icon controls. Text links on desktop, a left sheet menu on phones (including the language switch). Icon controls are 44px circles.
 - **Footer:** powder-sky at 40%, small graphite headings, pencil-gray links.
 
 ### Swatch Stack (signature)
@@ -252,7 +252,7 @@ Three columns ("pay → store checks slip → download") marked by a top rule: g
 
 ## Logo
 
-A simple pink bunny face — two splayed rounded ears over an oval head, two closed "sleepy" eyes cut through to the background color. Hand-authored as SVG (`fill="currentColor"`, eyes as a background-color stroke) so it works in sakura-pink, logo-pink or graphite depending on where it sits; the static favicon (`app/icon.svg`) fixes it to logo-pink with paper-white eyes. It is a wordmark companion, not a mascot: it appears in the header and the favicon only, never scattered through the UI as decoration.
+An illustrated pastel cat mark: white fur with pink inner ears, round glasses, a pink tie and a curled tail, supplied by the owner as a transparent PNG (`template/445 huabaiwuji (2).png`, replacing the earlier hand-drawn bunny SVG on 2026-10-01). It is a full-color illustration, not a single-color glyph, so it is never recolored with `currentColor`: the header shows it at 44px from `public/brand/remi-mark.png` (trimmed, 256px) beside the Mitr wordmark, and the favicon set is generated from the same art (`app/icon.png` 192px, `app/apple-icon.png` 180px on paper, `app/favicon.ico` 32/48px). Its fine detail needs at least ~32px to read, so it is not used as a tiny inline icon. It is a wordmark companion, not a mascot: header and favicon only, never scattered through the UI as decoration.
 
 ## Do's and Don'ts
 
