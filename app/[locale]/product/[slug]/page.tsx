@@ -10,8 +10,10 @@ import { getCurrentUser } from "@/lib/auth/guards";
 import { getPurchaseState } from "@/lib/cart/queries";
 import { calculateProductPrice, fromHundredths } from "@/lib/pricing/calculate";
 import { getProductStatus } from "@/lib/products/status";
+import { isSoldOut } from "@/lib/products/stock";
 import { schemaAvailability } from "@/lib/products/storefront";
 import {
+  getProductStock,
   getShopProduct,
   listRelatedProducts,
   releasedVersions,
@@ -105,7 +107,8 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
     // A license can be requested only while the product is on sale.
     status === "ACTIVE" ? getLicenseOffers(product.id) : Promise.resolve([]),
   ]);
-  const purchaseState = await getPurchaseState(userId, product.id, now);
+  const stock = await getProductStock(product.id, product.stockLimit, now);
+  const purchaseState = await getPurchaseState(userId, product.id, stock, now);
   const wishlisted = userId ? await isWishlisted(userId, product.id) : false;
 
   const details = [
@@ -134,7 +137,7 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
       "@type": "Offer",
       price: fromHundredths(price.finalPrice),
       priceCurrency: "THB",
-      availability: schemaAvailability(status),
+      availability: schemaAvailability(status, isSoldOut(stock)),
       url: `${siteUrl}/${locale}/product/${product.slug}`,
       ...(price.discountEndsAt ? { priceValidUntil: price.discountEndsAt.toISOString().slice(0, 10) } : {}),
     },
@@ -198,6 +201,7 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
             now={now}
             product={{ id: product.id, slug: product.slug }}
             purchaseState={purchaseState}
+            stock={stock}
           />
 
           {details.length > 0 && (

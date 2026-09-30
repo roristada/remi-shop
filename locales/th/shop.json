@@ -55,7 +55,9 @@
     "discount": "ลด {percent}%",
     "comingSoon": "เร็ว ๆ นี้",
     "saleEnded": "สิ้นสุดการขาย",
-    "unavailable": "ไม่เปิดขาย"
+    "unavailable": "ไม่เปิดขาย",
+    "soldOut": "สินค้าหมด",
+    "stock": "เหลือ {left}/{limit}"
   },
   "price": {
     "original": "ราคาปกติ",
@@ -99,7 +101,9 @@
     "latest": "ล่าสุด",
     "released": "เผยแพร่ {date}",
     "noNotes": "ไม่มีบันทึกการเปลี่ยนแปลง",
-    "related": "สินค้าอื่นในหมวดนี้"
+    "related": "สินค้าอื่นในหมวดนี้",
+    "soldOut": "สินค้านี้หมดแล้ว",
+    "stockLeft": "เหลือ {left} จาก {limit} ชิ้น"
   },
   "views": {
     "label": "มุมมอง",

@@ -183,8 +183,8 @@ export function shopOrderBy(sort: ShopSort, locale: string): Prisma.ProductOrder
 }
 
 /** schema.org availability for Product JSON-LD. */
-export function schemaAvailability(status: ProductStatus): string {
-  if (status === "ACTIVE") return "https://schema.org/InStock";
+export function schemaAvailability(status: ProductStatus, soldOut = false): string {
+  if (status === "ACTIVE") return soldOut ? "https://schema.org/SoldOut" : "https://schema.org/InStock";
   if (status === "SCHEDULED") return "https://schema.org/PreOrder";
   return "https://schema.org/Discontinued";
 }

@@ -7,7 +7,7 @@ import { getCurrentUser } from "@/lib/auth/guards";
 import { toLocale } from "@/lib/auth/redirect";
 import { prisma } from "@/lib/prisma/client";
 import { fromHundredths } from "@/lib/pricing/calculate";
-import { CHECKOUT_PRODUCT_SELECT, toCheckoutProduct } from "@/lib/cart/queries";
+import { checkoutProductSelect, toCheckoutProduct } from "@/lib/cart/queries";
 import { cancelExpiredOrders, getOwnership } from "@/lib/orders/ownership";
 import { evaluateLine, generateOrderNumber, orderTotals } from "@/lib/orders/rules";
 import { orderNumberSchema } from "@/lib/orders/validation";
@@ -40,9 +40,17 @@ export async function checkout(localeInput: string, expectedTotal: number): Prom
       await tx.$executeRaw`select pg_advisory_xact_lock(hashtextextended(${user.id}, 0))`;
       await cancelExpiredOrders(user.id, now, tx);
 
+      const cartProductIds = (
+        await tx.cartItem.findMany({ where: { cart: { userId: user.id } }, select: { productId: true } })
+      ).map((i) => i.productId);
+      if (cartProductIds.length === 0) throw new CheckoutError("EMPTY");
+      // Checkouts of the same limited product queue here (id order, so no deadlock), and the
+      // stock count below then sees every order committed before us: the last unit sells once.
+      await tx.$queryRaw`select id from products where id = any(${cartProductIds}::uuid[]) and stock_limit is not null order by id for update`;
+
       const items = await tx.cartItem.findMany({
         where: { cart: { userId: user.id } },
-        select: { product: { select: CHECKOUT_PRODUCT_SELECT } },
+        select: { product: { select: checkoutProductSelect(now) } },
       });
       if (items.length === 0) throw new CheckoutError("EMPTY");
 
@@ -148,7 +156,7 @@ export async function reorderRejectedOrder(orderNumberInput: string, localeInput
   try {
     const productIds = order.items.map((i) => i.productId);
     const [products, ownership] = await Promise.all([
-      prisma.product.findMany({ where: { id: { in: productIds } }, select: CHECKOUT_PRODUCT_SELECT }),
+      prisma.product.findMany({ where: { id: { in: productIds } }, select: checkoutProductSelect(now) }),
       getOwnership(user.id, productIds, now),
     ]);
     const buyable = products.filter((p) => evaluateLine(toCheckoutProduct(p), ownership, now).problem === null);

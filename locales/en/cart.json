@@ -26,7 +26,8 @@
     "EMPTY": "Your cart is empty.",
     "CART_CHANGED": "Some items in your cart can no longer be bought. Remove them before paying.",
     "PRICE_CHANGED": "Prices have changed. Please check the new total.",
-    "ERROR": "Something went wrong. Please try again."
+    "ERROR": "Something went wrong. Please try again.",
+    "SOLD_OUT": "This product is sold out."
   },
   "cart": {
     "title": "Cart",
@@ -45,7 +46,8 @@
     "problem": {
       "UNAVAILABLE": "No longer on sale",
       "OWNED": "You already own this",
-      "IN_ORDER": "In another unfinished order"
+      "IN_ORDER": "In another unfinished order",
+      "SOLD_OUT": "Sold out"
     },
     "problemNotice": "Remove the items that can't be bought to place your order."
   },

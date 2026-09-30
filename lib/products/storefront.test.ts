@@ -51,6 +51,7 @@ test("shopOrderBy sorts by the locale's name", () => {
 
 test("schemaAvailability", () => {
   assert.equal(schemaAvailability("ACTIVE"), "https://schema.org/InStock");
+  assert.equal(schemaAvailability("ACTIVE", true), "https://schema.org/SoldOut");
   assert.equal(schemaAvailability("SCHEDULED"), "https://schema.org/PreOrder");
   assert.equal(schemaAvailability("ENDED"), "https://schema.org/Discontinued");
 });

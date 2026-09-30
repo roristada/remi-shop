@@ -59,6 +59,20 @@ const downloadLimit = z
     return n;
   });
 
+/** Empty = unlimited stock. */
+const stockLimit = z
+  .string()
+  .trim()
+  .transform((v, ctx) => {
+    if (v === "") return null;
+    const n = Number(v);
+    if (!Number.isInteger(n) || n < 0 || n > 100000) {
+      ctx.addIssue({ code: "custom", message: "จำนวนต้องเป็นจำนวนเต็ม 0–100000 หรือเว้นว่าง" });
+      return z.NEVER;
+    }
+    return n;
+  });
+
 export const productSchema = z
   .object({
     slug: slugSchema,
@@ -83,6 +97,7 @@ export const productSchema = z
     requirementsEN: optionalText(2000),
 
     downloadLimit,
+    stockLimit,
 
     seoTitleTH: optionalText(70),
     seoTitleEN: optionalText(70),

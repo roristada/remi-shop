@@ -1,16 +1,21 @@
 import Image from "next/image";
 import { ImageOff } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
+import { Badge } from "@/components/ui/badge";
 import type { ProductCardData } from "@/lib/products/storefront-queries";
 import { ProductPrice } from "./product-price";
 import { DiscountBadge } from "./discount-badge";
 import { ProductStatusTag } from "./product-status-tag";
 import { StarRating } from "./star-rating";
 import { WishlistButton } from "./wishlist-button";
+import { isSoldOut } from "@/lib/products/stock";
 
 /** Gallery-style tile: the preview image is the card; text sits below it without a frame. */
 export function ProductCard({ product, priority = false }: { product: ProductCardData; priority?: boolean }) {
-  const { price } = product;
+  const { price, stock } = product;
+  const t = useTranslations("shop.badge");
+  const soldOut = isSoldOut(stock);
   return (
     <article className="group relative flex w-full flex-col gap-3">
       <div className="relative aspect-square overflow-hidden rounded-2xl bg-secondary/60 ring-1 ring-black/5 ring-inset">
@@ -28,7 +33,12 @@ export function ProductCard({ product, priority = false }: { product: ProductCar
         )}
         <div className="absolute top-2.5 left-2.5 flex flex-wrap gap-1">
           {price.isDiscounted && <DiscountBadge percent={price.discountPercent} />}
-          <ProductStatusTag status={product.status} />
+          <ProductStatusTag status={product.status} soldOut={soldOut} />
+          {stock && !soldOut && product.status === "ACTIVE" && (
+            <Badge className="bg-background/85 text-foreground backdrop-blur-sm">
+              {t("stock", { left: stock.left, limit: stock.limit })}
+            </Badge>
+          )}
         </div>
         {/* Stacks above the card's stretched Link (later in the DOM) so the heart stays clickable. */}
         <div className="absolute top-2 right-2 z-10">

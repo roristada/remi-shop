@@ -5,28 +5,37 @@ import { localized } from "@/i18n/localize";
 import { getOwnership } from "@/lib/orders/ownership";
 import { evaluateLine, orderTotals, type CheckoutLine, type CheckoutProduct } from "@/lib/orders/rules";
 import { previewImageUrl } from "@/lib/storage/public-url";
+import { isSoldOut, stockTakenCountSelect, toStockInfo, type StockInfo } from "@/lib/products/stock";
 
 /** Everything checkout needs to re-price and re-validate a product. Never trust cart contents as-is. */
-export const CHECKOUT_PRODUCT_SELECT = {
-  id: true,
-  slug: true,
-  nameTH: true,
-  nameEN: true,
-  price: true,
-  discountPercent: true,
-  discountStartAt: true,
-  discountEndAt: true,
-  publishStatus: true,
-  saleStartAt: true,
-  saleEndAt: true,
-  category: { select: { status: true } },
-  versions: { where: { isLatest: true }, select: { versionNumber: true }, take: 1 },
-} satisfies Prisma.ProductSelect;
+export function checkoutProductSelect(now: Date) {
+  return {
+    id: true,
+    slug: true,
+    nameTH: true,
+    nameEN: true,
+    price: true,
+    discountPercent: true,
+    discountStartAt: true,
+    discountEndAt: true,
+    publishStatus: true,
+    saleStartAt: true,
+    saleEndAt: true,
+    category: { select: { status: true } },
+    versions: { where: { isLatest: true }, select: { versionNumber: true }, take: 1 },
+    stockLimit: true,
+    _count: { select: stockTakenCountSelect(now) },
+  } satisfies Prisma.ProductSelect;
+}
 
-export type CheckoutProductRow = Prisma.ProductGetPayload<{ select: typeof CHECKOUT_PRODUCT_SELECT }>;
+export type CheckoutProductRow = Prisma.ProductGetPayload<{ select: ReturnType<typeof checkoutProductSelect> }>;
 
 export function toCheckoutProduct(row: CheckoutProductRow): CheckoutProduct {
-  return { ...row, categoryActive: row.category.status === "ACTIVE" };
+  return {
+    ...row,
+    categoryActive: row.category.status === "ACTIVE",
+    stock: toStockInfo(row.stockLimit, row._count.orderItems),
+  };
 }
 
 export type CartLineView = CheckoutLine & {
@@ -36,16 +45,22 @@ export type CartLineView = CheckoutLine & {
 };
 
 /** What the buy button on a product page should offer this visitor. */
-export type PurchaseState = "guest" | "available" | "inCart" | "owned" | "inOrder";
+export type PurchaseState = "guest" | "available" | "inCart" | "owned" | "inOrder" | "soldOut";
 
-export async function getPurchaseState(userId: string | null, productId: string, now: Date): Promise<PurchaseState> {
-  if (!userId) return "guest";
+export async function getPurchaseState(
+  userId: string | null,
+  productId: string,
+  stock: StockInfo,
+  now: Date,
+): Promise<PurchaseState> {
+  if (!userId) return isSoldOut(stock) ? "soldOut" : "guest";
   const [ownership, inCart] = await Promise.all([
     getOwnership(userId, [productId], now),
     prisma.cartItem.count({ where: { productId, cart: { userId } } }),
   ]);
   if (ownership.owned.has(productId)) return "owned";
   if (ownership.inOpenOrder.has(productId)) return "inOrder";
+  if (isSoldOut(stock)) return "soldOut";
   return inCart > 0 ? "inCart" : "available";
 }
 
@@ -57,7 +72,7 @@ export async function getCartView(userId: string, locale: string, now: Date = ne
     select: {
       product: {
         select: {
-          ...CHECKOUT_PRODUCT_SELECT,
+          ...checkoutProductSelect(now),
           images: {
             orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
             take: 1,

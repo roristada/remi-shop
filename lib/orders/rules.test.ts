@@ -21,6 +21,7 @@ const product: CheckoutProduct = {
   saleStartAt: null,
   saleEndAt: null,
   categoryActive: true,
+  stock: null,
 };
 const none: OwnershipContext = { owned: new Set(), inOpenOrder: new Set() };
 
@@ -33,6 +34,14 @@ test("evaluateLine: purchasable", () => {
 test("evaluateLine: owned and open-order products are blocked", () => {
   assert.equal(evaluateLine(product, { owned: new Set(["p1"]), inOpenOrder: new Set() }, now).problem, "OWNED");
   assert.equal(evaluateLine(product, { owned: new Set(), inOpenOrder: new Set(["p1"]) }, now).problem, "IN_ORDER");
+});
+
+test("evaluateLine: sold out only when a limited product has no unit left", () => {
+  assert.equal(evaluateLine({ ...product, stock: { limit: 1, left: 0 } }, none, now).problem, "SOLD_OUT");
+  assert.equal(evaluateLine({ ...product, stock: { limit: 3, left: 1 } }, none, now).problem, null);
+  // A buyer who already owns it sees "owned", not "sold out".
+  const owned = { owned: new Set(["p1"]), inOpenOrder: new Set<string>() };
+  assert.equal(evaluateLine({ ...product, stock: { limit: 1, left: 0 } }, owned, now).problem, "OWNED");
 });
 
 test("evaluateLine: unavailable states", () => {

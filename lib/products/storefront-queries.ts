@@ -5,6 +5,7 @@ import type { Prisma } from "@/lib/generated/prisma/client";
 import { localized } from "@/i18n/localize";
 import { calculateProductPrice, type ProductPrice } from "@/lib/pricing/calculate";
 import { getProductStatus, type ProductStatus } from "@/lib/products/status";
+import { stockTakenCountSelect, stockTakingOrderWhere, toStockInfo, type StockInfo } from "@/lib/products/stock";
 import { previewImageUrl } from "@/lib/storage/public-url";
 import { ratingAverage } from "@/lib/reviews/rules";
 import {
@@ -29,7 +30,7 @@ const NO_USER = "00000000-0000-0000-0000-000000000000";
  * `userId` folds in this viewer's wishlist membership in the same query (the nil-UUID sentinel
  * for guests matches no row, so the shape stays identical either way).
  */
-function cardSelect(userId: string | null) {
+function cardSelect(userId: string | null, now: Date) {
   return {
     id: true,
     slug: true,
@@ -55,6 +56,8 @@ function cardSelect(userId: string | null) {
       select: { imagePath: true, altTextTH: true, altTextEN: true },
     },
     wishlist: { where: { userId: userId ?? NO_USER }, select: { userId: true }, take: 1 },
+    stockLimit: true,
+    _count: { select: stockTakenCountSelect(now) },
   } satisfies Prisma.ProductSelect;
 }
 
@@ -71,6 +74,8 @@ export type ProductCardData = {
   status: ProductStatus;
   wishlisted: boolean;
   rating: { average: number; count: number };
+  /** null = unlimited (no stock shown). */
+  stock: StockInfo;
 };
 
 function toCard(row: CardRow, locale: string, now: Date): ProductCardData {
@@ -89,6 +94,7 @@ function toCard(row: CardRow, locale: string, now: Date): ProductCardData {
     status: getProductStatus(row, now),
     wishlisted: row.wishlist.length > 0,
     rating: { average: ratingAverage(row.ratingSum, row.ratingCount), count: row.ratingCount },
+    stock: toStockInfo(row.stockLimit, row._count.orderItems),
   };
 }
 
@@ -123,7 +129,7 @@ export async function listShopProducts(
       orderBy: shopOrderBy(filters.sort, locale),
       skip: (filters.page - 1) * SHOP_PAGE_SIZE,
       take: SHOP_PAGE_SIZE,
-      select: cardSelect(userId),
+      select: cardSelect(userId, now),
     }),
   ]);
 
@@ -139,7 +145,7 @@ export async function listNewestProducts(locale: string, take = 8, now: Date = n
     where: listedProductWhere(now),
     orderBy: shopOrderBy("newest", locale),
     take,
-    select: cardSelect(userId),
+    select: cardSelect(userId, now),
   });
   return rows.map((r) => toCard(r, locale, now));
 }
@@ -155,7 +161,7 @@ export async function listOnSaleProducts(locale: string, take = 4, now: Date = n
     where: { AND: [listedProductWhere(now), openNowWhere(now), activeDiscountWhere(now)] },
     orderBy: [{ discountPercent: "desc" }, { publishedAt: "desc" }],
     take,
-    select: cardSelect(userId),
+    select: cardSelect(userId, now),
   });
   return rows.map((r) => toCard(r, locale, now));
 }
@@ -171,7 +177,7 @@ export async function listLimitedTimeProducts(
     where: { AND: [listedProductWhere(now), openNowWhere(now), { saleEndAt: { gt: now } }] },
     orderBy: { saleEndAt: "asc" },
     take,
-    select: cardSelect(userId),
+    select: cardSelect(userId, now),
   });
   return rows.map((r) => toCard(r, locale, now));
 }
@@ -192,7 +198,7 @@ export async function listWishlistProducts(userId: string, locale: string, page:
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * WISHLIST_PAGE_SIZE,
       take: WISHLIST_PAGE_SIZE,
-      select: { product: { select: cardSelect(userId) } },
+      select: { product: { select: cardSelect(userId, now) } },
     }),
   ]);
   return {
@@ -214,7 +220,7 @@ export async function listRelatedProducts(
     where: { AND: [listedProductWhere(now), { categoryId, id: { not: excludeId } }] },
     orderBy: shopOrderBy("newest", locale),
     take,
-    select: cardSelect(userId),
+    select: cardSelect(userId, now),
   });
   return rows.map((r) => toCard(r, locale, now));
 }
@@ -325,7 +331,7 @@ export async function listShopFolderSections(
         nameTH: true,
         nameEN: true,
         _count: { select: { products: { where: listed } } },
-        products: { where: listed, orderBy: FOLDER_ORDER, take: FOLDER_SECTION_SIZE, select: cardSelect(userId) },
+        products: { where: listed, orderBy: FOLDER_ORDER, take: FOLDER_SECTION_SIZE, select: cardSelect(userId, now) },
       },
     }),
     prisma.product.count({ where: { AND: [listed, { folderId: null }] } }),
@@ -333,7 +339,7 @@ export async function listShopFolderSections(
       where: { AND: [listed, { folderId: null }] },
       orderBy: shopOrderBy("newest", locale),
       take: FOLDER_SECTION_SIZE,
-      select: cardSelect(userId),
+      select: cardSelect(userId, now),
     }),
   ]);
 
@@ -378,6 +384,7 @@ export const getShopProduct = cache((slug: string) =>
       requirementsTH: true,
       requirementsEN: true,
       downloadLimit: true,
+      stockLimit: true,
       seoTitleTH: true,
       seoTitleEN: true,
       metaDescriptionTH: true,
@@ -431,4 +438,15 @@ export function listSitemapProducts() {
     take: 5000,
     select: { slug: true, updatedAt: true },
   });
+}
+
+/** Units held by open or completed orders (also shown to the admin next to the stock field). */
+export function countStockTaken(productId: string, now: Date): Promise<number> {
+  return prisma.orderItem.count({ where: { productId, order: stockTakingOrderWhere(now) } });
+}
+
+/** Units left for the product page; skips the count for unlimited products. */
+export async function getProductStock(productId: string, stockLimit: number | null, now: Date): Promise<StockInfo> {
+  if (stockLimit === null) return null;
+  return toStockInfo(stockLimit, await countStockTaken(productId, now));
 }

@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma/client";
 import { isUniqueViolation } from "@/lib/prisma/errors";
 import { getOwnership } from "@/lib/orders/ownership";
 import { evaluateLine, type LineProblem } from "@/lib/orders/rules";
-import { CHECKOUT_PRODUCT_SELECT, toCheckoutProduct } from "@/lib/cart/queries";
+import { checkoutProductSelect, toCheckoutProduct } from "@/lib/cart/queries";
 import { idSchema } from "@/lib/validation/product";
 import { localized } from "@/i18n/localize";
 import { previewImageUrl } from "@/lib/storage/public-url";
@@ -39,7 +39,7 @@ export async function addToCart(productId: string, locale: string): Promise<AddT
   const product = await prisma.product.findUnique({
     where: { id: productId },
     select: {
-      ...CHECKOUT_PRODUCT_SELECT,
+      ...checkoutProductSelect(now),
       images: { orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }], take: 1, select: { imagePath: true } },
     },
   });

@@ -41,6 +41,14 @@ export function AddToCartButton({ productId, productSlug, initialState }: Props)
     );
   }
 
+  if (state === "soldOut") {
+    return (
+      <Button size="lg" className={BUTTON} disabled>
+        <ShoppingBag aria-hidden /> {t("errors.SOLD_OUT")}
+      </Button>
+    );
+  }
+
   if (state === "inCart") {
     return (
       <div className="space-y-1.5">
@@ -68,6 +76,7 @@ export function AddToCartButton({ productId, productSlug, initialState }: Props)
       }
       if (result.code === "OWNED") setState("owned");
       else if (result.code === "IN_ORDER") setState("inOrder");
+      else if (result.code === "SOLD_OUT") setState("soldOut");
       toast.error(t(`errors.${result.code}`));
       router.refresh();
     });

@@ -29,6 +29,7 @@ export type ProductFormValues = {
   requirementsEN: string;
   downloadLimitMode: "unlimited" | "5" | "10" | "custom";
   downloadLimitCustom: string;
+  stockLimit: string;
   seoTitleTH: string;
   seoTitleEN: string;
   metaDescriptionTH: string;
@@ -56,6 +57,7 @@ export const EMPTY_PRODUCT_VALUES: ProductFormValues = {
   requirementsEN: "",
   downloadLimitMode: "unlimited",
   downloadLimitCustom: "",
+  stockLimit: "",
   seoTitleTH: "",
   seoTitleEN: "",
   metaDescriptionTH: "",
@@ -86,12 +88,15 @@ export function ProductForm({
   categories,
   softwareTags,
   submitLabel,
+  stockTaken,
 }: {
   action: Action;
   values: ProductFormValues;
   categories: { id: string; nameTH: string; status: string }[];
   softwareTags: { id: string; name: string; isActive: boolean }[];
   submitLabel: string;
+  /** Units held by open or completed orders; edit page only. */
+  stockTaken?: number;
 }) {
   const [state, setState] = useState<ActionResult<unknown> | null>(null);
   const [pending, startTransition] = useTransition();
@@ -223,6 +228,26 @@ export function ProductForm({
           <TextInput label="License" name="license" placeholder="เช่น Personal & Commercial Use" defaultValue={values.license} error={err("license")} />
           <TextArea label="ความต้องการของระบบ (ไทย)" name="requirementsTH" rows={3} defaultValue={values.requirementsTH} error={err("requirementsTH")} />
           <TextArea label="ความต้องการของระบบ (English)" name="requirementsEN" rows={3} defaultValue={values.requirementsEN} error={err("requirementsEN")} />
+        </div>
+      </FormSection>
+
+      <FormSection title="สต็อกสินค้า" description="เว้นว่าง = ไม่จำกัด ถ้ากำหนดไว้ หน้าร้านจะแสดงจำนวนที่เหลือ และปิดการขายเมื่อหมด">
+        <div className="grid gap-4 md:grid-cols-2">
+          <TextInput
+            label="จำนวนสต็อก"
+            name="stockLimit"
+            type="number"
+            min={0}
+            max={100000}
+            placeholder="ไม่จำกัด"
+            defaultValue={values.stockLimit}
+            error={err("stockLimit")}
+            hint={
+              stockTaken !== undefined
+                ? `ขายแล้วหรือจองในคำสั่งซื้อที่รอชำระ/รอตรวจ ${stockTaken} ชิ้น (คำสั่งซื้อที่หมดเวลา ยกเลิก หรือถูกปฏิเสธ จะคืนสต็อกอัตโนมัติ)`
+                : undefined
+            }
+          />
         </div>
       </FormSection>
 

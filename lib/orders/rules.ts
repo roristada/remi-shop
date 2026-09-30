@@ -1,16 +1,19 @@
 import type { OrderKind, OrderStatus } from "@/lib/generated/prisma/enums";
 import { calculateProductPrice, type PriceInput, type ProductPrice } from "@/lib/pricing/calculate";
 import { getProductStatus, type ProductStatusInput } from "@/lib/products/status";
+import { isSoldOut, type StockInfo } from "@/lib/products/stock";
 
 // Pure checkout rules (no DB). Personal purchases are once per customer per product.
 
 /** Why a cart line cannot be bought right now. */
-export type LineProblem = "UNAVAILABLE" | "OWNED" | "IN_ORDER";
+export type LineProblem = "UNAVAILABLE" | "OWNED" | "IN_ORDER" | "SOLD_OUT";
 
 export type CheckoutProduct = PriceInput &
   ProductStatusInput & {
     id: string;
     categoryActive: boolean;
+    /** null = unlimited stock. */
+    stock: StockInfo;
   };
 
 export type OwnershipContext = {
@@ -28,6 +31,7 @@ export function evaluateLine(product: CheckoutProduct, ctx: OwnershipContext, no
   if (ctx.owned.has(product.id)) problem = "OWNED";
   else if (ctx.inOpenOrder.has(product.id)) problem = "IN_ORDER";
   else if (!product.categoryActive || getProductStatus(product, now) !== "ACTIVE") problem = "UNAVAILABLE";
+  else if (isSoldOut(product.stock)) problem = "SOLD_OUT";
   return { productId: product.id, price, problem };
 }
 

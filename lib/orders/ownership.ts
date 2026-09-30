@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma/client";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import type { OwnershipContext } from "@/lib/orders/rules";
+import { stockTakingOrderWhere } from "@/lib/products/stock";
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
@@ -27,16 +28,9 @@ export async function getOwnership(
   const items = await db.orderItem.findMany({
     where: {
       productId: { in: productIds },
-      order: {
-        userId,
-        OR: [
-          // A rejected slip ends the order, so its products are free to order again.
-          { status: { in: ["COMPLETED", "WAITING_REVIEW"] } },
-          { status: "PENDING_PAYMENT", expiresAt: { gt: now } },
-          // A slip was uploaded: the order stays open even past the unpaid deadline.
-          { status: "PENDING_PAYMENT", paymentStatus: { not: null } },
-        ],
-      },
+      // A rejected slip ends the order, so its products are free to order again; a slip that
+      // was uploaded keeps the order open even past the unpaid deadline.
+      order: { userId, ...stockTakingOrderWhere(now) },
     },
     select: { productId: true, order: { select: { status: true } } },
   });

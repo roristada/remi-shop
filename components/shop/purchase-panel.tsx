@@ -7,6 +7,7 @@ import { intlLocale } from "@/i18n/localize";
 import { formatBangkokDateTime } from "@/lib/datetime";
 import type { ProductPrice as Price } from "@/lib/pricing/calculate";
 import type { ProductStatus } from "@/lib/products/status";
+import type { StockInfo } from "@/lib/products/stock";
 import { ProductPrice } from "./product-price";
 import { DiscountBadge } from "./discount-badge";
 import { CountdownTimer } from "./countdown-timer";
@@ -19,14 +20,17 @@ type Props = {
   now: Date;
   product: { id: string; slug: string };
   purchaseState: PurchaseState;
+  stock: StockInfo;
 };
 
 /** Price, sale state and the buy action. Every value here is computed server-side. */
-export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now, product, purchaseState }: Props) {
+export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now, product, purchaseState, stock }: Props) {
   const t = useTranslations("shop.product");
   const tCountdown = useTranslations("shop.countdown");
   const dateLocale = intlLocale(useLocale()).date;
   const purchasable = status === "ACTIVE";
+  // A buyer who owns it (or has it in an open order) still sees that state, not "sold out".
+  const soldOut = purchaseState === "soldOut";
 
   return (
     <div className="space-y-4 rounded-3xl bg-secondary/45 p-5 sm:p-6">
@@ -69,6 +73,14 @@ export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now, prod
           {t("unavailable")}
         </p>
       )}
+      {purchasable && soldOut && (
+        <p role="status" className="rounded-xl bg-muted px-3 py-2 text-sm font-medium">
+          {t("soldOut")}
+        </p>
+      )}
+      {purchasable && !soldOut && stock && (
+        <p className="text-sm font-medium">{t("stockLeft", { left: stock.left, limit: stock.limit })}</p>
+      )}
       {purchasable && saleEndAt && (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
           <CalendarClock className="size-4 shrink-0" aria-hidden />
@@ -76,7 +88,7 @@ export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now, prod
         </p>
       )}
 
-      {purchasable ? (
+      {purchasable && !soldOut ? (
         <AddToCartButton productId={product.id} productSlug={product.slug} initialState={purchaseState} />
       ) : (
         <Button size="lg" className="h-12 w-full rounded-full text-base" disabled>

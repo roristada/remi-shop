@@ -27,6 +27,7 @@ import { FormSection } from "@/components/admin/form-controls";
 import { FlashToast } from "@/components/admin/flash-toast";
 import { LicensePricingEditor } from "@/components/admin/license-pricing-editor";
 import { getProductLicensePricing } from "@/lib/licenses/admin-queries";
+import { countStockTaken } from "@/lib/products/storefront-queries";
 
 function toFormValues(p: AdminProduct): ProductFormValues {
   const limit = p.downloadLimit;
@@ -51,6 +52,7 @@ function toFormValues(p: AdminProduct): ProductFormValues {
     requirementsEN: p.requirementsEN ?? "",
     downloadLimitMode: limit === null ? "unlimited" : limit === 5 ? "5" : limit === 10 ? "10" : "custom",
     downloadLimitCustom: limit !== null && limit !== 5 && limit !== 10 ? String(limit) : "",
+    stockLimit: p.stockLimit === null ? "" : String(p.stockLimit),
     seoTitleTH: p.seoTitleTH ?? "",
     seoTitleEN: p.seoTitleEN ?? "",
     metaDescriptionTH: p.metaDescriptionTH ?? "",
@@ -63,18 +65,19 @@ export default async function EditProductPage({ params, searchParams }: PageProp
   const { id } = await params;
   if (!idSchema.safeParse(id).success) notFound();
 
-  const [product, categories, buyerCount, orderCount, licensePricing, softwareTags] = await Promise.all([
+  const now = new Date();
+  const [product, categories, buyerCount, orderCount, licensePricing, softwareTags, stockTaken] = await Promise.all([
     getAdminProduct(id),
     listCategoryOptions(),
     countProductBuyers(id),
     countProductOrders(id),
     getProductLicensePricing(id),
     listSoftwareTagOptions(),
+    countStockTaken(id, now),
   ]);
   if (!product) notFound();
 
   const sp = await searchParams;
-  const now = new Date();
   const status = getProductStatus(product, now);
   const price = calculateProductPrice(product, now);
 
@@ -135,6 +138,7 @@ export default async function EditProductPage({ params, searchParams }: PageProp
             categories={categories}
             softwareTags={softwareTags}
             submitLabel="บันทึก"
+            stockTaken={stockTaken}
           />
         </TabsContent>
         <TabsContent value="versions">

@@ -55,7 +55,9 @@
     "discount": "{percent}% off",
     "comingSoon": "Coming soon",
     "saleEnded": "Sale ended",
-    "unavailable": "Unavailable"
+    "unavailable": "Unavailable",
+    "soldOut": "Sold out",
+    "stock": "{left}/{limit} left"
   },
   "price": {
     "original": "Regular price",
@@ -99,7 +101,9 @@
     "latest": "Latest",
     "released": "Released {date}",
     "noNotes": "No release notes.",
-    "related": "More in this category"
+    "related": "More in this category",
+    "soldOut": "This product is sold out.",
+    "stockLeft": "{left} of {limit} left"
   },
   "views": {
     "label": "View",

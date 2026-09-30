@@ -176,6 +176,10 @@ model Product {
   /// null = unlimited downloads
   downloadLimit Int? @map("download_limit")
 
+  /// null = unlimited. Units taken are derived from open + completed orders (lib/products/stock.ts),
+  /// so expired, cancelled and rejected orders free their unit without a counter to keep in step.
+  stockLimit Int? @map("stock_limit")
+
   // SEO
   seoTitleTH        String? @map("seo_title_th")
   seoTitleEN        String? @map("seo_title_en")
