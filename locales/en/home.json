@@ -25,5 +25,8 @@
     "fallbackTitle": "Explore everything in the shop",
     "fallbackBody": "Brushes, textures, presets and assets for digital art, updated regularly.",
     "fallbackCta": "Go to shop"
-  }
+  },
+  "onSale": "On sale / special prices",
+  "limitedTime": "Limited time",
+  "limitedTimeHint": "Only available for a limited period"
 }

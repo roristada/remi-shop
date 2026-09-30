@@ -139,6 +139,38 @@ export async function listNewestProducts(locale: string, take = 8, now: Date = n
   return rows.map((r) => toCard(r, locale, now));
 }
 
+/** Selling right now: sale window already open (or not set). `listedProductWhere` excludes ended ones. */
+const openNowWhere = (now: Date): Prisma.ProductWhereInput => ({
+  OR: [{ saleStartAt: null }, { saleStartAt: { lte: now } }],
+});
+
+/** Homepage "on sale" row: an active discount, biggest discount first. Empty when nothing qualifies. */
+export async function listOnSaleProducts(locale: string, take = 4, now: Date = new Date(), userId: string | null = null) {
+  const rows = await prisma.product.findMany({
+    where: { AND: [listedProductWhere(now), openNowWhere(now), activeDiscountWhere(now)] },
+    orderBy: [{ discountPercent: "desc" }, { publishedAt: "desc" }],
+    take,
+    select: cardSelect(userId),
+  });
+  return rows.map((r) => toCard(r, locale, now));
+}
+
+/** Homepage "limited time" row: on sale now with an end date, ending soonest first. */
+export async function listLimitedTimeProducts(
+  locale: string,
+  take = 4,
+  now: Date = new Date(),
+  userId: string | null = null,
+) {
+  const rows = await prisma.product.findMany({
+    where: { AND: [listedProductWhere(now), openNowWhere(now), { saleEndAt: { gt: now } }] },
+    orderBy: { saleEndAt: "asc" },
+    take,
+    select: cardSelect(userId),
+  });
+  return rows.map((r) => toCard(r, locale, now));
+}
+
 export const WISHLIST_PAGE_SIZE = 12;
 
 /**

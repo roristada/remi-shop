@@ -8,7 +8,13 @@ import { ProductGrid } from "@/components/shop/product-grid";
 import { SwatchStack } from "@/components/shop/swatch-stack";
 import { TrustBar } from "@/components/shop/trust-bar";
 import { BannerSlot } from "@/components/shop/banner-slot";
-import { getActiveAnnouncement, listNewestProducts, listShopCategories } from "@/lib/products/storefront-queries";
+import {
+  getActiveAnnouncement,
+  listLimitedTimeProducts,
+  listNewestProducts,
+  listOnSaleProducts,
+  listShopCategories,
+} from "@/lib/products/storefront-queries";
 
 export default async function HomePage({ params }: PageProps<"/[locale]">) {
   const { locale } = await params;
@@ -16,9 +22,11 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
   await connection(); // Prices and sale state depend on the current time.
   const now = new Date();
   const user = await getCurrentUser();
-  const [t, products, categories, announcement] = await Promise.all([
+  const [t, products, onSale, limitedTime, categories, announcement] = await Promise.all([
     getTranslations("home"),
     listNewestProducts(locale, 8, now, user?.id ?? null),
+    listOnSaleProducts(locale, 4, now, user?.id ?? null),
+    listLimitedTimeProducts(locale, 4, now, user?.id ?? null),
     listShopCategories(now),
     getActiveAnnouncement(now),
   ]);
@@ -64,6 +72,33 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
             ))}
           </ul>
         </nav>
+      )}
+
+      {/* These rows exist only while something qualifies, so the page never shows an empty shelf. */}
+      {onSale.length > 0 && (
+        <section aria-labelledby="on-sale" className="mx-auto max-w-6xl space-y-6 px-4 pb-16">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 id="on-sale" className="text-2xl sm:text-3xl">
+              {t("onSale")}
+            </h2>
+            <Link href="/shop?sale=1" className="text-sm font-medium text-brand-strong underline-offset-4 hover:underline">
+              {t("viewAll")}
+            </Link>
+          </div>
+          <ProductGrid products={onSale} priority={false} />
+        </section>
+      )}
+
+      {limitedTime.length > 0 && (
+        <section aria-labelledby="limited-time" className="mx-auto max-w-6xl space-y-6 px-4 pb-16">
+          <div className="space-y-1">
+            <h2 id="limited-time" className="text-2xl sm:text-3xl">
+              {t("limitedTime")}
+            </h2>
+            <p className="text-sm text-muted-foreground">{t("limitedTimeHint")}</p>
+          </div>
+          <ProductGrid products={limitedTime} priority={false} />
+        </section>
       )}
 
       <section aria-labelledby="new-arrivals" className="mx-auto max-w-6xl space-y-6 px-4 pb-20">
