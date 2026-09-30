@@ -41,7 +41,7 @@ export default async function DownloadsPage({ params, searchParams }: PageProps<
       {errorCode && <FormMessage tone="error">{t(`errors.${errorCode}`)}</FormMessage>}
 
       {items.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-3xl bg-secondary/45 px-4 py-16 text-center">
+        <div className="flex flex-col items-center gap-3 rounded-3xl bg-background/80 px-4 py-16 text-center">
           <DownloadIcon className="size-6 text-muted-foreground" aria-hidden />
           <p className="font-medium">{t("empty")}</p>
           <p className="max-w-sm text-sm text-muted-foreground">{t("emptyHint")}</p>

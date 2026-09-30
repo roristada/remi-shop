@@ -83,7 +83,7 @@ export default async function CartPage({ params }: PageProps<"/[locale]/cart">) 
           ))}
         </ul>
 
-        <aside aria-labelledby="summary-heading" className="h-fit space-y-4 rounded-3xl bg-secondary/45 p-5 sm:p-6 lg:sticky lg:top-24">
+        <aside aria-labelledby="summary-heading" className="h-fit space-y-4 rounded-3xl bg-background/80 p-5 sm:p-6 lg:sticky lg:top-24">
           <h2 id="summary-heading" className="text-lg">
             {t("cart.summary")}
           </h2>

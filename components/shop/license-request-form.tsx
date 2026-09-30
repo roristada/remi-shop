@@ -314,7 +314,7 @@ export function LicenseRequestForm({ productId, offers, defaults, edit }: Props)
         <TextAreaField name="note" label={t("note")} defaultValue={values.note} hint={t("noteHint")} maxLength={LICENSE_LIMITS.note} error={errorText("note")} />
       </fieldset>
 
-      <div className="sticky bottom-0 -mx-4 space-y-3 border-t bg-background/95 px-4 py-4 backdrop-blur sm:static sm:mx-0 sm:rounded-3xl sm:border-0 sm:bg-secondary/45 sm:p-6">
+      <div className="sticky bottom-0 -mx-4 space-y-3 border-t bg-background/95 px-4 py-4 backdrop-blur sm:static sm:mx-0 sm:rounded-3xl sm:border-0 sm:bg-background/80 sm:p-6">
         <div className="flex items-baseline justify-between gap-3">
           <span className="font-semibold">{t("total")}</span>
           <span className="text-xl font-semibold tabular-nums" aria-live="polite">

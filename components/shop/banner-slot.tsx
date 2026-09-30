@@ -41,7 +41,7 @@ export async function BannerSlot({ announcement, fallbackProducts }: Props) {
       </div>
     );
     return (
-      <section aria-label={t("label")} className="rounded-3xl bg-secondary/45 p-6 sm:p-8">
+      <section aria-label={t("label")} className="rounded-3xl bg-background/80 p-6 sm:p-8">
         {announcement.link ? (
           <Link href={announcement.link} className="block rounded-2xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
             {content}
@@ -57,7 +57,7 @@ export async function BannerSlot({ announcement, fallbackProducts }: Props) {
   if (images.length === 0) return null;
 
   return (
-    <section aria-label={t("label")} className="rounded-3xl bg-secondary/45 p-6 sm:p-8">
+    <section aria-label={t("label")} className="rounded-3xl bg-background/80 p-6 sm:p-8">
       <div className="flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:gap-8">
         <ul className="grid w-full shrink-0 grid-cols-3 gap-2 sm:w-72">
           {images.map((p) => (

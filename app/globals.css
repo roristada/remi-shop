@@ -160,6 +160,25 @@
 }
 
 @layer utilities {
+  /* Storefront page background: paper white, with a soft sakura-pink glow in the top-left corner
+     and a powder-sky glow in the bottom-right corner of the screen. Fixed to the viewport so both
+     corners show while scrolling (browsers without fixed backgrounds pin them to the page ends).
+     Cards and panels stay paper-white on top. */
+  .bg-page-gradient {
+    background-color: var(--background);
+    background-image:
+      radial-gradient(
+        ellipse 55% 60% at 0% 0%,
+        color-mix(in srgb, var(--primary) 55%, var(--background)) 0%,
+        transparent 100%
+      ),
+      radial-gradient(
+        ellipse 55% 60% at 100% 100%,
+        var(--secondary) 0%,
+        transparent 100%
+      );
+    background-attachment: fixed;
+  }
   .shadow-soft {
     box-shadow: 0 1px 2px rgb(51 51 51 / 0.04), 0 8px 24px -12px rgb(51 51 51 / 0.12);
   }

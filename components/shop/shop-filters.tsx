@@ -38,7 +38,7 @@ export function ShopFilterForm({ filters, action, hiddenFields, clearHref = acti
       action={`/${locale}${action}`}
       role="search"
       aria-label={t("label")}
-      className="flex flex-wrap items-end gap-2 rounded-3xl bg-secondary/45 p-2.5"
+      className="flex flex-wrap items-end gap-2 rounded-3xl bg-background/80 p-2.5"
     >
       {Object.entries(hiddenFields ?? {}).map(([name, value]) =>
         value ? <input key={name} type="hidden" name={name} value={value} /> : null,

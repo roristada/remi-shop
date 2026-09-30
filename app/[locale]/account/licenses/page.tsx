@@ -57,7 +57,7 @@ export default async function AccountLicensesPage({ params, searchParams }: Page
       {sp.updated === "1" && <FormMessage tone="success">{t("updated")}</FormMessage>}
 
       {items.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-3xl bg-secondary/45 px-4 py-16 text-center">
+        <div className="flex flex-col items-center gap-3 rounded-3xl bg-background/80 px-4 py-16 text-center">
           <BriefcaseBusiness className="size-6 text-muted-foreground" aria-hidden />
           <p className="font-medium">{t("empty")}</p>
           <p className="max-w-sm text-sm text-muted-foreground">{t("emptyHint")}</p>

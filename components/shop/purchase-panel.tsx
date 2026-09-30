@@ -41,7 +41,7 @@ export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now, prod
   const showVariantPicker = purchasable && hasVariants;
 
   return (
-    <div className="space-y-4 rounded-3xl bg-secondary/45 p-5 sm:p-6">
+    <div className="space-y-4 rounded-3xl bg-background/80 p-5 sm:p-6">
       {!showVariantPicker && (
         <div className="flex flex-wrap items-center gap-3">
           {hasVariants && <span className="text-sm text-muted-foreground">{t("fromPrice")}</span>}

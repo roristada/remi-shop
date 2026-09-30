@@ -252,7 +252,7 @@ async function RejectedPanel({ order }: { order: CustomerOrder }) {
   const t = await getTranslations("cart.order");
   const rejected = order.payments[0];
   return (
-    <aside aria-labelledby="rejected-heading" className="h-fit space-y-4 rounded-3xl bg-secondary/45 p-5 sm:p-6">
+    <aside aria-labelledby="rejected-heading" className="h-fit space-y-4 rounded-3xl bg-background/80 p-5 sm:p-6">
       <h2 id="rejected-heading" className="text-lg">
         {t("rejectedPanelTitle")}
       </h2>
@@ -278,7 +278,7 @@ async function PaymentPanel({ order, locale, now }: { order: CustomerOrder; loca
   const instructions = settings ? localized(locale, settings.instructionsTH, settings.instructionsEN) : null;
 
   return (
-    <aside aria-labelledby="pay-heading" className="h-fit space-y-4 rounded-3xl bg-secondary/45 p-5 sm:p-6">
+    <aside aria-labelledby="pay-heading" className="h-fit space-y-4 rounded-3xl bg-background/80 p-5 sm:p-6">
       <h2 id="pay-heading" className="text-lg">
         {t("payTitle")}
       </h2>
@@ -415,7 +415,7 @@ async function ReviewPanel({ order, locale }: { order: CustomerOrder; locale: st
   const url = slip ? urls.get(slip.slipPath) : undefined;
 
   return (
-    <aside aria-labelledby="review-heading" className="h-fit space-y-4 rounded-3xl bg-secondary/45 p-5 sm:p-6">
+    <aside aria-labelledby="review-heading" className="h-fit space-y-4 rounded-3xl bg-background/80 p-5 sm:p-6">
       <div className="flex items-start gap-3">
         <Clock3 className="mt-0.5 size-5 shrink-0 text-brand-strong" aria-hidden />
         <div className="space-y-1">

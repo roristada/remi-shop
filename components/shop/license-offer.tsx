@@ -12,7 +12,7 @@ export function LicenseOfferPanel({ offers, productSlug }: { offers: LicenseOffe
   const fmt = intlLocale(locale);
 
   return (
-    <section aria-labelledby="license-heading" className="space-y-3 rounded-3xl bg-secondary/45 p-5 sm:p-6">
+    <section aria-labelledby="license-heading" className="space-y-3 rounded-3xl bg-background/80 p-5 sm:p-6">
       <div className="flex items-start gap-3">
         <BriefcaseBusiness className="mt-0.5 size-5 shrink-0 text-brand-strong" aria-hidden />
         <div className="space-y-1">
