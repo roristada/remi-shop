@@ -17,6 +17,7 @@ import { previewImageUrl } from "@/lib/storage/public-url";
 import { ratingAverage } from "@/lib/reviews/rules";
 import {
   activeDiscountWhere,
+  browsableProductWhere,
   facetBaseWhere,
   listedProductWhere,
   PRICE_BUCKETS,
@@ -124,9 +125,74 @@ function cardPricing(row: CardRow, now: Date): Pick<ProductCardData, "price" | "
     price: cheapest ?? calculateProductPrice(row, now),
     stock: null,
     priceFrom: row.variants.length > 1,
-    variantsSoldOut:
-      row.variants.length > 0 && row.variants.every((v) => isSoldOut(toStockInfo(v.stockLimit, v._count.orderItems))),
+    variantsSoldOut: allVariantsSoldOut(row.variants),
   };
+}
+
+type StockVariant = { stockLimit: number | null; _count: { orderItems: number } };
+
+/** Every active variant is sold out (false when there are none). */
+function allVariantsSoldOut(variants: StockVariant[]): boolean {
+  return variants.length > 0 && variants.every((v) => isSoldOut(toStockInfo(v.stockLimit, v._count.orderItems)));
+}
+
+/**
+ * Sold-out products right now, by the same rule as the card badge. Stock comes from order counts,
+ * which Prisma can't sort or filter on, so this reads only the stock-limited products (a small set).
+ */
+async function soldOutProductIds(now: Date): Promise<string[]> {
+  const rows = await prisma.product.findMany({
+    where: {
+      AND: [
+        browsableProductWhere(),
+        { OR: [{ stockLimit: { not: null } }, { variants: { some: { isActive: true, stockLimit: { not: null } } } }] },
+      ],
+    },
+    select: {
+      id: true,
+      stockLimit: true,
+      _count: { select: { ...stockTakenCountSelect(now), variants: true } },
+      variants: {
+        where: { isActive: true },
+        select: { stockLimit: true, _count: { select: variantStockTakenCountSelect(now) } },
+      },
+    },
+  });
+  return rows
+    .filter((r) =>
+      r._count.variants === 0 ? isSoldOut(toStockInfo(r.stockLimit, r._count.orderItems)) : allVariantsSoldOut(r.variants),
+    )
+    .map((r) => r.id);
+}
+
+/** Buyable now or coming soon. Everything else browsable (closed, ended, sold out) sorts after it. */
+async function buyableWhere(now: Date): Promise<Prisma.ProductWhereInput> {
+  const soldOut = await soldOutProductIds(now);
+  return { AND: [listedProductWhere(now), ...(soldOut.length > 0 ? [{ id: { notIn: soldOut } }] : [])] };
+}
+
+type Tier<T> = { count: () => Promise<number>; find: (skip: number, take: number) => Promise<T[]> };
+
+/**
+ * One page over two tiers, rows matching `buyable` first and then the rest, each in the caller's
+ * own order, so unavailable products always sit at the end of a listing.
+ */
+async function tieredPage<T>(
+  tier: (where: Prisma.ProductWhereInput) => Tier<T>,
+  buyable: Prisma.ProductWhereInput,
+  skip: number,
+  take: number,
+): Promise<{ total: number; rows: T[] }> {
+  const first = tier(buyable);
+  const rest = tier({ NOT: buyable });
+  const [firstTotal, restTotal] = await Promise.all([first.count(), rest.count()]);
+  const fromFirst = Math.max(0, Math.min(take, firstTotal - skip));
+  const fromRest = take - fromFirst;
+  const [a, b] = await Promise.all([
+    fromFirst > 0 ? first.find(skip, fromFirst) : Promise.resolve([]),
+    fromRest > 0 ? rest.find(Math.max(0, skip - firstTotal), fromRest) : Promise.resolve([]),
+  ]);
+  return { total: firstTotal + restTotal, rows: [...a, ...b] };
 }
 
 function toCard(row: CardRow, locale: string, now: Date): ProductCardData {
@@ -156,7 +222,7 @@ export async function listShopProducts(
   now: Date = new Date(),
   userId: string | null = null,
 ) {
-  const and: Prisma.ProductWhereInput[] = [listedProductWhere(now)];
+  const and: Prisma.ProductWhereInput[] = [browsableProductWhere()];
   // A fixed route category (category/folder page) wins over the sidebar's multi-select.
   if (filters.categoryId) {
     and.push({ categoryId: filters.categoryId });
@@ -171,19 +237,21 @@ export async function listShopProducts(
   if (filters.software.length > 0) and.push({ softwareTags: { some: { softwareTagId: { in: filters.software } } } });
   if (filters.price) and.push(priceBucketWhere(filters.price));
   if (filters.q) and.push(shopSearchWhere(filters.q));
-  if (filters.sale) and.push(activeDiscountWhere(now));
-  const where: Prisma.ProductWhereInput = { AND: and };
+  if (filters.sale) and.push(listedProductWhere(now), activeDiscountWhere(now));
+  const orderBy = shopOrderBy(filters.sort, locale);
 
-  const [total, rows] = await prisma.$transaction([
-    prisma.product.count({ where }),
-    prisma.product.findMany({
-      where,
-      orderBy: shopOrderBy(filters.sort, locale),
-      skip: (filters.page - 1) * SHOP_PAGE_SIZE,
-      take: SHOP_PAGE_SIZE,
-      select: cardSelect(userId, now),
-    }),
-  ]);
+  const { total, rows } = await tieredPage(
+    (tier) => {
+      const where: Prisma.ProductWhereInput = { AND: [...and, tier] };
+      return {
+        count: () => prisma.product.count({ where }),
+        find: (skip, take) => prisma.product.findMany({ where, orderBy, skip, take, select: cardSelect(userId, now) }),
+      };
+    },
+    await buyableWhere(now),
+    (filters.page - 1) * SHOP_PAGE_SIZE,
+    SHOP_PAGE_SIZE,
+  );
 
   return {
     items: rows.map((r) => toCard(r, locale, now)),
@@ -270,22 +338,29 @@ export async function listLimitedTimeProducts(
 export const WISHLIST_PAGE_SIZE = 12;
 
 /**
- * A customer's saved products, most recently saved first. A product that's no longer listed
- * (unpublished, hidden category, sale ended) silently drops off — lower stakes than a cart, so no
- * "problem" badge, unlike cart lines.
+ * A customer's saved products, most recently saved first. Closed or ended products stay with their
+ * card badge; one moved back to draft or into a hidden category silently drops off.
  */
 export async function listWishlistProducts(userId: string, locale: string, page: number, now: Date = new Date()) {
-  const where: Prisma.WishlistWhereInput = { userId, product: listedProductWhere(now) };
-  const [total, rows] = await prisma.$transaction([
-    prisma.wishlist.count({ where }),
-    prisma.wishlist.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * WISHLIST_PAGE_SIZE,
-      take: WISHLIST_PAGE_SIZE,
-      select: { product: { select: cardSelect(userId, now) } },
-    }),
-  ]);
+  const { total, rows } = await tieredPage(
+    (tier) => {
+      const where: Prisma.WishlistWhereInput = { userId, product: { AND: [browsableProductWhere(), tier] } };
+      return {
+        count: () => prisma.wishlist.count({ where }),
+        find: (skip, take) =>
+          prisma.wishlist.findMany({
+            where,
+            orderBy: { createdAt: "desc" },
+            skip,
+            take,
+            select: { product: { select: cardSelect(userId, now) } },
+          }),
+      };
+    },
+    await buyableWhere(now),
+    (page - 1) * WISHLIST_PAGE_SIZE,
+    WISHLIST_PAGE_SIZE,
+  );
   return {
     items: rows.map((r) => toCard(r.product, locale, now)),
     total,
@@ -374,9 +449,9 @@ export const getShopFolder = cache((slug: string) =>
 );
 
 /** Active folders that currently list at least one product (chips in the "All" view). */
-export async function listShopFolders(now: Date = new Date()) {
+export async function listShopFolders() {
   const folders = await prisma.folder.findMany({
-    where: { status: "ACTIVE", products: { some: listedProductWhere(now) } },
+    where: { status: "ACTIVE", products: { some: browsableProductWhere() } },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     select: { slug: true, nameTH: true, nameEN: true },
   });
@@ -406,45 +481,54 @@ export async function listShopFolderSections(
   now: Date = new Date(),
   userId: string | null = null,
 ): Promise<FolderSection[]> {
-  const listed = listedProductWhere(now);
-  const [folders, unfiledTotal, unfiled] = await prisma.$transaction([
+  const [folders, buyable] = await Promise.all([
     prisma.folder.findMany({
       where: { status: "ACTIVE" },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-      select: {
-        slug: true,
-        nameTH: true,
-        nameEN: true,
-        _count: { select: { products: { where: listed } } },
-        products: { where: listed, orderBy: FOLDER_ORDER, take: FOLDER_SECTION_SIZE, select: cardSelect(userId, now) },
-      },
+      select: { id: true, slug: true, nameTH: true, nameEN: true },
     }),
-    prisma.product.count({ where: { AND: [listed, { folderId: null }] } }),
-    prisma.product.findMany({
-      where: { AND: [listed, { folderId: null }] },
-      orderBy: shopOrderBy("newest", locale),
-      take: FOLDER_SECTION_SIZE,
-      select: cardSelect(userId, now),
-    }),
+    buyableWhere(now),
   ]);
 
-  const sections: FolderSection[] = folders.map((f) => ({
-    slug: f.slug,
-    name: localized(locale, f.nameTH, f.nameEN),
-    total: f._count.products,
-    items: f.products.map((r) => toCard(r, locale, now)),
-  }));
-  sections.push({ slug: null, name: null, total: unfiledTotal, items: unfiled.map((r) => toCard(r, locale, now)) });
-  return sections.filter((s) => s.total > 0);
+  // First cards of one section, buyable first. One lookup per folder; folders are few (admin-made).
+  const section = (folderId: string | null, orderBy: Prisma.ProductOrderByWithRelationInput[]) =>
+    tieredPage(
+      (tier) => {
+        const where: Prisma.ProductWhereInput = { AND: [browsableProductWhere(), { folderId }, tier] };
+        return {
+          count: () => prisma.product.count({ where }),
+          find: (skip, take) => prisma.product.findMany({ where, orderBy, skip, take, select: cardSelect(userId, now) }),
+        };
+      },
+      buyable,
+      0,
+      FOLDER_SECTION_SIZE,
+    );
+
+  const heads = [
+    ...folders.map((f) => ({ slug: f.slug, name: localized(locale, f.nameTH, f.nameEN), folderId: f.id })),
+    { slug: null, name: null, folderId: null },
+  ];
+  const pages = await Promise.all(
+    heads.map((h) => section(h.folderId, h.folderId ? FOLDER_ORDER : shopOrderBy("newest", locale))),
+  );
+  return heads
+    .map((h, i): FolderSection => ({
+      slug: h.slug,
+      name: h.name,
+      total: pages[i].total,
+      items: pages[i].rows.map((r) => toCard(r, locale, now)),
+    }))
+    .filter((s) => s.total > 0);
 }
 
 /**
- * Published product for the detail page (any sale state, so ended products still resolve).
+ * Published or closed product for the detail page (any sale state, so ended products still resolve).
  * Cached per request so generateMetadata and the page share one query.
  */
 export const getShopProduct = cache((slug: string) =>
   prisma.product.findFirst({
-    where: { slug, publishStatus: "PUBLISHED" },
+    where: { slug, publishStatus: { in: ["PUBLISHED", "DISABLED"] } },
     select: {
       id: true,
       slug: true,

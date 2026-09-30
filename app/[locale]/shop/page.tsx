@@ -83,7 +83,7 @@ export default async function ShopPage({ params, searchParams }: PageProps<"/[lo
   const facetFilters = { q: filters.q, sale: filters.sale };
   const [{ items, total, pageCount }, folders, categories, softwareTags, priceCounts] = await Promise.all([
     listShopProducts({ ...filters, folderId: folder?.id }, locale, now, userId),
-    listShopFolders(now),
+    listShopFolders(),
     listShopCategories(now, facetFilters),
     listActiveSoftwareTags(now, facetFilters),
     listPriceBucketCounts(now, facetFilters),

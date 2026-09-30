@@ -55,7 +55,7 @@
     "discount": "ลด {percent}%",
     "comingSoon": "เร็ว ๆ นี้",
     "saleEnded": "สิ้นสุดการขาย",
-    "unavailable": "ไม่เปิดขาย",
+    "unavailable": "ปิดการขาย",
     "soldOut": "สินค้าหมด",
     "stock": "เหลือ {left}/{limit}",
     "fromPrice": "เริ่มต้น"
@@ -81,7 +81,7 @@
     "opensAt": "เปิดขาย {date}",
     "endsAt": "ขายถึง {date}",
     "saleEnded": "สินค้านี้สิ้นสุดการขายแล้ว",
-    "unavailable": "สินค้านี้ยังไม่เปิดขาย",
+    "unavailable": "สินค้านี้ปิดการขายแล้ว",
     "instantDownload": "ดาวน์โหลดได้หลังชำระเงินได้รับการยืนยัน",
     "lifetimeUpdates": "อัปเดตเวอร์ชันใหม่ฟรีตลอดอายุสินค้า",
     "description": "รายละเอียดสินค้า",

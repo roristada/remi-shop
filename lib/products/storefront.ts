@@ -120,9 +120,21 @@ export function priceBucketWhere(key: PriceBucketKey): Prisma.ProductWhereInput 
 }
 
 /**
- * Products shown in storefront listings: published, in a visible category, and not past
- * their sale end. Scheduled products are listed (as "coming soon"); ended ones are not,
- * but their detail page stays reachable.
+ * Products customers can browse (shop grid, category, search, folders, wishlist): published or
+ * closed by the admin, in a visible category, whatever the sale window. Cards badge the ones
+ * that can't be bought (ended, closed, sold out); purchase rules still reject them server-side.
+ * Drafts are the only way to hide a product completely.
+ */
+export function browsableProductWhere(): Prisma.ProductWhereInput {
+  return {
+    publishStatus: { in: ["PUBLISHED", "DISABLED"] },
+    category: { status: "ACTIVE" },
+  };
+}
+
+/**
+ * Products for promo rows (homepage, related, on-sale filter): published, in a visible category,
+ * and not past their sale end. Scheduled products are included (as "coming soon").
  */
 export function listedProductWhere(now: Date): Prisma.ProductWhereInput {
   return {
@@ -161,9 +173,10 @@ export function shopSearchWhere(q: string): Prisma.ProductWhereInput {
  * groups fast and simple instead of a fully cross-filtered facet engine the catalog size doesn't need yet.
  */
 export function facetBaseWhere(now: Date, filters: { q?: string; sale: boolean }): Prisma.ProductWhereInput {
-  const and: Prisma.ProductWhereInput[] = [listedProductWhere(now)];
+  const and: Prisma.ProductWhereInput[] = [browsableProductWhere()];
   if (filters.q) and.push(shopSearchWhere(filters.q));
-  if (filters.sale) and.push(activeDiscountWhere(now));
+  // "On sale" means buyable at a discount, so closed and ended products drop out.
+  if (filters.sale) and.push(listedProductWhere(now), activeDiscountWhere(now));
   return { AND: and };
 }
 

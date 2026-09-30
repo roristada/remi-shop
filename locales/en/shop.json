@@ -55,7 +55,7 @@
     "discount": "{percent}% off",
     "comingSoon": "Coming soon",
     "saleEnded": "Sale ended",
-    "unavailable": "Unavailable",
+    "unavailable": "Sale closed",
     "soldOut": "Sold out",
     "stock": "{left}/{limit} left",
     "fromPrice": "From"
@@ -81,7 +81,7 @@
     "opensAt": "On sale from {date}",
     "endsAt": "On sale until {date}",
     "saleEnded": "This product is no longer on sale.",
-    "unavailable": "This product is not on sale yet.",
+    "unavailable": "This product is no longer available.",
     "instantDownload": "Download after your payment is confirmed",
     "lifetimeUpdates": "Free updates to every future version",
     "description": "Description",
