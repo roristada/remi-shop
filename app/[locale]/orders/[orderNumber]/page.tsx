@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
-import Image from "next/image";
+import { PreviewImage } from "@/components/shared/preview-image";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Clock3, Download, ExternalLink } from "lucide-react";
@@ -124,7 +124,7 @@ export default async function OrderPage({ params }: PageProps<"/[locale]/orders/
                     <div className="flex items-center gap-3">
                       <div className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-secondary/60">
                         {image && (
-                          <Image
+                          <PreviewImage
                             src={previewImageUrl(image.imagePath)}
                             alt={localized(locale, image.altTextTH, image.altTextEN) || name}
                             fill
@@ -332,7 +332,7 @@ async function PaymentPanel({ order, locale, now }: { order: CustomerOrder; loca
             <PayStep n={1} title={t("stepScan")}>
               <p className="text-sm text-foreground/75">{t("stepScanHint")}</p>
               <div className="relative mx-auto aspect-square w-full max-w-64 overflow-hidden rounded-2xl bg-white">
-                <Image
+                <PreviewImage
                   src={previewImageUrl(settings.qrImagePath)}
                   alt={t("qrAlt")}
                   fill

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Image from "next/image";
+import { PreviewImage } from "@/components/shared/preview-image";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Download, FileArchive, ImageOff, Layers, ShoppingBag } from "lucide-react";
 import { Link } from "@/i18n/navigation";
@@ -45,7 +45,7 @@ function CartItem({ line, locale, t }: { line: CartLineView; locale: string; t: 
         aria-hidden
       >
         {line.image ? (
-          <Image src={line.image.url} alt="" fill sizes="112px" className="object-cover" />
+          <PreviewImage src={line.image.url} alt="" fill sizes="112px" className="object-cover" />
         ) : (
           <ImageOff className="absolute inset-0 m-auto size-5 text-muted-foreground" />
         )}

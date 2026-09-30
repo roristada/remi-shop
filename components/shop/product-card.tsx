@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { PreviewImage } from "@/components/shared/preview-image";
 import { ImageOff } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
@@ -22,7 +22,7 @@ export function ProductCard({ product, priority = false }: { product: ProductCar
     <article className="group relative flex w-full flex-col gap-3 rounded-3xl bg-card p-2 pb-3 shadow-soft ring-1 ring-black/5 transition-shadow duration-300 hover:shadow-md motion-reduce:transition-none">
       <div className="relative aspect-square overflow-hidden rounded-2xl bg-secondary/60">
         {product.image ? (
-          <Image
+          <PreviewImage
             src={product.image.url}
             alt={product.image.alt}
             fill

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
+import { PreviewImage } from "@/components/shared/preview-image";
 import { useTranslations } from "next-intl";
 import { ImageOff } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -27,7 +27,7 @@ export function ProductGallery({ images }: { images: GalleryImage[] }) {
   return (
     <section aria-label={t("gallery")} className="space-y-3">
       <div className="relative aspect-[4/3] overflow-hidden rounded-3xl bg-secondary/50">
-        <Image
+        <PreviewImage
           key={current.id}
           src={current.url}
           alt={current.alt}
@@ -52,7 +52,7 @@ export function ProductGallery({ images }: { images: GalleryImage[] }) {
                   i === active ? "border-brand-strong" : "border-transparent hover:border-border",
                 )}
               >
-                <Image src={img.url} alt="" fill sizes="100px" className="object-cover" />
+                <PreviewImage src={img.url} alt="" fill sizes="100px" className="object-cover" />
               </button>
             </li>
           ))}

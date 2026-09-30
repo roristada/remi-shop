@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, type MouseEvent } from "react";
-import Image from "next/image";
+import { PreviewImage } from "@/components/shared/preview-image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Ban, Copy, Eye, FilePen, ImageOff, Link2, Loader2, MoreHorizontal, Pencil, Trash2, X } from "lucide-react";
@@ -155,7 +155,7 @@ function ProductRow({ row, checked, onCheckedChange }: ItemProps) {
       <TableCell>
         <div className="relative size-12 overflow-hidden rounded-xl bg-muted ring-1 ring-black/5">
           {row.imageUrl ? (
-            <Image src={row.imageUrl} alt="" fill sizes="48px" className="object-cover" />
+            <PreviewImage src={row.imageUrl} alt="" fill sizes="48px" className="object-cover" />
           ) : (
             <ImageOff className="absolute inset-0 m-auto size-4 text-muted-foreground" aria-hidden />
           )}
@@ -206,7 +206,7 @@ function ProductCard({ row, checked, onCheckedChange }: ItemProps) {
     >
       <div className="relative aspect-square bg-muted">
         {row.imageUrl ? (
-          <Image
+          <PreviewImage
             src={row.imageUrl}
             alt=""
             fill

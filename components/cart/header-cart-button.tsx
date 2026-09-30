@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { PreviewImage } from "@/components/shared/preview-image";
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Check, ImageOff, Loader2, ShoppingBag } from "lucide-react";
@@ -214,7 +214,7 @@ function Thumb({ url }: { url: string | null }) {
   return (
     <div className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-secondary/60">
       {url ? (
-        <Image src={url} alt="" fill sizes="56px" className="object-cover" />
+        <PreviewImage src={url} alt="" fill sizes="56px" className="object-cover" />
       ) : (
         <ImageOff className="absolute inset-0 m-auto size-4 text-muted-foreground" aria-hidden />
       )}

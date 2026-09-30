@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { PreviewImage } from "@/components/shared/preview-image";
 import { ImageOff } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
@@ -29,7 +29,7 @@ export async function BannerSlot({ announcement, fallbackProducts }: Props) {
       <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-8">
         <div className="relative aspect-[16/9] w-full shrink-0 overflow-hidden rounded-2xl bg-background sm:w-72">
           {announcement.imagePath ? (
-            <Image src={previewImageUrl(announcement.imagePath)} alt="" fill sizes="288px" className="object-cover" />
+            <PreviewImage src={previewImageUrl(announcement.imagePath)} alt="" fill sizes="288px" className="object-cover" />
           ) : (
             <ImageOff className="absolute inset-0 m-auto size-6 text-muted-foreground" aria-hidden />
           )}
@@ -63,7 +63,7 @@ export async function BannerSlot({ announcement, fallbackProducts }: Props) {
           {images.map((p) => (
             <li key={p.id} className="relative aspect-square overflow-hidden rounded-xl bg-background">
               {/* Decorative collage; the product name is already stated in the caption below. */}
-              <Image src={p.image!.url} alt="" fill sizes="96px" className="object-cover" />
+              <PreviewImage src={p.image!.url} alt="" fill sizes="96px" className="object-cover" />
             </li>
           ))}
         </ul>

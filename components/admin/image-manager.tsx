@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import Image from "next/image";
+import { PreviewImage } from "@/components/shared/preview-image";
 import { useRouter } from "next/navigation";
 import {
   closestCenter,
@@ -182,7 +182,7 @@ function SortableImageCard({
       )}
     >
       <div className="relative aspect-[4/3] bg-muted">
-        <Image
+        <PreviewImage
           src={image.url}
           alt={`รูปที่ ${index + 1}`}
           fill

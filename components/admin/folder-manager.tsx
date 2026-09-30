@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useMemo, useState, useTransition, type FormEvent, type ReactNode } from "react";
-import Image from "next/image";
+import { PreviewImage } from "@/components/shared/preview-image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -586,7 +586,7 @@ function ProductTile({
     <div className="flex h-full flex-col overflow-hidden rounded-2xl border bg-background">
       <div className="relative aspect-square bg-muted">
         {product.imageUrl ? (
-          <Image
+          <PreviewImage
             src={product.imageUrl}
             alt=""
             fill
@@ -703,7 +703,7 @@ function AddProductsDialog({ folder, allProducts }: { folder: ManagedFolder; all
                     className="size-4 accent-brand-strong"
                   />
                   <span className="relative size-10 shrink-0 overflow-hidden rounded-lg bg-muted">
-                    {p.imageUrl && <Image src={p.imageUrl} alt="" fill sizes="40px" className="object-cover" />}
+                    {p.imageUrl && <PreviewImage src={p.imageUrl} alt="" fill sizes="40px" className="object-cover" />}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium">{p.name}</span>

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Image from "next/image";
+import { PreviewImage } from "@/components/shared/preview-image";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Download as DownloadIcon } from "lucide-react";
 import { Link } from "@/i18n/navigation";
@@ -65,7 +65,7 @@ function OwnedProductCard({ product: p, locale }: { product: OwnedProduct; local
       <div className="flex items-center gap-3">
         <div className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-secondary/60">
           {p.image ? (
-            <Image
+            <PreviewImage
               src={previewImageUrl(p.image.imagePath)}
               alt={localized(locale, p.image.altTextTH, p.image.altTextEN) || name}
               fill

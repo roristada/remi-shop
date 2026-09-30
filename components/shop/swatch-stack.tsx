@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { PreviewImage } from "@/components/shared/preview-image";
 import { Link } from "@/i18n/navigation";
 import type { ProductCardData } from "@/lib/products/storefront-queries";
 
@@ -50,7 +50,7 @@ export function SwatchStack({ products, caption }: { products: ProductCardData[]
             className={`${tile} transition-transform duration-300 hover:-translate-y-1 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none motion-reduce:transition-none`}
             style={delay}
           >
-            <Image
+            <PreviewImage
               src={p.image.url}
               alt={p.name}
               fill
