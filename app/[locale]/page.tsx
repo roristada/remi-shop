@@ -13,6 +13,8 @@ import {
   listLimitedTimeProducts,
   listNewestProducts,
   listOnSaleProducts,
+  listTrendingProducts,
+  TRENDING_WINDOW_DAYS,
   listShopCategories,
 } from "@/lib/products/storefront-queries";
 
@@ -22,9 +24,10 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
   await connection(); // Prices and sale state depend on the current time.
   const now = new Date();
   const user = await getCurrentUser();
-  const [t, products, onSale, limitedTime, categories, announcement] = await Promise.all([
+  const [t, products, trending, onSale, limitedTime, categories, announcement] = await Promise.all([
     getTranslations("home"),
     listNewestProducts(locale, 8, now, user?.id ?? null),
+    listTrendingProducts(locale, 4, now, user?.id ?? null),
     listOnSaleProducts(locale, 4, now, user?.id ?? null),
     listLimitedTimeProducts(locale, 4, now, user?.id ?? null),
     listShopCategories(now),
@@ -86,6 +89,18 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
             </Link>
           </div>
           <ProductGrid products={onSale} priority={false} />
+        </section>
+      )}
+
+      {trending.length > 0 && (
+        <section aria-labelledby="trending" className="mx-auto max-w-6xl space-y-6 px-4 pb-16">
+          <div className="space-y-1">
+            <h2 id="trending" className="text-2xl sm:text-3xl">
+              {t("trending")}
+            </h2>
+            <p className="text-sm text-muted-foreground">{t("trendingHint", { days: TRENDING_WINDOW_DAYS })}</p>
+          </div>
+          <ProductGrid products={trending} priority={false} />
         </section>
       )}
 

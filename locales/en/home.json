@@ -28,5 +28,7 @@
   },
   "onSale": "On sale / special prices",
   "limitedTime": "Limited time",
-  "limitedTimeHint": "Only available for a limited period"
+  "limitedTimeHint": "Only available for a limited period",
+  "trending": "Trending",
+  "trendingHint": "Best sellers in the last {days} days"
 }

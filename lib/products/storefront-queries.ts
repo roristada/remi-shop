@@ -218,6 +218,39 @@ export async function listOnSaleProducts(locale: string, take = 4, now: Date = n
   return rows.map((r) => toCard(r, locale, now));
 }
 
+/** How far back "trending" looks at paid orders. */
+export const TRENDING_WINDOW_DAYS = 30;
+
+/**
+ * Homepage "trending" row: products with the most paid orders in the last TRENDING_WINDOW_DAYS,
+ * among those buyable right now. Counts order lines, so two variants in one order count twice.
+ * Empty when nothing sold in the window.
+ */
+export async function listTrendingProducts(locale: string, take = 4, now: Date = new Date(), userId: string | null = null) {
+  const since = new Date(now.getTime() - TRENDING_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+  const top = await prisma.orderItem.groupBy({
+    by: ["productId"],
+    where: {
+      order: { status: "COMPLETED", kind: "PRODUCT", paidAt: { gte: since } },
+      product: { AND: [listedProductWhere(now), openNowWhere(now)] },
+    },
+    _count: { productId: true },
+    orderBy: [{ _count: { productId: "desc" } }, { productId: "asc" }],
+    take,
+  });
+  if (top.length === 0) return [];
+
+  const rows = await prisma.product.findMany({
+    where: { id: { in: top.map((t) => t.productId) } },
+    select: cardSelect(userId, now),
+  });
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return top.flatMap((t) => {
+    const row = byId.get(t.productId);
+    return row ? [toCard(row, locale, now)] : [];
+  });
+}
+
 /** Homepage "limited time" row: on sale now with an end date, ending soonest first. */
 export async function listLimitedTimeProducts(
   locale: string,
