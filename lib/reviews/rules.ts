@@ -54,3 +54,40 @@ export function reviewerName(displayName: string | null, fallback: string): stri
   const first = displayName?.trim().split(/\s+/)[0];
   return first ? first.slice(0, 20) : fallback;
 }
+
+// ───────────────────────────── Admin filters ─────────────────────────────
+
+export const REVIEW_VISIBILITIES = ["all", "visible", "hidden"] as const;
+export type ReviewVisibility = (typeof REVIEW_VISIBILITIES)[number];
+
+export type AdminReviewFilters = {
+  /** Product name, reviewer name/email or review text. */
+  q?: string;
+  rating?: 1 | 2 | 3 | 4 | 5;
+  visibility: ReviewVisibility;
+  page: number;
+};
+
+type SearchParams = Record<string, string | string[] | undefined>;
+const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
+
+/** Query string → filters. Anything unexpected falls back to "no filter". */
+export function parseAdminReviewFilters(sp: SearchParams): AdminReviewFilters {
+  const q = one(sp.q)?.trim().slice(0, 100) || undefined;
+  const ratingNum = Number(one(sp.rating));
+  const rating = [1, 2, 3, 4, 5].includes(ratingNum) ? (ratingNum as AdminReviewFilters["rating"]) : undefined;
+  // Old links used ?filter=hidden; keep them working.
+  const rawVisibility = one(sp.visibility) ?? (one(sp.filter) === "hidden" ? "hidden" : undefined);
+  const visibility = REVIEW_VISIBILITIES.find((v) => v === rawVisibility) ?? "all";
+  const page = Math.max(1, Math.min(10_000, Number.parseInt(one(sp.page) ?? "1", 10) || 1));
+  return { q, rating, visibility, page };
+}
+
+/** Filters → query params for links (defaults and page omitted). */
+export function adminReviewFilterParams(f: AdminReviewFilters): Record<string, string | undefined> {
+  return {
+    q: f.q,
+    rating: f.rating ? String(f.rating) : undefined,
+    visibility: f.visibility === "all" ? undefined : f.visibility,
+  };
+}

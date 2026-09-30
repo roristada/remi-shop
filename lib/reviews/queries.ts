@@ -1,6 +1,14 @@
 import "server-only";
 import { prisma } from "@/lib/prisma/client";
-import { canReviewOrder, ratingDistribution, REVIEWS_PAGE_SIZE, reviewDeadline, type ReviewEligibility } from "@/lib/reviews/rules";
+import type { Prisma } from "@/lib/generated/prisma/client";
+import {
+  canReviewOrder,
+  ratingDistribution,
+  REVIEWS_PAGE_SIZE,
+  reviewDeadline,
+  type AdminReviewFilters,
+  type ReviewEligibility,
+} from "@/lib/reviews/rules";
 
 /** Rating breakdown for the product page (visible reviews only). */
 export async function getReviewSummary(productId: string) {
@@ -87,8 +95,23 @@ export async function getOrderReviewStates(
 
 const ADMIN_PAGE_SIZE = 20;
 
-export async function listReviewsForAdmin(page: number, hiddenOnly: boolean) {
-  const where = hiddenOnly ? { isHidden: true } : {};
+/** Admin moderation list. Text search is case-insensitive over product, reviewer and review text. */
+export async function listReviewsForAdmin({ q, rating, visibility, page }: AdminReviewFilters) {
+  const where: Prisma.ReviewWhereInput = {
+    ...(visibility === "hidden" ? { isHidden: true } : visibility === "visible" ? { isHidden: false } : {}),
+    ...(rating ? { rating } : {}),
+    ...(q
+      ? {
+          OR: [
+            { body: { contains: q, mode: "insensitive" } },
+            { product: { nameTH: { contains: q, mode: "insensitive" } } },
+            { product: { nameEN: { contains: q, mode: "insensitive" } } },
+            { user: { email: { contains: q, mode: "insensitive" } } },
+            { user: { displayName: { contains: q, mode: "insensitive" } } },
+          ],
+        }
+      : {}),
+  };
   const [total, rows] = await prisma.$transaction([
     prisma.review.count({ where }),
     prisma.review.findMany({

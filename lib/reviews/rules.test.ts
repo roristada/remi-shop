@@ -1,6 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { canReviewOrder, ratingAverage, ratingDistribution, reviewDeadline, reviewerName } from "./rules";
+import {
+  adminReviewFilterParams,
+  canReviewOrder,
+  parseAdminReviewFilters,
+  ratingAverage,
+  ratingDistribution,
+  reviewDeadline,
+  reviewerName,
+} from "./rules";
 
 const paid = new Date("2026-09-10T00:00:00Z");
 const day = 24 * 60 * 60 * 1000;
@@ -46,4 +54,34 @@ test("reviewerName shows a first name only", () => {
   assert.equal(reviewerName("Somchai Jaidee", "Customer"), "Somchai");
   assert.equal(reviewerName(null, "Customer"), "Customer");
   assert.equal(reviewerName("   ", "Customer"), "Customer");
+});
+
+test("parseAdminReviewFilters: defaults and valid values", () => {
+  assert.deepEqual(parseAdminReviewFilters({}), { q: undefined, rating: undefined, visibility: "all", page: 1 });
+  assert.deepEqual(parseAdminReviewFilters({ q: "  brush ", rating: "4", visibility: "visible", page: "2" }), {
+    q: "brush",
+    rating: 4,
+    visibility: "visible",
+    page: 2,
+  });
+});
+
+test("parseAdminReviewFilters: rejects bad values and keeps the old ?filter=hidden link", () => {
+  assert.deepEqual(parseAdminReviewFilters({ rating: "6", visibility: "x", page: "-1" }), {
+    q: undefined,
+    rating: undefined,
+    visibility: "all",
+    page: 1,
+  });
+  assert.equal(parseAdminReviewFilters({ filter: "hidden" }).visibility, "hidden");
+  assert.equal(parseAdminReviewFilters({ q: ["a", "b"] }).q, undefined);
+});
+
+test("adminReviewFilterParams omits defaults", () => {
+  assert.deepEqual(adminReviewFilterParams(parseAdminReviewFilters({})), { q: undefined, rating: undefined, visibility: undefined });
+  assert.deepEqual(adminReviewFilterParams(parseAdminReviewFilters({ rating: "1", visibility: "hidden" })), {
+    q: undefined,
+    rating: "1",
+    visibility: "hidden",
+  });
 });
