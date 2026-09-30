@@ -1,6 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { BUCKETS, MAX_FILE_SIZE, SIGNED_URL_TTL_SECONDS, type BucketName } from "@/lib/storage/buckets";
+import { BUCKETS, maxUploadSize, SIGNED_URL_TTL_SECONDS, type BucketName } from "@/lib/storage/buckets";
 import { sanitizeFileName } from "@/lib/storage/paths";
 import {
   checkFileSignature,
@@ -71,7 +71,7 @@ export async function verifyUploadedObject(
   const size = info.size ?? 0;
   let error: FileTypeError | null = null;
   if (size <= 0) error = "empty";
-  else if (size > MAX_FILE_SIZE) error = "too_large";
+  else if (size > maxUploadSize(bucket)) error = "too_large";
   else {
     const head = await readHead(bucket, path);
     error = head ? checkFileSignature(rules, fileName, head) : "signature_mismatch";

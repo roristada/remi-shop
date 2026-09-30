@@ -478,8 +478,10 @@ Digital product file:
 Maximum:
 
 ```text
-5 MB per file
+50 MB per file
 ```
+
+(Raised from 5 MB by client request in UAT round 1. Payment slips, QR and license artwork stay at 5 MB.)
 
 Allowed file types depend on the product type, but the application must validate:
 
@@ -549,7 +551,7 @@ A product can have:
 Each product file:
 
 ```text
-<= 5 MB
+<= 50 MB
 ```
 
 ---

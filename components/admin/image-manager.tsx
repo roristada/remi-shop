@@ -124,7 +124,7 @@ export function ImageManager({ productId, images }: { productId: string; images:
           {uploading ? `กำลังอัปโหลด ${uploading}` : "เพิ่มรูปภาพ"}
         </Button>
         <p className="text-xs text-muted-foreground">
-          JPG, PNG, WEBP, GIF ไม่เกิน 5 MB ต่อรูป · ลาก <GripVertical className="inline size-3" aria-hidden /> เพื่อเรียงลำดับ ·
+          JPG, PNG, WEBP, GIF ไม่เกิน 50 MB ต่อรูป · ลาก <GripVertical className="inline size-3" aria-hidden /> เพื่อเรียงลำดับ ·
           รูปแรกที่อัปโหลดเป็นรูปหลักอัตโนมัติ
         </p>
       </div>

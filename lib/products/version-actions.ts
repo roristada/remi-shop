@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma/client";
 import { isForeignKeyViolation, isUniqueViolation } from "@/lib/prisma/errors";
 import { fail, formString, invalid, ok, type ActionResult } from "@/lib/actions/result";
 import { idSchema, uploadRequestSchema, versionSchema } from "@/lib/validation/product";
-import { BUCKETS } from "@/lib/storage/buckets";
+import { BUCKETS, MAX_PRODUCT_FILE_SIZE } from "@/lib/storage/buckets";
 import {
   checkFileMeta,
   DIGITAL_FILE_TYPES,
@@ -187,7 +187,7 @@ export async function requestFileUpload(
   const parsed = uploadRequestSchema.safeParse(input);
   if (!parsed.success) return fail("คำขอไม่ถูกต้อง");
 
-  const typeError = checkFileMeta(DIGITAL_FILE_TYPES, parsed.data.fileName, parsed.data.size);
+  const typeError = checkFileMeta(DIGITAL_FILE_TYPES, parsed.data.fileName, parsed.data.size, MAX_PRODUCT_FILE_SIZE);
   if (typeError) return fail(FILE_TYPE_ERROR_TH[typeError]);
 
   const version = await findVersion(versionId);

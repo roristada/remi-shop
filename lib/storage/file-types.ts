@@ -108,10 +108,11 @@ export function checkFileMeta(
   rules: Record<string, FileRule>,
   fileName: string,
   size: number,
+  maxSize: number = MAX_FILE_SIZE,
 ): FileTypeError | null {
   if (!(getExtension(fileName) in rules)) return "unsupported_type";
   if (size <= 0) return "empty";
-  if (size > MAX_FILE_SIZE) return "too_large";
+  if (size > maxSize) return "too_large";
   return null;
 }
 
@@ -145,7 +146,7 @@ export function mimeFor(rules: Record<string, FileRule>, fileName: string): stri
 
 export const FILE_TYPE_ERROR_TH: Record<FileTypeError, string> = {
   unsupported_type: "ไม่รองรับไฟล์ประเภทนี้",
-  too_large: "ไฟล์ต้องมีขนาดไม่เกิน 5 MB",
+  too_large: "ไฟล์ใหญ่เกินขนาดที่กำหนด",
   empty: "ไฟล์ว่างเปล่า",
   signature_mismatch: "เนื้อหาไฟล์ไม่ตรงกับนามสกุล",
 };

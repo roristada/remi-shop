@@ -71,7 +71,7 @@ export function VersionManager({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          ผู้ซื้อได้สิทธิ์ทุกเวอร์ชัน · ไฟล์ละไม่เกิน 5 MB · ต้องมีเวอร์ชันล่าสุดที่มีไฟล์ก่อนเผยแพร่
+          ผู้ซื้อได้สิทธิ์ทุกเวอร์ชัน · ไฟล์ละไม่เกิน 50 MB · ต้องมีเวอร์ชันล่าสุดที่มีไฟล์ก่อนเผยแพร่
         </p>
         <VersionDialog
           title="เพิ่มเวอร์ชัน"
