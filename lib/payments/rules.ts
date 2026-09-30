@@ -1,11 +1,12 @@
-import { isOrderExpired, type OrderStateInput } from "@/lib/orders/rules";
+import { canRetryAfterRejection, isOrderExpired, type OrderStateInput } from "@/lib/orders/rules";
 
 /**
- * A slip can be attached while the order awaits its first payment (before the deadline),
- * or after the previous slip was rejected. Only one slip can be under review at a time.
+ * A slip can be attached while the order awaits its first payment (before the deadline).
+ * After a rejection a product order takes no new slip (the customer orders again); only a
+ * license order may retry. Only one slip can be under review at a time.
  */
 export function canUploadSlip(order: OrderStateInput, now: Date): boolean {
-  if (order.status === "PAYMENT_REJECTED") return true;
+  if (order.status === "PAYMENT_REJECTED") return canRetryAfterRejection(order);
   return order.status === "PENDING_PAYMENT" && order.paymentStatus === null && !isOrderExpired(order, now);
 }
 

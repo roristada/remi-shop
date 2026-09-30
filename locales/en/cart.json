@@ -107,7 +107,16 @@
     "licenseItems": "Commercial license",
     "licenseFor": "Artist {artist} · {platform}",
     "licenseCompletedNotice": "Payment confirmed. Your commercial license is active; see My licenses for details.",
-    "progressLicense": "License active"
+    "progressLicense": "License active",
+    "rejectedPanelTitle": "Slip not accepted",
+    "rejectedOrderAgain": "A new slip cannot be attached to this order. To buy, please place a new order.",
+    "reorder": "Order again",
+    "reorderErrors": {
+      "LOGIN_REQUIRED": "Please sign in first",
+      "NOT_ALLOWED": "This order cannot be ordered again",
+      "NOTHING_TO_ORDER": "The products in this order cannot be bought right now (off sale, or you already own them)",
+      "ERROR": "Something went wrong. Please try again"
+    }
   },
   "slip": {
     "title": "Attach your transfer slip",

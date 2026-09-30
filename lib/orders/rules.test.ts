@@ -73,7 +73,9 @@ test("order expiry and open state", () => {
   // A slip was uploaded: never auto-expires.
   assert.equal(isOrderExpired({ ...pending, paymentStatus: "WAITING" }, later), false);
   assert.equal(isOrderOpen({ ...pending, status: "WAITING_REVIEW" }, later), true);
-  assert.equal(isOrderOpen({ ...pending, status: "PAYMENT_REJECTED" }, later), true);
+  // A rejected product order is over (customer orders again); a rejected license order stays open.
+  assert.equal(isOrderOpen({ ...pending, status: "PAYMENT_REJECTED", kind: "PRODUCT" }, later), false);
+  assert.equal(isOrderOpen({ ...pending, status: "PAYMENT_REJECTED", kind: "LICENSE" }, later), true);
   assert.equal(isOrderOpen({ ...pending, status: "COMPLETED" }, now), false);
   assert.equal(isOrderOpen({ ...pending, status: "CANCELLED" }, now), false);
 });

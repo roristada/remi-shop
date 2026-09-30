@@ -19,6 +19,7 @@ import { canUploadSlip } from "@/lib/payments/rules";
 import { SlipUpload } from "@/components/cart/slip-upload";
 import { OrderStatusBadge } from "@/components/cart/order-status-badge";
 import { CancelOrderButton } from "@/components/cart/cancel-order-button";
+import { ReorderButton } from "@/components/cart/reorder-button";
 import { CountdownTimer } from "@/components/shop/countdown-timer";
 import { OrderProgress } from "@/components/cart/order-progress";
 import { CopyButton } from "@/components/shared/copy-button";
@@ -50,7 +51,8 @@ export default async function OrderPage({ params }: PageProps<"/[locale]/orders/
   const fmt = intlLocale(locale);
   const money = (v: CustomerOrder["total"]) => formatTHB(toHundredths(v), fmt.number);
   const canPay = canUploadSlip(order, now);
-  const showPanel = canPay || order.status === "WAITING_REVIEW";
+  const rejectedProduct = order.status === "PAYMENT_REJECTED" && order.kind === "PRODUCT";
+  const showPanel = canPay || order.status === "WAITING_REVIEW" || rejectedProduct;
   const discount = toHundredths(order.discount);
   // Files are listed only once payment is approved; each link is re-authorized by /api/download.
   const downloads =
@@ -178,6 +180,7 @@ export default async function OrderPage({ params }: PageProps<"/[locale]/orders/
 
         {canPay && <PaymentPanel order={order} locale={locale} now={now} />}
         {order.status === "WAITING_REVIEW" && <ReviewPanel order={order} locale={locale} />}
+        {rejectedProduct && <RejectedPanel order={order} />}
       </div>
     </div>
   );
@@ -234,6 +237,26 @@ function StatusNotice({ order, t, hasFiles }: { order: CustomerOrder; t: T; hasF
     <p role="status" className="rounded-2xl bg-muted px-4 py-3 text-sm">
       {text}
     </p>
+  );
+}
+
+/** A rejected slip ends a product order: show why, and offer to order again (no new slip). */
+async function RejectedPanel({ order }: { order: CustomerOrder }) {
+  const tSlip = await getTranslations("cart.slip");
+  const t = await getTranslations("cart.order");
+  const rejected = order.payments[0];
+  return (
+    <aside aria-labelledby="rejected-heading" className="h-fit space-y-4 rounded-3xl bg-secondary/45 p-5 sm:p-6">
+      <h2 id="rejected-heading" className="text-lg">
+        {t("rejectedPanelTitle")}
+      </h2>
+      <div role="alert" className="space-y-1 rounded-2xl bg-destructive/10 px-4 py-3 text-sm">
+        <p className="font-semibold text-destructive">{tSlip("rejectedTitle")}</p>
+        {rejected?.rejectReason && <p>{tSlip("rejectedReason", { reason: rejected.rejectReason })}</p>}
+      </div>
+      <p className="text-sm text-foreground/75">{t("rejectedOrderAgain")}</p>
+      <ReorderButton orderNumber={order.orderNumber} />
+    </aside>
   );
 }
 

@@ -22,7 +22,7 @@ async function findUploadableOrder(userId: string, orderNumberInput: string, now
   if (!parsed.success) return null;
   const order = await prisma.order.findFirst({
     where: { orderNumber: parsed.data, userId },
-    select: { id: true, orderNumber: true, status: true, paymentStatus: true, expiresAt: true, total: true },
+    select: { id: true, orderNumber: true, kind: true, status: true, paymentStatus: true, expiresAt: true, total: true },
   });
   return order && canUploadSlip(order, now) ? order : null;
 }
@@ -76,7 +76,7 @@ export async function confirmSlipUpload(
           id: order.id,
           userId: user.id,
           OR: [
-            { status: "PAYMENT_REJECTED" },
+            { status: "PAYMENT_REJECTED", kind: "LICENSE" },
             { status: "PENDING_PAYMENT", paymentStatus: null, expiresAt: { gt: now } },
           ],
         },

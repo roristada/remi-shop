@@ -10,15 +10,17 @@ test("canUploadSlip", () => {
   assert.equal(canUploadSlip({ status: "PENDING_PAYMENT", paymentStatus: null, expiresAt: future }, now), true);
   // Past the unpaid deadline.
   assert.equal(canUploadSlip({ status: "PENDING_PAYMENT", paymentStatus: null, expiresAt: past }, now), false);
-  // Re-upload after rejection has no deadline.
-  assert.equal(canUploadSlip({ status: "PAYMENT_REJECTED", paymentStatus: "REJECTED", expiresAt: past }, now), true);
+  // A rejected product order takes no new slip (customer orders again); a license order may retry, with no deadline.
+  assert.equal(canUploadSlip({ status: "PAYMENT_REJECTED", paymentStatus: "REJECTED", expiresAt: past, kind: "PRODUCT" }, now), false);
+  assert.equal(canUploadSlip({ status: "PAYMENT_REJECTED", paymentStatus: "REJECTED", expiresAt: past, kind: "LICENSE" }, now), true);
   for (const status of ["WAITING_REVIEW", "COMPLETED", "CANCELLED"] as const) {
     assert.equal(canUploadSlip({ status, paymentStatus: "WAITING", expiresAt: future }, now), false);
   }
 });
 
 test("canCustomerCancel follows the same states", () => {
-  assert.equal(canCustomerCancel({ status: "PAYMENT_REJECTED", paymentStatus: "REJECTED", expiresAt: past }, now), true);
+  assert.equal(canCustomerCancel({ status: "PAYMENT_REJECTED", paymentStatus: "REJECTED", expiresAt: past, kind: "LICENSE" }, now), true);
+  assert.equal(canCustomerCancel({ status: "PAYMENT_REJECTED", paymentStatus: "REJECTED", expiresAt: past, kind: "PRODUCT" }, now), false);
   assert.equal(canCustomerCancel({ status: "WAITING_REVIEW", paymentStatus: "WAITING", expiresAt: future }, now), false);
 });
 

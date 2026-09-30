@@ -30,7 +30,8 @@ export async function getOwnership(
       order: {
         userId,
         OR: [
-          { status: { in: ["COMPLETED", "WAITING_REVIEW", "PAYMENT_REJECTED"] } },
+          // A rejected slip ends the order, so its products are free to order again.
+          { status: { in: ["COMPLETED", "WAITING_REVIEW"] } },
           { status: "PENDING_PAYMENT", expiresAt: { gt: now } },
           // A slip was uploaded: the order stays open even past the unpaid deadline.
           { status: "PENDING_PAYMENT", paymentStatus: { not: null } },

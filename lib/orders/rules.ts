@@ -1,4 +1,4 @@
-import type { OrderStatus } from "@/lib/generated/prisma/enums";
+import type { OrderKind, OrderStatus } from "@/lib/generated/prisma/enums";
 import { calculateProductPrice, type PriceInput, type ProductPrice } from "@/lib/pricing/calculate";
 import { getProductStatus, type ProductStatusInput } from "@/lib/products/status";
 
@@ -45,7 +45,15 @@ export function orderTotals(lines: CheckoutLine[]): OrderTotals {
   return { subtotal, discount, total: subtotal - discount };
 }
 
-export type OrderStateInput = { status: OrderStatus; expiresAt: Date; paymentStatus: string | null };
+export type OrderStateInput = { status: OrderStatus; expiresAt: Date; paymentStatus: string | null; kind?: OrderKind };
+
+/**
+ * A rejected slip ends a product order: the customer must order again (the UAT rule). License
+ * orders are the exception, because re-ordering would mean a new request and a new approval.
+ */
+export function canRetryAfterRejection(order: Pick<OrderStateInput, "status" | "kind">): boolean {
+  return order.status === "PAYMENT_REJECTED" && order.kind === "LICENSE";
+}
 
 /** A PENDING_PAYMENT order with no slip past its deadline. */
 export function isOrderExpired(order: OrderStateInput, now: Date): boolean {
@@ -54,7 +62,7 @@ export function isOrderExpired(order: OrderStateInput, now: Date): boolean {
 
 /** Open orders reserve their products: the customer may not buy the same product again meanwhile. */
 export function isOrderOpen(order: OrderStateInput, now: Date): boolean {
-  if (order.status === "WAITING_REVIEW" || order.status === "PAYMENT_REJECTED") return true;
+  if (order.status === "WAITING_REVIEW" || canRetryAfterRejection(order)) return true;
   return order.status === "PENDING_PAYMENT" && !isOrderExpired(order, now);
 }
 

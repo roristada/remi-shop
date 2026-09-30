@@ -99,7 +99,7 @@ export async function checkout(localeInput: string, expectedTotal: number): Prom
   redirect(`/${locale}/orders/${orderNumber}`);
 }
 
-/** Customer cancels their own unpaid order: no slip yet (before the deadline) or the last slip was rejected. */
+/** Customer cancels their own unpaid order: no slip yet (before the deadline), or a license order whose slip was rejected. */
 export async function cancelOrder(orderNumberInput: string): Promise<{ ok: boolean }> {
   const user = await getCurrentUser();
   const parsed = orderNumberSchema.safeParse(orderNumberInput);
@@ -112,7 +112,7 @@ export async function cancelOrder(orderNumberInput: string): Promise<{ ok: boole
       userId: user.id,
       // Same states as canCustomerCancel(); a slip under review cannot be cancelled from here.
       OR: [
-        { status: "PAYMENT_REJECTED" },
+        { status: "PAYMENT_REJECTED", kind: "LICENSE" },
         { status: "PENDING_PAYMENT", paymentStatus: null, expiresAt: { gt: now } },
       ],
     },
@@ -122,4 +122,54 @@ export async function cancelOrder(orderNumberInput: string): Promise<{ ok: boole
   console.info("Order cancelled by customer", { orderNumber: parsed.data, userId: user.id });
   revalidatePath("/[locale]/orders/[orderNumber]", "page");
   return { ok: true };
+}
+
+export type ReorderErrorCode = "LOGIN_REQUIRED" | "NOT_ALLOWED" | "NOTHING_TO_ORDER" | "ERROR";
+
+/**
+ * After a rejected slip: puts the order's products that can still be bought back into the cart
+ * and opens it. Each line is re-validated (sale window, ownership, price comes from the catalog
+ * at checkout), so nothing from the old order is trusted.
+ */
+export async function reorderRejectedOrder(orderNumberInput: string, localeInput: string): Promise<{ ok: false; code: ReorderErrorCode }> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, code: "LOGIN_REQUIRED" };
+  const parsed = orderNumberSchema.safeParse(orderNumberInput);
+  if (!parsed.success) return { ok: false, code: "NOT_ALLOWED" };
+  const locale = toLocale(localeInput);
+  const now = new Date();
+
+  const order = await prisma.order.findFirst({
+    where: { orderNumber: parsed.data, userId: user.id, kind: "PRODUCT", status: "PAYMENT_REJECTED" },
+    select: { items: { select: { productId: true } } },
+  });
+  if (!order) return { ok: false, code: "NOT_ALLOWED" };
+
+  try {
+    const productIds = order.items.map((i) => i.productId);
+    const [products, ownership] = await Promise.all([
+      prisma.product.findMany({ where: { id: { in: productIds } }, select: CHECKOUT_PRODUCT_SELECT }),
+      getOwnership(user.id, productIds, now),
+    ]);
+    const buyable = products.filter((p) => evaluateLine(toCheckoutProduct(p), ownership, now).problem === null);
+    if (buyable.length === 0) return { ok: false, code: "NOTHING_TO_ORDER" };
+
+    const cart = await prisma.cart.upsert({
+      where: { userId: user.id },
+      create: { userId: user.id },
+      update: {},
+      select: { id: true },
+    });
+    await prisma.cartItem.createMany({
+      data: buyable.map((p) => ({ cartId: cart.id, productId: p.id })),
+      skipDuplicates: true,
+    });
+  } catch (error) {
+    console.error("Reorder failed", { orderNumber: parsed.data, userId: user.id, error });
+    return { ok: false, code: "ERROR" };
+  }
+
+  console.info("Rejected order re-added to cart", { orderNumber: parsed.data, userId: user.id });
+  revalidatePath("/[locale]/cart", "page");
+  redirect(`/${locale}/cart`);
 }
