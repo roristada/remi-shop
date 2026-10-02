@@ -10,6 +10,7 @@ import { idSchema, MAX_BULK_ITEMS, productSchema, type ProductInput } from "@/li
 import { BUCKETS } from "@/lib/storage/buckets";
 import { removeObjects } from "@/lib/storage/product-storage";
 import { previewObjectPaths } from "@/lib/storage/image-optimize";
+import { sanitizeRichText } from "@/lib/rich-text-sanitize";
 import { revalidateCatalog } from "@/lib/products/revalidate";
 import { scheduleWarnings } from "@/lib/products/status";
 
@@ -55,8 +56,9 @@ function toProductData(d: ProductInput) {
     slug: d.slug,
     nameTH: d.nameTH,
     nameEN: d.nameEN,
-    descriptionTH: d.descriptionTH,
-    descriptionEN: d.descriptionEN,
+    // Rich text from the editor: only safe formatting is stored.
+    descriptionTH: sanitizeRichText(d.descriptionTH),
+    descriptionEN: sanitizeRichText(d.descriptionEN),
     categoryId: d.categoryId,
     price: d.price,
     discountPercent: d.discountPercent,

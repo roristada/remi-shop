@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { FormSection, SelectInput, TextArea, TextInput } from "@/components/admin/form-controls";
 import { DateTimeInput } from "@/components/admin/date-time-input";
 import { useEditorSection } from "@/components/admin/product-editor";
+import { RichTextEditor } from "@/components/admin/rich-text-editor";
 import { createProduct, updateProduct } from "@/lib/products/admin-actions";
 import type { ActionResult } from "@/lib/actions/result";
 
@@ -229,8 +230,8 @@ export function ProductForm({ values, categories, folders, softwareTags, stockTa
             options={[{ value: "none", label: "— ไม่มีโฟลเดอร์ —" }, ...folders.map((f) => ({ value: f.id, label: f.nameTH }))]}
             error={err("folderId")}
           />
-          <TextArea label="รายละเอียด (ไทย)" name="descriptionTH" defaultValue={values.descriptionTH} rows={6} error={err("descriptionTH")} />
-          <TextArea label="รายละเอียด (English)" name="descriptionEN" defaultValue={values.descriptionEN} rows={6} error={err("descriptionEN")} />
+          <RichTextEditor label="รายละเอียด (ไทย)" name="descriptionTH" defaultValue={values.descriptionTH} error={err("descriptionTH")} />
+          <RichTextEditor label="รายละเอียด (English)" name="descriptionEN" defaultValue={values.descriptionEN} error={err("descriptionEN")} />
         </div>
       </FormSection>
 

@@ -33,6 +33,8 @@ import { ReviewSection } from "@/components/reviews/review-section";
 import { ratingAverage } from "@/lib/reviews/rules";
 import { WishlistButton } from "@/components/shop/wishlist-button";
 import { isWishlisted } from "@/lib/wishlist/queries";
+import { richTextToPlain } from "@/lib/rich-text";
+import { sanitizeRichText } from "@/lib/rich-text-sanitize";
 
 /** Published product in a visible category, or null. Admins also see drafts and hidden products. */
 async function loadProduct(slug: string): Promise<ShopProduct | null> {
@@ -43,7 +45,7 @@ async function loadProduct(slug: string): Promise<ShopProduct | null> {
 }
 
 function plainExcerpt(text: string, max = 160) {
-  const flat = text.replace(/\s+/g, " ").trim();
+  const flat = richTextToPlain(text).replace(/\s+/g, " ").trim();
   return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
 }
 
@@ -264,9 +266,12 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
           <h2 id="description-heading" className="text-xl">
             {t("description")}
           </h2>
-          <div className="text-base leading-relaxed whitespace-pre-line">
-            {description || <span className="text-muted-foreground">{t("noDescription")}</span>}
-          </div>
+          {description ? (
+            // Sanitized here as well as on save: only editor formatting and safe links survive.
+            <div className="rich-text text-base leading-relaxed" dangerouslySetInnerHTML={{ __html: sanitizeRichText(description) }} />
+          ) : (
+            <p className="text-muted-foreground">{t("noDescription")}</p>
+          )}
           {requirements && (
             <div className="space-y-1 pt-2">
               <h3>{t("requirements")}</h3>
