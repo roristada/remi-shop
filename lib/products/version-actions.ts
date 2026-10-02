@@ -330,8 +330,7 @@ export async function saveVersionFiles(versionId: string, changes: VersionFileCh
   }
 
   // New files: key issued for this version, extension unchanged, stored bytes verified.
-  let sortOrder = existing.reduce((max, f) => Math.max(max, f.sortOrder), -1);
-  const creates: Prisma.ProductVersionFileCreateManyInput[] = [];
+  const checked: { path: string; fileName: string; variantId: string | null }[] = [];
   for (const upload of uploads) {
     const fileName = displayFileName(typeof upload?.fileName === "string" ? upload.fileName : "");
     const path = upload?.path;
@@ -339,16 +338,23 @@ export async function saveVersionFiles(versionId: string, changes: VersionFileCh
     if (!fileName || getExtension(path) !== getExtension(fileName)) return reject("คำขอไม่ถูกต้อง");
     const variantId = await variantFor(upload.variantId);
     if (variantId === undefined) return reject("ไม่พบตัวเลือกของสินค้านี้");
-    const verified = await verifyUploadedObject(BUCKETS.digitalFiles, path, fileName);
-    if (!verified.ok) {
-      return reject(`${fileName}: ${verified.error === "not_found" ? "ไม่พบไฟล์ที่อัปโหลด" : FILE_TYPE_ERROR_TH[verified.error]}`);
+    checked.push({ path, fileName, variantId });
+  }
+  // In parallel: one by one, a big batch outlasts the hosting function's time limit.
+  const verified = await Promise.all(checked.map((c) => verifyUploadedObject(BUCKETS.digitalFiles, c.path, c.fileName)));
+  let sortOrder = existing.reduce((max, f) => Math.max(max, f.sortOrder), -1);
+  const creates: Prisma.ProductVersionFileCreateManyInput[] = [];
+  for (const [i, { path, fileName, variantId }] of checked.entries()) {
+    const result = verified[i];
+    if (!result.ok) {
+      return reject(`${fileName}: ${result.error === "not_found" ? "ไม่พบไฟล์ที่อัปโหลด" : FILE_TYPE_ERROR_TH[result.error]}`);
     }
     creates.push({
       versionId: version.id,
       fileName,
       storagePath: path,
       // Size comes from Storage, not from the browser.
-      fileSize: verified.object.size,
+      fileSize: result.object.size,
       fileType: mimeFor(DIGITAL_FILE_TYPES, fileName),
       sortOrder: ++sortOrder,
       variantId,

@@ -65,17 +65,15 @@ export async function verifyUploadedObject(
         ? PRODUCT_IMAGE_FILE_TYPES
         : IMAGE_FILE_TYPES;
 
-  const { data: info, error: infoError } = await storage.info(path);
+  // Both requests at once; the leading bytes are only judged once the size is known to be fine.
+  const [{ data: info, error: infoError }, head] = await Promise.all([storage.info(path), readHead(bucket, path)]);
   if (infoError || !info) return { ok: false, error: "not_found" };
 
   const size = info.size ?? 0;
   let error: FileTypeError | null = null;
   if (size <= 0) error = "empty";
   else if (size > maxUploadSize(bucket)) error = "too_large";
-  else {
-    const head = await readHead(bucket, path);
-    error = head ? checkFileSignature(rules, fileName, head) : "signature_mismatch";
-  }
+  else error = head ? checkFileSignature(rules, fileName, head) : "signature_mismatch";
 
   if (error) {
     await removeObjects(bucket, [path]);
