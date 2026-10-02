@@ -3,13 +3,13 @@ import type { Metadata } from "next";
 import { PreviewImage } from "@/components/shared/preview-image";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { Clock3, Download, ExternalLink } from "lucide-react";
+import { Clock3, Download, ExternalLink, Images, List, Star } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { intlLocale, localized } from "@/i18n/localize";
 import { requireUser } from "@/lib/auth/guards";
 import { formatBangkokDateTime } from "@/lib/datetime";
 import { formatTHB, fromHundredths, toHundredths } from "@/lib/pricing/calculate";
-import { getOrderForUser, getPaymentSettings, type CustomerOrder } from "@/lib/orders/queries";
+import { getOrderForUser, getPaymentSettings, listOrderGalleryImages, type CustomerOrder } from "@/lib/orders/queries";
 import { orderNumberSchema } from "@/lib/orders/validation";
 import { previewImageUrl } from "@/lib/storage/public-url";
 import { BUCKETS } from "@/lib/storage/buckets";
@@ -30,6 +30,7 @@ import { BackLink } from "@/components/shared/back-link";
 import { getOrderReviewStates } from "@/lib/reviews/queries";
 import { OrderReviewButton, ReviewPrompt, type OrderReviewItem } from "@/components/reviews/order-review-actions";
 import { lineKey } from "@/lib/orders/rules";
+import { ProductGallery } from "@/components/shop/product-gallery";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/orders/[orderNumber]">): Promise<Metadata> {
   const { locale, orderNumber } = await params;
@@ -37,8 +38,9 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/orders/[
   return { title: t("order", { orderNumber: orderNumber.toUpperCase() }), robots: { index: false } };
 }
 
-export default async function OrderPage({ params }: PageProps<"/[locale]/orders/[orderNumber]">) {
+export default async function OrderPage({ params, searchParams }: PageProps<"/[locale]/orders/[orderNumber]">) {
   const { locale, orderNumber: raw } = await params;
+  const gallery = (await searchParams).view === "gallery";
   setRequestLocale(locale);
   const user = await requireUser(`/${locale}/login?next=${encodeURIComponent(`/${locale}/orders/${raw}`)}`);
   const parsed = orderNumberSchema.safeParse(raw);
@@ -82,6 +84,29 @@ export default async function OrderPage({ params }: PageProps<"/[locale]/orders/
       }))
     : [];
   const promptItems = reviewItems.filter((i) => i.state === "CAN_REVIEW");
+  const hasProducts = !order.licenseRequest && order.items.length > 0;
+  // Gallery mode: only the pictures of what was bought, nothing else.
+  const galleryImages = gallery && hasProducts
+    ? (await listOrderGalleryImages(order.items.map((i) => i.product.id))).map((img) => ({
+        id: img.id,
+        url: previewImageUrl(img.imagePath),
+        alt: localized(locale, img.altTextTH, img.altTextEN) || "",
+      }))
+    : null;
+  const orderPath = `/orders/${order.orderNumber}`;
+
+  if (galleryImages) {
+    return (
+      <div className="mx-auto max-w-4xl space-y-6 px-4 py-8 sm:py-12">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <BackLink href={orderPath}>{t("order.galleryBack")}</BackLink>
+          <ViewSwitch path={orderPath} gallery t={t} />
+        </div>
+        <h1 className="sr-only">{t("order.gallery")}</h1>
+        <ProductGallery images={galleryImages} />
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:py-12">
@@ -98,14 +123,29 @@ export default async function OrderPage({ params }: PageProps<"/[locale]/orders/
       </div>
 
       {promptItems.length > 0 && <ReviewPrompt orderNumber={order.orderNumber} items={promptItems} />}
+      {promptItems.length > 0 && (
+        <a
+          href="#items-heading"
+          className="flex items-center gap-3 rounded-2xl border border-brand-strong/30 bg-accent px-4 py-3 text-sm hover:bg-accent/70"
+        >
+          <Star className="size-5 shrink-0 text-brand-strong" fill="currentColor" aria-hidden />
+          <span className="flex-1">
+            <span className="block font-semibold">{t("order.toReview", { count: promptItems.length })}</span>
+            <span className="block text-muted-foreground">{t("order.toReviewHint", { date: reviewUntil })}</span>
+          </span>
+        </a>
+      )}
       <OrderProgress status={order.status} isLicense={order.kind === "LICENSE"} />
       <StatusNotice order={order} t={t} hasFiles={hasAnyFiles} />
 
       <div className={showPanel ? "grid gap-8 lg:grid-cols-[minmax(0,1fr)_24rem]" : "grid gap-8"}>
         <section aria-labelledby="items-heading" className="space-y-4">
-          <h2 id="items-heading" className="text-lg">
-            {order.licenseRequest ? t("order.licenseItems") : t("order.items")}
-          </h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 id="items-heading" className="text-lg">
+              {order.licenseRequest ? t("order.licenseItems") : t("order.items")}
+            </h2>
+            {hasProducts && <ViewSwitch path={orderPath} gallery={false} t={t} />}
+          </div>
           {order.licenseRequest ? (
             <LicenseSummary license={order.licenseRequest} locale={locale} t={t} />
           ) : (
@@ -194,6 +234,25 @@ export default async function OrderPage({ params }: PageProps<"/[locale]/orders/
 }
 
 type T = Awaited<ReturnType<typeof getTranslations<"cart">>>;
+
+/** List ⇄ gallery (pictures only) for the order's products. */
+function ViewSwitch({ path, gallery, t }: { path: string; gallery: boolean; t: T }) {
+  const item = (active: boolean) =>
+    cn(
+      "inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm text-muted-foreground hover:text-foreground",
+      active && "bg-secondary font-medium text-foreground",
+    );
+  return (
+    <nav aria-label={t("order.viewLabel")} className="flex rounded-full border p-0.5">
+      <Link href={path} aria-current={!gallery ? "page" : undefined} className={item(!gallery)}>
+        <List className="size-4" aria-hidden /> {t("order.viewList")}
+      </Link>
+      <Link href={`${path}?view=gallery`} aria-current={gallery ? "page" : undefined} className={item(gallery)}>
+        <Images className="size-4" aria-hidden /> {t("order.gallery")}
+      </Link>
+    </nav>
+  );
+}
 
 /** What a LICENSE order pays for: rights only, so there is no file or version to list. */
 function LicenseSummary({

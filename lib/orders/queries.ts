@@ -104,6 +104,16 @@ export function getPaymentSettings() {
 }
 
 /** Minutes a new order stays open for payment (store setting, 60 by default). */
+/** Every preview image of the products in an order, for the order page's gallery mode. */
+export async function listOrderGalleryImages(productIds: string[]) {
+  if (productIds.length === 0) return [];
+  return prisma.productImage.findMany({
+    where: { productId: { in: productIds } },
+    orderBy: [{ productId: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
+    select: { id: true, productId: true, imagePath: true, altTextTH: true, altTextEN: true },
+  });
+}
+
 export async function getOrderExpiryMinutes(): Promise<number> {
   const s = await prisma.storeSetting.findUnique({ where: { id: 1 }, select: { orderExpiryMinutes: true } });
   return s?.orderExpiryMinutes ?? 60;

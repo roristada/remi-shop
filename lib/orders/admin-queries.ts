@@ -31,6 +31,7 @@ const ORDER_ROW_SELECT = {
   createdAt: true,
   paidAt: true,
   user: { select: { email: true, displayName: true } },
+  adminNote: { select: { body: true } },
   items: { orderBy: { id: "asc" }, select: { productNameTHSnapshot: true, variantNameTHSnapshot: true, finalPrice: true } },
   // LICENSE orders have no items; the request's usage types are what was paid for.
   licenseRequest: {

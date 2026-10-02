@@ -8,6 +8,7 @@ import { Pagination } from "@/components/shared/pagination";
 import { ReviewActions } from "@/components/admin/review-actions";
 import { approvePayment, rejectPayment } from "@/lib/payments/admin-actions";
 import { cn } from "@/lib/utils";
+import { OrderNote } from "@/components/admin/order-note";
 import type { SlipCheckResult } from "@/lib/generated/prisma/enums";
 
 function one(v: string | string[] | undefined) {
@@ -163,6 +164,8 @@ function PaymentCard({ payment: p, tab }: { payment: ReviewPayment; tab: Payment
             </>
           )}
         </dl>
+
+        <OrderNote orderId={p.order.id} note={p.order.adminNote?.body ?? null} className="max-w-md" />
 
         {p.order.licenseRequest ? (
           <div className="space-y-1.5">

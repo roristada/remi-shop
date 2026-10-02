@@ -13,6 +13,7 @@ import { Pagination } from "@/components/shared/pagination";
 import { SelectInput } from "@/components/admin/form-controls";
 import { ORDER_STATUS_STYLES } from "@/components/cart/order-status-badge";
 import { cn } from "@/lib/utils";
+import { OrderNote } from "@/components/admin/order-note";
 
 export default async function AdminOrdersPage({ searchParams }: PageProps<"/admin/orders">) {
   await requireAdmin();
@@ -89,7 +90,8 @@ export default async function AdminOrdersPage({ searchParams }: PageProps<"/admi
                 <TableHead className="w-56">ผู้ซื้อ</TableHead>
                 <TableHead className="hidden md:table-cell">สินค้า</TableHead>
                 <TableHead className="w-28 pr-6 text-right">ยอดรวม</TableHead>
-                <TableHead className="w-32 pr-4">สถานะ</TableHead>
+                <TableHead className="w-32">สถานะ</TableHead>
+                <TableHead className="w-56 pr-4">หมายเหตุภายใน</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -119,8 +121,11 @@ export default async function AdminOrdersPage({ searchParams }: PageProps<"/admi
                     <TableCell className="pr-6 text-right font-medium whitespace-nowrap tabular-nums">
                       {formatTHB(toHundredths(o.total))}
                     </TableCell>
-                    <TableCell className="pr-4">
+                    <TableCell>
                       <Badge className={cn("whitespace-nowrap", ORDER_STATUS_STYLES[o.status])}>{ORDER_STATUS_LABEL_TH[o.status]}</Badge>
+                    </TableCell>
+                    <TableCell className="w-56 max-w-56 pr-4 align-top">
+                      <OrderNote orderId={o.id} note={o.adminNote?.body ?? null} />
                     </TableCell>
                   </TableRow>
                 );

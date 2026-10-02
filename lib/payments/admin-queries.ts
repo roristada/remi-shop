@@ -35,7 +35,9 @@ export async function listPaymentsForReview(tab: PaymentTab, page: number) {
         reviewedBy: { select: { email: true, displayName: true } },
         order: {
           select: {
+            id: true,
             orderNumber: true,
+            adminNote: { select: { body: true } },
             kind: true,
             total: true,
             createdAt: true,
