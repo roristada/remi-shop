@@ -21,7 +21,8 @@ import {
 import { previewImageUrl } from "@/lib/storage/public-url";
 import { ProductGallery } from "@/components/shop/product-gallery";
 import { PurchasePanel } from "@/components/shop/purchase-panel";
-import { FileList } from "@/components/shop/file-list";
+import { SelectedVariantProvider, VariantFileList } from "@/components/shop/selected-variant";
+import { defaultVariantId } from "@/lib/cart/selection";
 import { VersionHistory } from "@/components/shop/version-history";
 import { ProductGrid } from "@/components/shop/product-grid";
 import { LicenseOfferPanel } from "@/components/shop/license-offer";
@@ -107,6 +108,9 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
     status === "ACTIVE" ? getLicenseOffers(product.id) : Promise.resolve([]),
   ]);
   const purchaseOptions = await getPurchaseOptions(userId, product.id, locale, now);
+  // Same start as the variant picker, so the file list matches it before any click.
+  const pickerShown = status === "ACTIVE" && purchaseOptions.length > 0 && purchaseOptions[0].variantId !== null;
+  const initialVariantId = pickerShown ? defaultVariantId(purchaseOptions) : null;
   const wishlisted = userId ? await isWishlisted(userId, product.id) : false;
 
   const details = [
@@ -176,60 +180,63 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
       <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-10">
         <ProductGallery images={images} />
 
-        <div className="space-y-5">
-          <div className="space-y-2">
-            <Link
-              href={`/category/${product.category.slug}`}
-              className="text-sm font-medium text-brand-strong hover:underline"
-            >
-              {categoryName}
-            </Link>
-            <div className="flex items-start justify-between gap-3">
-              <h1 className="font-sans text-2xl leading-snug font-semibold text-balance sm:text-[2rem]">{name}</h1>
-              <WishlistButton productId={product.id} productSlug={product.slug} initialWishlisted={wishlisted} />
+        <SelectedVariantProvider initialId={initialVariantId}>
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <Link
+                href={`/category/${product.category.slug}`}
+                className="text-sm font-medium text-brand-strong hover:underline"
+              >
+                {categoryName}
+              </Link>
+              <div className="flex items-start justify-between gap-3">
+                <h1 className="font-sans text-2xl leading-snug font-semibold text-balance sm:text-[2rem]">{name}</h1>
+                <WishlistButton productId={product.id} productSlug={product.slug} initialWishlisted={wishlisted} />
+              </div>
+              <StarRating average={ratingAverage(product.ratingSum, product.ratingCount)} count={product.ratingCount} />
             </div>
-            <StarRating average={ratingAverage(product.ratingSum, product.ratingCount)} count={product.ratingCount} />
-          </div>
 
-          <PurchasePanel
-            price={price}
-            status={status}
-            saleStartAt={product.saleStartAt}
-            saleEndAt={product.saleEndAt}
-            now={now}
-            product={{ id: product.id, slug: product.slug }}
-            options={purchaseOptions}
-          />
-
-          {details.length > 0 && (
-            <section aria-labelledby="details-heading" className="space-y-3">
-              <h2 id="details-heading" className="text-lg">
-                {t("details")}
-              </h2>
-              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-                {details.map((d) => (
-                  <div key={d.label} className="contents">
-                    <dt className="text-muted-foreground">{d.label}</dt>
-                    <dd className="font-medium break-words">{d.value}</dd>
-                  </div>
-                ))}
-              </dl>
-            </section>
-          )}
-
-          {latest && latest.files.length > 0 && (
-            <FileList
-              files={latest.files.map((f) => ({
-                id: f.id,
-                fileName: f.fileName,
-                fileSize: f.fileSize,
-                variantName: f.variant ? localized(locale, f.variant.nameTH, f.variant.nameEN) : null,
-              }))}
+            <PurchasePanel
+              price={price}
+              status={status}
+              saleStartAt={product.saleStartAt}
+              saleEndAt={product.saleEndAt}
+              now={now}
+              product={{ id: product.id, slug: product.slug }}
+              options={purchaseOptions}
             />
-          )}
 
-          {licenseOffers.length > 0 && <LicenseOfferPanel offers={licenseOffers} productSlug={product.slug} />}
-        </div>
+            {details.length > 0 && (
+              <section aria-labelledby="details-heading" className="space-y-3">
+                <h2 id="details-heading" className="text-lg">
+                  {t("details")}
+                </h2>
+                <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+                  {details.map((d) => (
+                    <div key={d.label} className="contents">
+                      <dt className="text-muted-foreground">{d.label}</dt>
+                      <dd className="font-medium break-words">{d.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            )}
+
+            {latest && latest.files.length > 0 && (
+              <VariantFileList
+                files={latest.files.map((f) => ({
+                  id: f.id,
+                  fileName: f.fileName,
+                  fileSize: f.fileSize,
+                  variantId: f.variantId,
+                  variantName: f.variant ? localized(locale, f.variant.nameTH, f.variant.nameEN) : null,
+                }))}
+              />
+            )}
+
+            {licenseOffers.length > 0 && <LicenseOfferPanel offers={licenseOffers} productSlug={product.slug} />}
+          </div>
+        </SelectedVariantProvider>
       </div>
 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">

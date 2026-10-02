@@ -10,6 +10,8 @@ import { cn } from "@/lib/utils";
 import { ProductPrice } from "./product-price";
 import { DiscountBadge } from "./discount-badge";
 import { CountdownTimer } from "./countdown-timer";
+import { useSelectedVariant } from "./selected-variant";
+import { defaultVariantId } from "@/lib/cart/selection";
 
 type Props = {
   productId: string;
@@ -18,8 +20,6 @@ type Props = {
   options: PurchaseOption[];
   serverNow: string;
 };
-
-const BLOCKED: PurchaseOption["state"][] = ["owned", "inOrder", "soldOut"];
 
 /**
  * Pick one variant, then add it. Each variant is its own cart line, so buying two means adding
@@ -30,9 +30,11 @@ export function VariantPurchase({ productId, productSlug, options, serverNow }: 
   const tBadge = useTranslations("shop.badge");
   const tCountdown = useTranslations("shop.countdown");
   const number = intlLocale(useLocale()).number;
-  const [selectedId, setSelectedId] = useState(
-    () => (options.find((o) => !BLOCKED.includes(o.state)) ?? options[0]).variantId,
-  );
+  // The page-wide selection (file list follows it) when there is one, otherwise local.
+  const shared = useSelectedVariant();
+  const [localId, setLocalId] = useState(() => defaultVariantId(options));
+  const selectedId = shared ? shared.selectedId : localId;
+  const select = shared ? shared.select : setLocalId;
   const selected = options.find((o) => o.variantId === selectedId) ?? options[0];
 
   function stateLabel(o: PurchaseOption): string | null {
@@ -63,7 +65,7 @@ export function VariantPurchase({ productId, productSlug, options, serverNow }: 
                 name={`variant-${productId}`}
                 value={o.variantId ?? ""}
                 checked={checked}
-                onChange={() => setSelectedId(o.variantId)}
+                onChange={() => select(o.variantId)}
                 className="size-4 accent-[var(--color-brand-strong)]"
               />
               <span className="min-w-0 flex-1">
@@ -89,7 +91,7 @@ export function VariantPurchase({ productId, productSlug, options, serverNow }: 
       </div>
       {selected.price.isDiscounted && selected.price.discountEndsAt && (
         <CountdownTimer
-          key={selected.variantId}
+          key={`countdown-${selected.variantId}`}
           endsAt={new Date(selected.price.discountEndsAt).toISOString()}
           serverNow={serverNow}
           label={tCountdown("endsIn")}
@@ -99,7 +101,7 @@ export function VariantPurchase({ productId, productSlug, options, serverNow }: 
 
       {/* Keyed by variant so each choice starts from its own server-computed state. */}
       <AddToCartButton
-        key={selected.variantId}
+        key={`cart-${selected.variantId}`}
         productId={productId}
         variantId={selected.variantId}
         productSlug={productSlug}

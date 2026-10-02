@@ -585,6 +585,7 @@ export const getShopProduct = cache((slug: string) =>
               fileName: true,
               fileSize: true,
               fileType: true,
+              variantId: true,
               variant: { select: { nameTH: true, nameEN: true } },
             },
           },
