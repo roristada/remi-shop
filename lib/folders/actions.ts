@@ -147,4 +147,15 @@ export async function removeProductFromFolder(productId: string): Promise<Action
   return ok(undefined, "นำสินค้าออกจากโฟลเดอร์แล้ว");
 }
 
+/** Admin product list: file products into a folder, or take them out of any folder (null). */
+export async function setProductsFolder(productIds: string[], folderId: string | null): Promise<ActionResult> {
+  if (folderId !== null) return addProductsToFolder(folderId, productIds);
+  await requireAdmin();
+  const ids = parseIdList(productIds);
+  if (!ids) return fail("คำขอไม่ถูกต้อง");
+  await prisma.product.updateMany({ where: { id: { in: ids } }, data: { folderId: null, folderSortOrder: 0 } });
+  revalidateCatalog();
+  return ok(undefined, "นำสินค้าออกจากโฟลเดอร์แล้ว");
+}
+
 class FolderMissingError extends Error {}

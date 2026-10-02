@@ -4,7 +4,7 @@ import { useState, useTransition, type MouseEvent } from "react";
 import { PreviewImage } from "@/components/shared/preview-image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Ban, Copy, Eye, FilePen, ImageOff, Link2, Loader2, MoreHorizontal, Pencil, Trash2, X } from "lucide-react";
+import { Copy, Eye, EyeOff, FilePen, FolderInput, FolderOpen, ImageOff, Link2, Loader2, MoreHorizontal, Pencil, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -14,6 +14,9 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -21,6 +24,7 @@ import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { runWithToast, SelectInput } from "@/components/admin/form-controls";
 import { ProductStatusBadge } from "@/components/admin/product-status-badge";
 import { bulkSetPublishStatus, deleteProduct, duplicateProduct, setPublishStatus } from "@/lib/products/admin-actions";
+import { setProductsFolder } from "@/lib/folders/actions";
 import type { ProductStatus } from "@/lib/products/status";
 import type { PublishStatus } from "@/lib/generated/prisma/enums";
 import { cn } from "@/lib/utils";
@@ -32,6 +36,8 @@ export type AdminProductRow = {
   nameEN: string;
   versionNumber: string | null;
   categoryName: string;
+  folderId: string | null;
+  folderName: string | null;
   imageUrl: string | null;
   price: string;
   /** Pre-discount price, only while a discount is active. */
@@ -47,10 +53,12 @@ export type AdminProductRow = {
 
 export type ProductListView = "list" | "grid";
 
+export type FolderOption = { id: string; name: string };
+
 const PUBLISH_OPTIONS: { value: PublishStatus; label: string; icon: typeof Eye }[] = [
   { value: "PUBLISHED", label: "เผยแพร่", icon: Eye },
   { value: "DRAFT", label: "ฉบับร่าง", icon: FilePen },
-  { value: "DISABLED", label: "ปิดการขาย", icon: Ban },
+  { value: "DISABLED", label: "ซ่อนสินค้า", icon: EyeOff },
 ];
 
 const editHref = (id: string) => `/admin/products/${id}`;
@@ -70,7 +78,7 @@ function useOpenOnClick(id: string) {
   };
 }
 
-export function ProductList({ rows, view }: { rows: AdminProductRow[]; view: ProductListView }) {
+export function ProductList({ rows, view, folders }: { rows: AdminProductRow[]; view: ProductListView; folders: FolderOption[] }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   // Drop ids that left the page (filter/pagination/delete) without an effect.
   const visibleSelected = rows.filter((r) => selected.has(r.id)).map((r) => r.id);
@@ -95,13 +103,14 @@ export function ProductList({ rows, view }: { rows: AdminProductRow[]; view: Pro
           allSelected={allSelected}
           onToggleAll={toggleAll}
           onClear={() => setSelected(new Set())}
+          folders={folders}
         />
       )}
       {view === "grid" ? (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {rows.map((r) => (
             <li key={r.id}>
-              <ProductCard row={r} checked={selected.has(r.id)} onCheckedChange={(on) => toggle(r.id, on)} />
+              <ProductCard row={r} folders={folders} checked={selected.has(r.id)} onCheckedChange={(on) => toggle(r.id, on)} />
             </li>
           ))}
         </ul>
@@ -133,7 +142,13 @@ export function ProductList({ rows, view }: { rows: AdminProductRow[]; view: Pro
             </TableHeader>
             <TableBody>
               {rows.map((r) => (
-                <ProductRow key={r.id} row={r} checked={selected.has(r.id)} onCheckedChange={(on) => toggle(r.id, on)} />
+                <ProductRow
+                  key={r.id}
+                  row={r}
+                  folders={folders}
+                  checked={selected.has(r.id)}
+                  onCheckedChange={(on) => toggle(r.id, on)}
+                />
               ))}
             </TableBody>
           </Table>
@@ -143,9 +158,9 @@ export function ProductList({ rows, view }: { rows: AdminProductRow[]; view: Pro
   );
 }
 
-type ItemProps = { row: AdminProductRow; checked: boolean; onCheckedChange: (on: boolean) => void };
+type ItemProps = { row: AdminProductRow; folders: FolderOption[]; checked: boolean; onCheckedChange: (on: boolean) => void };
 
-function ProductRow({ row, checked, onCheckedChange }: ItemProps) {
+function ProductRow({ row, folders, checked, onCheckedChange }: ItemProps) {
   const onClick = useOpenOnClick(row.id);
   return (
     <TableRow onClick={onClick} data-state={checked ? "selected" : undefined} className="cursor-pointer hover:bg-muted/40">
@@ -170,6 +185,11 @@ function ProductRow({ row, checked, onCheckedChange }: ItemProps) {
           {row.nameEN && row.nameEN !== row.nameTH && `${row.nameEN} · `}
           {row.versionNumber ? `v${row.versionNumber}` : "ยังไม่มีเวอร์ชัน"}
         </p>
+        {row.folderName && (
+          <p className="mt-0.5 inline-flex max-w-full items-center gap-1 text-xs text-muted-foreground">
+            <FolderOpen className="size-3 shrink-0" aria-hidden /> <span className="truncate">{row.folderName}</span>
+          </p>
+        )}
       </TableCell>
       <TableCell className="hidden text-muted-foreground md:table-cell">{row.categoryName}</TableCell>
       <TableCell className="pr-6 text-right font-medium whitespace-nowrap tabular-nums">
@@ -185,14 +205,14 @@ function ProductRow({ row, checked, onCheckedChange }: ItemProps) {
       <TableCell className="pr-4">
         <div className="flex items-center justify-end gap-0.5">
           <QuickActions row={row} />
-          <RowActions row={row} />
+          <RowActions row={row} folders={folders} />
         </div>
       </TableCell>
     </TableRow>
   );
 }
 
-function ProductCard({ row, checked, onCheckedChange }: ItemProps) {
+function ProductCard({ row, folders, checked, onCheckedChange }: ItemProps) {
   const onClick = useOpenOnClick(row.id);
   const changeStatus = useStatusChange(row.id);
 
@@ -220,7 +240,7 @@ function ProductCard({ row, checked, onCheckedChange }: ItemProps) {
           <Checkbox checked={checked} onCheckedChange={(v) => onCheckedChange(v === true)} aria-label={`เลือก ${row.nameTH}`} />
         </span>
         <span className="absolute top-2 right-2 rounded-full bg-background/90 shadow-soft">
-          <RowActions row={row} />
+          <RowActions row={row} folders={folders} />
         </span>
         <ProductStatusBadge status={row.status} className="absolute bottom-2 left-2 bg-background shadow-soft" />
       </div>
@@ -232,6 +252,7 @@ function ProductCard({ row, checked, onCheckedChange }: ItemProps) {
           <p className="truncate text-xs text-muted-foreground">
             {row.categoryName}
             {row.versionNumber ? ` · v${row.versionNumber}` : " · ยังไม่มีเวอร์ชัน"}
+            {row.folderName && ` · ${row.folderName}`}
           </p>
           <p className="mt-1 text-sm tabular-nums">
             <Price row={row} />
@@ -321,7 +342,7 @@ function QuickActions({ row }: { row: AdminProductRow }) {
         variant="ghost"
         className="text-destructive hover:text-destructive"
         aria-label={`ลบ ${row.nameTH}`}
-        title={row.hasOrders ? "มีคำสั่งซื้อแล้ว ลบไม่ได้ — ใช้ “ปิดการขาย” แทน" : "ลบ"}
+        title={row.hasOrders ? "มีคำสั่งซื้อแล้ว ลบไม่ได้ — ใช้ “ซ่อนสินค้า” แทน" : "ลบ"}
         disabled={row.hasOrders}
         onClick={() => setConfirmDelete(true)}
       >
@@ -340,10 +361,23 @@ function QuickActions({ row }: { row: AdminProductRow }) {
   );
 }
 
-/** Menu for the rest: edit and status changes. */
-function RowActions({ row }: { row: AdminProductRow }) {
+function useFolderMove(productIds: string[], onDone?: () => void) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const run = (folderId: string | null) =>
+    startTransition(async () => {
+      if (!(await runWithToast(() => setProductsFolder(productIds, folderId)))) return;
+      onDone?.();
+      router.refresh();
+    });
+  return { run, pending };
+}
+
+/** Menu for the rest: edit, status and folder. */
+function RowActions({ row, folders }: { row: AdminProductRow; folders: FolderOption[] }) {
   const changeStatus = useStatusChange(row.id);
-  const busy = changeStatus.pending;
+  const moveFolder = useFolderMove([row.id]);
+  const busy = changeStatus.pending || moveFolder.pending;
 
   return (
     <>
@@ -366,8 +400,42 @@ function RowActions({ row }: { row: AdminProductRow }) {
               <Icon aria-hidden /> {label}
             </DropdownMenuItem>
           ))}
+          <DropdownMenuSeparator />
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <FolderInput aria-hidden /> ย้ายไปโฟลเดอร์
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="max-h-72 w-52 overflow-y-auto">
+              <FolderMenuItems folders={folders} currentId={row.folderId} onPick={moveFolder.run} />
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
         </DropdownMenuContent>
       </DropdownMenu>
+    </>
+  );
+}
+
+function FolderMenuItems({
+  folders,
+  currentId,
+  onPick,
+}: {
+  folders: FolderOption[];
+  /** undefined = several products, nothing to disable. */
+  currentId?: string | null;
+  onPick: (folderId: string | null) => void;
+}) {
+  return (
+    <>
+      {folders.map((f) => (
+        <DropdownMenuItem key={f.id} disabled={f.id === currentId} onSelect={() => onPick(f.id)}>
+          <FolderOpen aria-hidden /> <span className="truncate">{f.name}</span>
+        </DropdownMenuItem>
+      ))}
+      {folders.length > 0 && <DropdownMenuSeparator />}
+      <DropdownMenuItem disabled={currentId === null} onSelect={() => onPick(null)}>
+        <X aria-hidden /> ไม่มีโฟลเดอร์
+      </DropdownMenuItem>
     </>
   );
 }
@@ -377,14 +445,18 @@ function BulkBar({
   allSelected,
   onToggleAll,
   onClear,
+  folders,
 }: {
   selectedIds: string[];
   allSelected: boolean;
   onToggleAll: (on: boolean) => void;
   onClear: () => void;
+  folders: FolderOption[];
 }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [statusPending, startTransition] = useTransition();
+  const moveFolder = useFolderMove(selectedIds, onClear);
+  const pending = statusPending || moveFolder.pending;
   const count = selectedIds.length;
 
   const apply = (target: PublishStatus) =>
@@ -406,7 +478,7 @@ function BulkBar({
           checked={allSelected ? true : count > 0 ? "indeterminate" : false}
           onCheckedChange={(v) => onToggleAll(v === true)}
         />
-        <span aria-live="polite">{count > 0 ? `เลือกแล้ว ${count} รายการ` : "เลือกหลายรายการเพื่อเปลี่ยนสถานะพร้อมกัน"}</span>
+        <span aria-live="polite">{count > 0 ? `เลือกแล้ว ${count} รายการ` : "เลือกหลายรายการเพื่อเปลี่ยนสถานะหรือย้ายโฟลเดอร์พร้อมกัน"}</span>
       </label>
       {count > 0 && (
         <div className="ml-auto flex flex-wrap items-center gap-1.5">
@@ -416,6 +488,16 @@ function BulkBar({
               <Icon aria-hidden /> {label}
             </Button>
           ))}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline" className="rounded-full" disabled={pending}>
+                <FolderInput aria-hidden /> ย้ายไปโฟลเดอร์
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="max-h-72 w-52 overflow-y-auto">
+              <FolderMenuItems folders={folders} onPick={moveFolder.run} />
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button size="sm" variant="ghost" className="rounded-full" disabled={pending} onClick={onClear}>
             <X aria-hidden /> ล้าง
           </Button>

@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma/client";
 import type { Prisma, PublishStatus } from "@/lib/generated/prisma/client";
 import { stockTakingOrderWhere } from "@/lib/products/stock";
+import { adminProductOrderBy, type AdminProductSort } from "@/lib/products/admin-sort";
 
 export const ADMIN_PAGE_SIZE = 20;
 
@@ -9,12 +10,16 @@ export type AdminProductFilters = {
   q?: string;
   categoryId?: string;
   publishStatus?: PublishStatus;
+  /** A folder id, or "none" for products in no folder. */
+  folder?: string;
+  sort: AdminProductSort;
   page: number;
 };
 
-export async function listAdminProducts({ q, categoryId, publishStatus, page }: AdminProductFilters) {
+export async function listAdminProducts({ q, categoryId, publishStatus, folder, sort, page }: AdminProductFilters) {
   const where: Prisma.ProductWhereInput = {
     ...(categoryId ? { categoryId } : {}),
+    ...(folder ? { folderId: folder === "none" ? null : folder } : {}),
     ...(publishStatus ? { publishStatus } : {}),
     ...(q
       ? {
@@ -31,7 +36,7 @@ export async function listAdminProducts({ q, categoryId, publishStatus, page }: 
     prisma.product.count({ where }),
     prisma.product.findMany({
       where,
-      orderBy: { updatedAt: "desc" },
+      orderBy: adminProductOrderBy(sort),
       skip: (page - 1) * ADMIN_PAGE_SIZE,
       take: ADMIN_PAGE_SIZE,
       select: {
@@ -48,6 +53,7 @@ export async function listAdminProducts({ q, categoryId, publishStatus, page }: 
         saleEndAt: true,
         updatedAt: true,
         category: { select: { nameTH: true } },
+        folder: { select: { id: true, nameTH: true } },
         images: { where: { isPrimary: true }, select: { imagePath: true, altTextTH: true }, take: 1 },
         versions: { where: { isLatest: true }, select: { versionNumber: true }, take: 1 },
         stockLimit: true,
@@ -122,4 +128,20 @@ export function listAdminCategories() {
 /** Any order (paid or not) blocks hard delete via FK Restrict. */
 export function countProductOrders(productId: string) {
   return prisma.orderItem.count({ where: { productId } });
+}
+
+/** Folders for the product list's sidebar, with how many products each holds (and how many have none). */
+export async function listFolderCounts() {
+  const [folders, counts] = await prisma.$transaction([
+    prisma.folder.findMany({
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      select: { id: true, nameTH: true, status: true },
+    }),
+    prisma.product.groupBy({ by: ["folderId"], orderBy: { folderId: "asc" }, _count: { _all: true } }),
+  ]);
+  const byFolder = new Map(counts.map((c) => [c.folderId, typeof c._count === "object" ? (c._count._all ?? 0) : 0]));
+  return {
+    folders: folders.map((f) => ({ ...f, count: byFolder.get(f.id) ?? 0 })),
+    unfiled: byFolder.get(null) ?? 0,
+  };
 }
