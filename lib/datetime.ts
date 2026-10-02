@@ -33,3 +33,17 @@ export function formatBangkokDateTime(date: Date | null | undefined, locale = "t
     timeStyle: "short",
   }).format(date);
 }
+
+/** Bangkok calendar day of an instant, as YYYY-MM-DD. */
+export function bangkokDay(date: Date): string {
+  return new Date(date.getTime() + BANGKOK_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+/**
+ * How a deadline is shown: as a date until its Bangkok day arrives, then as an hh:mm:ss
+ * countdown, and "passed" once it is over. Display only; the server decides what is on sale.
+ */
+export function deadlineDisplay(at: Date, now: Date): "date" | "countdown" | "passed" {
+  if (now >= at) return "passed";
+  return bangkokDay(now) === bangkokDay(at) ? "countdown" : "date";
+}

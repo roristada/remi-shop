@@ -10,13 +10,12 @@ import { ProductStatusTag } from "./product-status-tag";
 import { StarRating } from "./star-rating";
 import { WishlistButton } from "./wishlist-button";
 import { isSoldOut } from "@/lib/products/stock";
-import { CountdownTimer } from "./countdown-timer";
+import { DeadlineNotice } from "./deadline-notice";
 
 /** Framed tile: image and details share one paper-white card, so each product reads as a unit on the page gradient. */
 export function ProductCard({ product, priority = false }: { product: ProductCardData; priority?: boolean }) {
   const { price, stock } = product;
   const t = useTranslations("shop.badge");
-  const tCountdown = useTranslations("shop.countdown");
   const soldOut = isSoldOut(stock) || product.variantsSoldOut;
   return (
     <article className="group relative flex w-full flex-col gap-3 rounded-3xl bg-card p-2 pb-3 shadow-soft ring-1 ring-black/5 transition-shadow duration-300 hover:shadow-md motion-reduce:transition-none">
@@ -73,13 +72,7 @@ export function ProductCard({ product, priority = false }: { product: ProductCar
         <StarRating {...product.rating} />
         {/* Visual only: at zero the page refreshes and the server decides it is on sale. */}
         {product.opensAt && (
-          <CountdownTimer
-            endsAt={product.opensAt}
-            serverNow={product.serverNow}
-            label={tCountdown("opensIn")}
-            endedLabel={tCountdown("opened")}
-            size="sm"
-          />
+          <DeadlineNotice kind="opens" at={product.opensAt} serverNow={product.serverNow} size="sm" />
         )}
         <div className="mt-auto flex items-baseline gap-1.5">
           {product.priceFrom && <span className="text-xs text-muted-foreground">{t("fromPrice")}</span>}

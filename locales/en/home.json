@@ -30,5 +30,7 @@
   "limitedTime": "Limited time",
   "limitedTimeHint": "Only available for a limited period",
   "trending": "Trending",
-  "trendingHint": "Best sellers in the last {days} days"
+  "trendingHint": "Best sellers in the last {days} days",
+  "comingSoon": "Coming soon",
+  "comingSoonHint": "Preview the details now — ordering opens at launch time"
 }

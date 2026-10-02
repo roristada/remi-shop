@@ -1,16 +1,15 @@
-import { useLocale, useTranslations } from "next-intl";
-import { CalendarClock, Download, RefreshCw, ShoppingBag } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { Download, RefreshCw, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddToCartButton } from "@/components/cart/add-to-cart-button";
 import type { PurchaseOption } from "@/lib/cart/queries";
-import { intlLocale } from "@/i18n/localize";
-import { formatBangkokDateTime } from "@/lib/datetime";
 import type { ProductPrice as Price } from "@/lib/pricing/calculate";
 import type { ProductStatus } from "@/lib/products/status";
 import { ProductPrice } from "./product-price";
 import { DiscountBadge } from "./discount-badge";
-import { CountdownTimer } from "./countdown-timer";
+import { DeadlineNotice } from "./deadline-notice";
 import { VariantPurchase } from "./variant-purchase";
+import { pickDeadline } from "@/lib/products/deadline";
 
 type Props = {
   price: Price;
@@ -26,8 +25,6 @@ type Props = {
 /** Price, sale state and the buy action. Every value here is computed server-side. */
 export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now, product, options }: Props) {
   const t = useTranslations("shop.product");
-  const tCountdown = useTranslations("shop.countdown");
-  const dateLocale = intlLocale(useLocale()).date;
   const hasVariants = options.length !== 1 || options[0].variantId !== null;
   const single = hasVariants ? null : options[0];
   // All variants switched off: nothing can be bought, like a disabled product.
@@ -39,6 +36,15 @@ export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now, prod
     ? options.reduce((min, o) => (o.price.finalPrice < min.price.finalPrice ? o : min)).price
     : (single?.price ?? price);
   const showVariantPicker = purchasable && hasVariants;
+  const serverNow = now.toISOString();
+  // Only one deadline is shown at a time: before opening, the opening; on sale, whichever ends first.
+  const deadline = pickDeadline({
+    status,
+    saleStartAt,
+    saleEndAt,
+    // With variants the chosen variant's discount is shown by the picker instead.
+    discountEndsAt: purchasable && !hasVariants && price.isDiscounted ? price.discountEndsAt : null,
+  });
 
   return (
     <div className="space-y-4 rounded-3xl bg-background/80 p-5 sm:p-6">
@@ -50,30 +56,7 @@ export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now, prod
         </div>
       )}
 
-      {purchasable && !hasVariants && price.isDiscounted && price.discountEndsAt && (
-        <CountdownTimer
-          endsAt={price.discountEndsAt.toISOString()}
-          serverNow={now.toISOString()}
-          label={tCountdown("endsIn")}
-          endedLabel={tCountdown("ended")}
-        />
-      )}
-
-      {status === "SCHEDULED" && saleStartAt && (
-        <div className="space-y-2">
-          <p className="flex items-center gap-2 rounded-xl bg-secondary px-3 py-2 text-sm">
-            <CalendarClock className="size-4 shrink-0" aria-hidden />
-            {t("opensAt", { date: formatBangkokDateTime(saleStartAt, dateLocale) })}
-          </p>
-          {/* Visual only: at zero the page refreshes and the server decides if it is on sale. */}
-          <CountdownTimer
-            endsAt={saleStartAt.toISOString()}
-            serverNow={now.toISOString()}
-            label={tCountdown("opensIn")}
-            endedLabel={tCountdown("opened")}
-          />
-        </div>
-      )}
+      {deadline && !showVariantPicker && <DeadlineNotice kind={deadline.kind} at={deadline.at.toISOString()} serverNow={serverNow} />}
       {status === "ENDED" && (
         <p role="status" className="rounded-xl bg-muted px-3 py-2 text-sm font-medium">
           {t("saleEnded")}
@@ -92,15 +75,15 @@ export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now, prod
       {purchasable && !soldOut && single?.stock && (
         <p className="text-sm font-medium">{t("stockLeft", { left: single.stock.left, limit: single.stock.limit })}</p>
       )}
-      {purchasable && saleEndAt && (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <CalendarClock className="size-4 shrink-0" aria-hidden />
-          {t("endsAt", { date: formatBangkokDateTime(saleEndAt, dateLocale) })}
-        </p>
-      )}
 
       {showVariantPicker ? (
-        <VariantPurchase productId={product.id} productSlug={product.slug} options={options} serverNow={now.toISOString()} />
+        <VariantPurchase
+          productId={product.id}
+          productSlug={product.slug}
+          options={options}
+          serverNow={serverNow}
+          saleEndAt={saleEndAt ? saleEndAt.toISOString() : null}
+        />
       ) : purchasable && single && !soldOut ? (
         <AddToCartButton productId={product.id} productSlug={product.slug} initialState={single.state} />
       ) : (

@@ -10,6 +10,7 @@ import { TrustBar } from "@/components/shop/trust-bar";
 import { BannerSlot } from "@/components/shop/banner-slot";
 import {
   getActiveAnnouncement,
+  listComingSoonProducts,
   listLimitedTimeProducts,
   listNewestProducts,
   listOnSaleProducts,
@@ -24,12 +25,13 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
   await connection(); // Prices and sale state depend on the current time.
   const now = new Date();
   const user = await getCurrentUser();
-  const [t, products, trending, onSale, limitedTime, categories, announcement] = await Promise.all([
+  const [t, products, trending, onSale, limitedTime, comingSoon, categories, announcement] = await Promise.all([
     getTranslations("home"),
     listNewestProducts(locale, 8, now, user?.id ?? null),
     listTrendingProducts(locale, 4, now, user?.id ?? null),
     listOnSaleProducts(locale, 4, now, user?.id ?? null),
     listLimitedTimeProducts(locale, 4, now, user?.id ?? null),
+    listComingSoonProducts(locale, 4, now, user?.id ?? null),
     listShopCategories(now),
     getActiveAnnouncement(now),
   ]);
@@ -89,6 +91,18 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
             </Link>
           </div>
           <ProductGrid products={onSale} priority={false} />
+        </section>
+      )}
+
+      {comingSoon.length > 0 && (
+        <section aria-labelledby="coming-soon" className="mx-auto max-w-6xl space-y-6 px-4 pb-16">
+          <div className="space-y-1">
+            <h2 id="coming-soon" className="text-2xl sm:text-3xl">
+              {t("comingSoon")}
+            </h2>
+            <p className="text-sm text-muted-foreground">{t("comingSoonHint")}</p>
+          </div>
+          <ProductGrid products={comingSoon} priority={false} />
         </section>
       )}
 

@@ -243,5 +243,19 @@
     "anonymousName": "Anonymous",
     "notReviewed": "Not reviewed yet",
     "rateNow": "Rate it"
+  },
+  "deadline": {
+    "opens": {
+      "at": "On sale {date} at {time}",
+      "in": "On sale in"
+    },
+    "saleEnds": {
+      "at": "Sale ends {date} at {time}",
+      "in": "Sale ends in"
+    },
+    "discountEnds": {
+      "at": "Discount ends {date} at {time}",
+      "in": "Discount ends in"
+    }
   }
 }

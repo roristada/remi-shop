@@ -9,7 +9,7 @@ import { formatTHB } from "@/lib/pricing/calculate";
 import { cn } from "@/lib/utils";
 import { ProductPrice } from "./product-price";
 import { DiscountBadge } from "./discount-badge";
-import { CountdownTimer } from "./countdown-timer";
+import { DeadlineNotice } from "./deadline-notice";
 import { useSelectedVariant } from "./selected-variant";
 import { defaultVariantId } from "@/lib/cart/selection";
 
@@ -19,16 +19,17 @@ type Props = {
   /** Every option has a variantId; prices and states come from the server. */
   options: PurchaseOption[];
   serverNow: string;
+  /** Product sale end; shown instead of the variant's discount end when it comes first. */
+  saleEndAt: string | null;
 };
 
 /**
  * Pick one variant, then add it. Each variant is its own cart line, so buying two means adding
  * them one at a time. Choosing only changes what is shown; the server re-checks on add.
  */
-export function VariantPurchase({ productId, productSlug, options, serverNow }: Props) {
+export function VariantPurchase({ productId, productSlug, options, serverNow, saleEndAt }: Props) {
   const t = useTranslations("shop.product");
   const tBadge = useTranslations("shop.badge");
-  const tCountdown = useTranslations("shop.countdown");
   const number = intlLocale(useLocale()).number;
   // The page-wide selection (file list follows it) when there is one, otherwise local.
   const shared = useSelectedVariant();
@@ -89,15 +90,12 @@ export function VariantPurchase({ productId, productSlug, options, serverNow }: 
         <ProductPrice price={selected.price} size="lg" />
         {selected.price.isDiscounted && <DiscountBadge percent={selected.price.discountPercent} />}
       </div>
-      {selected.price.isDiscounted && selected.price.discountEndsAt && (
-        <CountdownTimer
-          key={`countdown-${selected.variantId}`}
-          endsAt={new Date(selected.price.discountEndsAt).toISOString()}
-          serverNow={serverNow}
-          label={tCountdown("endsIn")}
-          endedLabel={tCountdown("ended")}
-        />
-      )}
+      <SelectedDeadline
+        key={`deadline-${selected.variantId}`}
+        discountEndsAt={selected.price.isDiscounted ? selected.price.discountEndsAt : null}
+        saleEndAt={saleEndAt}
+        serverNow={serverNow}
+      />
 
       {/* Keyed by variant so each choice starts from its own server-computed state. */}
       <AddToCartButton
@@ -109,4 +107,26 @@ export function VariantPurchase({ productId, productSlug, options, serverNow }: 
       />
     </div>
   );
+}
+
+/** One deadline for the chosen option: its discount end or the product's sale end, whichever is first. */
+function SelectedDeadline({
+  discountEndsAt,
+  saleEndAt,
+  serverNow,
+}: {
+  discountEndsAt: Date | string | null;
+  saleEndAt: string | null;
+  serverNow: string;
+}) {
+  const discount = discountEndsAt ? new Date(discountEndsAt) : null;
+  const sale = saleEndAt ? new Date(saleEndAt) : null;
+  const deadline =
+    discount && (!sale || discount <= sale)
+      ? { kind: "discountEnds" as const, at: discount }
+      : sale
+        ? { kind: "saleEnds" as const, at: sale }
+        : null;
+  if (!deadline) return null;
+  return <DeadlineNotice kind={deadline.kind} at={deadline.at.toISOString()} serverNow={serverNow} />;
 }

@@ -335,6 +335,20 @@ export async function listLimitedTimeProducts(
   return rows.map((r) => toCard(r, locale, now));
 }
 
+/**
+ * Homepage "coming soon" row: published with an opening date still ahead, opening soonest first.
+ * Customers can open the page and see previews; buying waits for the opening (server-checked).
+ */
+export async function listComingSoonProducts(locale: string, take = 4, now: Date = new Date(), userId: string | null = null) {
+  const rows = await prisma.product.findMany({
+    where: { AND: [listedProductWhere(now), { saleStartAt: { gt: now } }] },
+    orderBy: [{ saleStartAt: "asc" }, { id: "asc" }],
+    take,
+    select: cardSelect(userId, now),
+  });
+  return rows.map((r) => toCard(r, locale, now));
+}
+
 export const WISHLIST_PAGE_SIZE = 12;
 
 /**
