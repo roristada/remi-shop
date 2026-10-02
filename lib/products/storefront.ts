@@ -120,14 +120,14 @@ export function priceBucketWhere(key: PriceBucketKey): Prisma.ProductWhereInput 
 }
 
 /**
- * Products customers can browse (shop grid, category, search, folders, wishlist): published or
- * closed by the admin, in a visible category, whatever the sale window. Cards badge the ones
- * that can't be bought (ended, closed, sold out); purchase rules still reject them server-side.
- * Drafts are the only way to hide a product completely.
+ * Products customers can browse (shop grid, category, search, folders, wishlist): published, in a
+ * visible category, whatever the sale window. Cards badge the ones that can't be bought (ended,
+ * sold out); purchase rules still reject them server-side. Drafts and hidden products
+ * (DISABLED) never show.
  */
 export function browsableProductWhere(): Prisma.ProductWhereInput {
   return {
-    publishStatus: { in: ["PUBLISHED", "DISABLED"] },
+    publishStatus: "PUBLISHED",
     category: { status: "ACTIVE" },
   };
 }

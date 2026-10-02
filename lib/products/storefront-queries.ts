@@ -523,12 +523,13 @@ export async function listShopFolderSections(
 }
 
 /**
- * Published or closed product for the detail page (any sale state, so ended products still resolve).
+ * Published product for the detail page (any sale state, so ended products still resolve).
+ * `includeHidden` (admins only) also finds drafts and hidden products, for previewing them.
  * Cached per request so generateMetadata and the page share one query.
  */
-export const getShopProduct = cache((slug: string) =>
+export const getShopProduct = cache((slug: string, includeHidden = false) =>
   prisma.product.findFirst({
-    where: { slug, publishStatus: { in: ["PUBLISHED", "DISABLED"] } },
+    where: { slug, ...(includeHidden ? {} : { publishStatus: "PUBLISHED" as const }) },
     select: {
       id: true,
       slug: true,

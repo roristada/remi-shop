@@ -64,6 +64,6 @@ export const PRODUCT_STATUS_LABEL_TH: Record<ProductStatus, string> = {
   DRAFT: "ฉบับร่าง",
   SCHEDULED: "รอเปิดขาย",
   ACTIVE: "กำลังขาย",
-  DISABLED: "ปิดการขาย",
+  DISABLED: "ซ่อนอยู่",
   ENDED: "สิ้นสุดการขาย",
 };

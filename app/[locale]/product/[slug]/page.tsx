@@ -6,7 +6,7 @@ import { ChevronRight } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { localized } from "@/i18n/localize";
 import { publicEnv } from "@/lib/env";
-import { getCurrentUser } from "@/lib/auth/guards";
+import { getCurrentProfile, getCurrentUser } from "@/lib/auth/guards";
 import { getPurchaseOptions } from "@/lib/cart/queries";
 import { calculateProductPrice, fromHundredths } from "@/lib/pricing/calculate";
 import { getProductStatus } from "@/lib/products/status";
@@ -33,10 +33,12 @@ import { ratingAverage } from "@/lib/reviews/rules";
 import { WishlistButton } from "@/components/shop/wishlist-button";
 import { isWishlisted } from "@/lib/wishlist/queries";
 
-/** Published product in a visible category, or null. */
+/** Published product in a visible category, or null. Admins also see drafts and hidden products. */
 async function loadProduct(slug: string): Promise<ShopProduct | null> {
-  const product = await getShopProduct(slug);
-  return product && product.category.status === "ACTIVE" ? product : null;
+  const isAdmin = (await getCurrentProfile())?.role === "ADMIN";
+  const product = await getShopProduct(slug, isAdmin);
+  if (!product) return null;
+  return isAdmin || product.category.status === "ACTIVE" ? product : null;
 }
 
 function plainExcerpt(text: string, max = 160) {
@@ -152,6 +154,12 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
         // JSON.stringify does not escape "<"; replace it so product text cannot close the script tag.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
+
+      {product.publishStatus !== "PUBLISHED" && (
+        <p role="status" className="rounded-2xl bg-warning/10 px-4 py-3 text-sm font-medium text-warning">
+          {product.publishStatus === "DRAFT" ? "ฉบับร่าง" : "ซ่อนอยู่"} — ลูกค้าเปิดหน้านี้ไม่ได้ เห็นเฉพาะแอดมิน
+        </p>
+      )}
 
       <nav aria-label={t("breadcrumb")}>
         <ol className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
