@@ -4,7 +4,7 @@ import type { Prisma } from "@/lib/generated/prisma/client";
 import { localized } from "@/i18n/localize";
 import { getOwnership } from "@/lib/orders/ownership";
 import { evaluateLine, lineKey, orderTotals, type CheckoutLine, type CheckoutProduct } from "@/lib/orders/rules";
-import { previewImageUrl } from "@/lib/storage/public-url";
+import { previewImageSrc } from "@/lib/storage/public-url";
 import {
   isSoldOut,
   stockTakenCountSelect,
@@ -194,7 +194,7 @@ export async function getCartView(userId: string, locale: string, now: Date = ne
           images: {
             orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
             take: 1,
-            select: { imagePath: true, altTextTH: true, altTextEN: true },
+            select: { imagePath: true, cardPath: true, altTextTH: true, altTextEN: true },
           },
           // Same shapes as checkoutProductSelect, widened for display (names, file metadata only).
           category: { select: { status: true, nameTH: true, nameEN: true } },
@@ -231,7 +231,7 @@ export async function getCartView(userId: string, locale: string, now: Date = ne
       version: latestVersionFor(product.versions[0], variant?.id ?? null),
       downloadLimit: product.downloadLimit,
       image: image
-        ? { url: previewImageUrl(image.imagePath), alt: localized(locale, image.altTextTH, image.altTextEN) || name }
+        ? { url: previewImageSrc(image, "card"), alt: localized(locale, image.altTextTH, image.altTextEN) || name }
         : null,
     };
   });

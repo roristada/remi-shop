@@ -48,7 +48,7 @@ export async function getOrderForUser(userId: string, orderNumber: string, now: 
               images: {
                 orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
                 take: 1,
-                select: { imagePath: true, altTextTH: true, altTextEN: true },
+                select: { imagePath: true, cardPath: true, altTextTH: true, altTextEN: true },
               },
             },
           },
@@ -110,7 +110,7 @@ export async function listOrderGalleryImages(productIds: string[]) {
   return prisma.productImage.findMany({
     where: { productId: { in: productIds } },
     orderBy: [{ productId: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
-    select: { id: true, productId: true, imagePath: true, altTextTH: true, altTextEN: true },
+    select: { id: true, productId: true, imagePath: true, detailPath: true, altTextTH: true, altTextEN: true },
   });
 }
 

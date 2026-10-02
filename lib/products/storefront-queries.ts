@@ -13,7 +13,7 @@ import {
   variantStockTakenCountSelect,
   type StockInfo,
 } from "@/lib/products/stock";
-import { previewImageUrl } from "@/lib/storage/public-url";
+import { previewImageSrc } from "@/lib/storage/public-url";
 import { ratingAverage } from "@/lib/reviews/rules";
 import {
   activeDiscountWhere,
@@ -61,7 +61,7 @@ function cardSelect(userId: string | null, now: Date) {
     images: {
       orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
       take: 1,
-      select: { imagePath: true, altTextTH: true, altTextEN: true },
+      select: { imagePath: true, cardPath: true, altTextTH: true, altTextEN: true },
     },
     wishlist: { where: { userId: userId ?? NO_USER }, select: { userId: true }, take: 1 },
     stockLimit: true,
@@ -205,7 +205,7 @@ function toCard(row: CardRow, locale: string, now: Date): ProductCardData {
     categoryName: localized(locale, row.category.nameTH, row.category.nameEN),
     softwareTags: row.softwareTags.map((t) => t.softwareTag.name),
     image: image
-      ? { url: previewImageUrl(image.imagePath), alt: localized(locale, image.altTextTH, image.altTextEN) || name }
+      ? { url: previewImageSrc(image, "card"), alt: localized(locale, image.altTextTH, image.altTextEN) || name }
       : null,
     ...cardPricing(row, now),
     status: getProductStatus(row, now),
@@ -347,6 +347,15 @@ export async function listComingSoonProducts(locale: string, take = 4, now: Date
     select: cardSelect(userId, now),
   });
   return rows.map((r) => toCard(r, locale, now));
+}
+
+/** Pictures of a product's active options (option id → picture path). */
+export async function listVariantImages(productId: string): Promise<Map<string, string>> {
+  const rows = await prisma.productVariant.findMany({
+    where: { productId, isActive: true, imagePath: { not: null } },
+    select: { id: true, imagePath: true },
+  });
+  return new Map(rows.map((r) => [r.id, r.imagePath as string]));
 }
 
 export const WISHLIST_PAGE_SIZE = 12;
@@ -580,7 +589,7 @@ export const getShopProduct = cache((slug: string, includeHidden = false) =>
       category: { select: { slug: true, nameTH: true, nameEN: true, status: true } },
       images: {
         orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
-        select: { id: true, imagePath: true, altTextTH: true, altTextEN: true },
+        select: { id: true, imagePath: true, detailPath: true, altTextTH: true, altTextEN: true },
       },
       versions: {
         orderBy: [{ releaseDate: "desc" }, { createdAt: "desc" }],

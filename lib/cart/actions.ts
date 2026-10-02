@@ -10,7 +10,7 @@ import { checkoutProductSelect, checkoutVariantSelect, getCartView, toCheckoutPr
 import { toLocale } from "@/lib/auth/redirect";
 import { idSchema } from "@/lib/validation/product";
 import { localized } from "@/i18n/localize";
-import { previewImageUrl } from "@/lib/storage/public-url";
+import { previewImageSrc } from "@/lib/storage/public-url";
 
 /** Codes map to `cart.errors.*` translation keys. */
 export type CartActionResult = { ok: true } | { ok: false; code: LineProblem | "LOGIN_REQUIRED" | "ERROR" };
@@ -75,7 +75,7 @@ export async function addToCart(productId: string, variantId: string | null, loc
     where: { id: productId },
     select: {
       ...checkoutProductSelect(now),
-      images: { orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }], take: 1, select: { imagePath: true } },
+      images: { orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }], take: 1, select: { imagePath: true, cardPath: true } },
     },
   });
   if (!product) return { ok: false, code: "UNAVAILABLE" };
@@ -113,7 +113,7 @@ export async function addToCart(productId: string, variantId: string | null, loc
       name: variant
         ? `${localized(locale, product.nameTH, product.nameEN)} · ${localized(locale, variant.nameTH, variant.nameEN)}`
         : localized(locale, product.nameTH, product.nameEN),
-      imageUrl: image ? previewImageUrl(image.imagePath) : null,
+      imageUrl: image ? previewImageSrc(image, "card") : null,
       finalPrice: price.finalPrice,
       unitPrice: price.unitPrice,
     },

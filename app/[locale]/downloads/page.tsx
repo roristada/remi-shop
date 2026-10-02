@@ -6,7 +6,7 @@ import { Link } from "@/i18n/navigation";
 import { localized } from "@/i18n/localize";
 import { requireUser } from "@/lib/auth/guards";
 import { listOwnedProducts, type OwnedProduct } from "@/lib/downloads/queries";
-import { previewImageUrl } from "@/lib/storage/public-url";
+import { previewImageSrc } from "@/lib/storage/public-url";
 import { PageHeading } from "@/components/shop/page-heading";
 import { ShopPagination } from "@/components/shop/shop-pagination";
 import { FormMessage } from "@/components/auth/form-fields";
@@ -66,7 +66,7 @@ function OwnedProductCard({ product: p, locale }: { product: OwnedProduct; local
         <div className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-secondary/60">
           {p.image ? (
             <PreviewImage
-              src={previewImageUrl(p.image.imagePath)}
+              src={previewImageSrc(p.image, "card")}
               alt={localized(locale, p.image.altTextTH, p.image.altTextEN) || name}
               fill
               sizes="56px"

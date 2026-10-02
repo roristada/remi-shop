@@ -3,14 +3,32 @@
 import { useState } from "react";
 import { PreviewImage } from "@/components/shared/preview-image";
 import { useTranslations } from "next-intl";
-import { ImageOff } from "lucide-react";
+import { Expand, ImageOff } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSelectedVariant } from "./selected-variant";
 
-export type GalleryImage = { id: string; url: string; alt: string };
+/** `url` is the page-size copy; `fullUrl` (when set) the original for the full-size view. */
+export type GalleryImage = { id: string; url: string; alt: string; fullUrl?: string };
 
-export function ProductGallery({ images }: { images: GalleryImage[] }) {
+/**
+ * Product pictures. With `variantImages`, choosing an option in the purchase panel shows that
+ * option's picture first.
+ */
+export function ProductGallery({
+  images: productImages,
+  variantImages = {},
+}: {
+  images: GalleryImage[];
+  variantImages?: Record<string, GalleryImage>;
+}) {
   const t = useTranslations("shop.product");
-  const [active, setActive] = useState(0);
+  const selectedId = useSelectedVariant()?.selectedId ?? null;
+  const variantImage = selectedId ? variantImages[selectedId] : undefined;
+  const images = variantImage ? [variantImage, ...productImages] : productImages;
+  const [picked, setPicked] = useState<{ index: number; variant: string | undefined }>({ index: 0, variant: undefined });
+  // A newly chosen option jumps back to its own picture.
+  const active = picked.variant === variantImage?.id ? picked.index : 0;
+  const setActive = (index: number) => setPicked({ index, variant: variantImage?.id });
   const current = images[active] ?? images[0];
 
   if (!current) {
@@ -37,6 +55,16 @@ export function ProductGallery({ images }: { images: GalleryImage[] }) {
           sizes="(min-width: 1024px) 560px, 100vw"
           className="object-contain animate-in fade-in-0 duration-200 motion-reduce:animate-none"
         />
+        {current.fullUrl && (
+          <a
+            href={current.fullUrl}
+            target="_blank"
+            rel="noopener"
+            className="absolute right-3 bottom-3 inline-flex items-center gap-1.5 rounded-full bg-background/90 px-3 py-1.5 text-xs font-medium shadow-soft backdrop-blur hover:bg-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          >
+            <Expand className="size-3.5" aria-hidden /> {t("fullSize")}
+          </a>
+        )}
       </div>
       {images.length > 1 && (
         <ul className="grid grid-cols-5 gap-2">

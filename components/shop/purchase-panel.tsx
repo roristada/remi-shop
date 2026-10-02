@@ -20,10 +20,12 @@ type Props = {
   product: { id: string; slug: string };
   /** From getPurchaseOptions: one option without variants, one per active variant, none if all are off. */
   options: PurchaseOption[];
+  /** Option id → picture URL, for options that have one. */
+  variantImages?: Record<string, string>;
 };
 
 /** Price, sale state and the buy action. Every value here is computed server-side. */
-export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now, product, options }: Props) {
+export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now, product, options, variantImages = {} }: Props) {
   const t = useTranslations("shop.product");
   const hasVariants = options.length !== 1 || options[0].variantId !== null;
   const single = hasVariants ? null : options[0];
@@ -83,6 +85,7 @@ export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now, prod
           options={options}
           serverNow={serverNow}
           saleEndAt={saleEndAt ? saleEndAt.toISOString() : null}
+          images={variantImages}
         />
       ) : purchasable && single && !soldOut ? (
         <AddToCartButton productId={product.id} productSlug={product.slug} initialState={single.state} />

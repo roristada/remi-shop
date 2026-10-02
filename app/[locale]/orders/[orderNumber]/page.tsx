@@ -11,7 +11,7 @@ import { formatBangkokDateTime } from "@/lib/datetime";
 import { formatTHB, fromHundredths, toHundredths } from "@/lib/pricing/calculate";
 import { getOrderForUser, getPaymentSettings, listOrderGalleryImages, type CustomerOrder } from "@/lib/orders/queries";
 import { orderNumberSchema } from "@/lib/orders/validation";
-import { previewImageUrl } from "@/lib/storage/public-url";
+import { previewImageSrc, previewImageUrl } from "@/lib/storage/public-url";
 import { BUCKETS } from "@/lib/storage/buckets";
 import { createSignedViewUrls } from "@/lib/storage/payment-storage";
 import { listOrderDownloads } from "@/lib/downloads/queries";
@@ -89,7 +89,7 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/[l
   const galleryImages = gallery && hasProducts
     ? (await listOrderGalleryImages(order.items.map((i) => i.product.id))).map((img) => ({
         id: img.id,
-        url: previewImageUrl(img.imagePath),
+        url: previewImageSrc(img, "detail"),
         alt: localized(locale, img.altTextTH, img.altTextEN) || "",
       }))
     : null;
@@ -165,7 +165,7 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/[l
                       <div className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-secondary/60">
                         {image && (
                           <PreviewImage
-                            src={previewImageUrl(image.imagePath)}
+                            src={previewImageSrc(image, "card")}
                             alt={localized(locale, image.altTextTH, image.altTextEN) || name}
                             fill
                             sizes="56px"

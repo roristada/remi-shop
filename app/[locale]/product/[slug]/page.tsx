@@ -15,10 +15,11 @@ import { schemaAvailability } from "@/lib/products/storefront";
 import {
   getShopProduct,
   listRelatedProducts,
+  listVariantImages,
   releasedVersions,
   type ShopProduct,
 } from "@/lib/products/storefront-queries";
-import { previewImageUrl } from "@/lib/storage/public-url";
+import { previewImageSrc, previewImageUrl } from "@/lib/storage/public-url";
 import { ProductGallery } from "@/components/shop/product-gallery";
 import { PurchasePanel } from "@/components/shop/purchase-panel";
 import { SelectedVariantProvider, VariantFileList } from "@/components/shop/selected-variant";
@@ -98,7 +99,8 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
   const categoryName = localized(locale, product.category.nameTH, product.category.nameEN);
   const images = product.images.map((img) => ({
     id: img.id,
-    url: previewImageUrl(img.imagePath),
+    url: previewImageSrc(img, "detail"),
+    fullUrl: previewImageUrl(img.imagePath),
     alt: localized(locale, img.altTextTH, img.altTextEN) || name,
   }));
 
@@ -109,7 +111,16 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
     // A license can be requested only while the product is on sale.
     status === "ACTIVE" ? getLicenseOffers(product.id) : Promise.resolve([]),
   ]);
-  const purchaseOptions = await getPurchaseOptions(userId, product.id, locale, now);
+  const [purchaseOptions, variantImagePaths] = await Promise.all([
+    getPurchaseOptions(userId, product.id, locale, now),
+    listVariantImages(product.id),
+  ]);
+  const variantImages = Object.fromEntries(
+    purchaseOptions.flatMap((o) => {
+      const path = o.variantId ? variantImagePaths.get(o.variantId) : undefined;
+      return path && o.variantId ? [[o.variantId, { id: `variant-${o.variantId}`, url: previewImageUrl(path), alt: `${name} — ${o.name ?? ""}` }]] : [];
+    }),
+  );
   // Same start as the variant picker, so the file list matches it before any click.
   const pickerShown = status === "ACTIVE" && purchaseOptions.length > 0 && purchaseOptions[0].variantId !== null;
   const initialVariantId = pickerShown ? defaultVariantId(purchaseOptions) : null;
@@ -186,9 +197,9 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
       </nav>
 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-10">
-        <ProductGallery images={images} />
-
         <SelectedVariantProvider initialId={initialVariantId}>
+          <ProductGallery images={images} variantImages={variantImages} />
+
           <div className="space-y-5">
             <div className="space-y-2">
               <Link
@@ -212,6 +223,7 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
               now={now}
               product={{ id: product.id, slug: product.slug }}
               options={purchaseOptions}
+              variantImages={Object.fromEntries(Object.entries(variantImages).map(([k, v]) => [k, v.url]))}
             />
 
             {details.length > 0 && (

@@ -160,7 +160,7 @@ export async function listOwnedProducts(userId: string, page: number) {
           images: {
             orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
             take: 1,
-            select: { imagePath: true, altTextTH: true, altTextEN: true },
+            select: { imagePath: true, cardPath: true, altTextTH: true, altTextEN: true },
           },
           versions: VERSIONS_SELECT,
         },

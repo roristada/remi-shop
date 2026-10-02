@@ -2,7 +2,7 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { listAdminFolders } from "@/lib/folders/queries";
 import { getProductStatus } from "@/lib/products/status";
 import { formatTHB, toHundredths } from "@/lib/pricing/calculate";
-import { previewImageUrl } from "@/lib/storage/public-url";
+import { previewImageSrc } from "@/lib/storage/public-url";
 import { FolderManager, type ManagedFolder, type ManagedFolderProduct } from "@/components/admin/folder-manager";
 
 export default async function AdminFoldersPage() {
@@ -15,7 +15,7 @@ export default async function AdminFoldersPage() {
     name: p.nameTH,
     price: formatTHB(toHundredths(p.price)),
     status: getProductStatus(p, now),
-    imageUrl: p.images[0] ? previewImageUrl(p.images[0].imagePath) : null,
+    imageUrl: p.images[0] ? previewImageSrc(p.images[0], "card") : null,
     folderId: p.folderId,
   });
   const managed = products.map(toProduct);

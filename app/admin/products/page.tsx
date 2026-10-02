@@ -6,7 +6,7 @@ import { ADMIN_PRODUCT_SORTS, parseAdminProductSort } from "@/lib/products/admin
 import { getProductStatus } from "@/lib/products/status";
 import { calculateProductPrice, formatTHB } from "@/lib/pricing/calculate";
 import { formatBangkokDateTime } from "@/lib/datetime";
-import { previewImageUrl } from "@/lib/storage/public-url";
+import { previewImageSrc } from "@/lib/storage/public-url";
 import { idSchema } from "@/lib/validation/product";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,7 +73,7 @@ export default async function AdminProductsPage({ searchParams }: PageProps<"/ad
       categoryName: p.category.nameTH,
       folderId: p.folder?.id ?? null,
       folderName: p.folder?.nameTH ?? null,
-      imageUrl: p.images[0] ? previewImageUrl(p.images[0].imagePath) : null,
+      imageUrl: p.images[0] ? previewImageSrc(p.images[0], "card") : null,
       price: formatTHB(price.finalPrice),
       originalPrice: price.isDiscounted ? formatTHB(price.unitPrice) : null,
       status: getProductStatus(p, now),

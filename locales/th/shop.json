@@ -112,7 +112,8 @@
     "variantInCart": "อยู่ในตะกร้าแล้ว",
     "fromPrice": "เริ่มต้น",
     "variantFiles": "ไฟล์ของแบบ {name}",
-    "sharedFiles": "ไฟล์สำหรับทุกแบบ"
+    "sharedFiles": "ไฟล์สำหรับทุกแบบ",
+    "fullSize": "ดูภาพเต็ม"
   },
   "views": {
     "label": "มุมมอง",

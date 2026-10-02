@@ -112,7 +112,8 @@
     "variantInCart": "In your cart",
     "fromPrice": "From",
     "variantFiles": "Files for {name}",
-    "sharedFiles": "Files for every option"
+    "sharedFiles": "Files for every option",
+    "fullSize": "Full size"
   },
   "views": {
     "label": "View",

@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { ProductPrice } from "./product-price";
 import { DiscountBadge } from "./discount-badge";
 import { DeadlineNotice } from "./deadline-notice";
+import { PreviewImage } from "@/components/shared/preview-image";
 import { useSelectedVariant } from "./selected-variant";
 import { defaultVariantId } from "@/lib/cart/selection";
 
@@ -21,13 +22,15 @@ type Props = {
   serverNow: string;
   /** Product sale end; shown instead of the variant's discount end when it comes first. */
   saleEndAt: string | null;
+  /** Option id → picture URL. */
+  images: Record<string, string>;
 };
 
 /**
  * Pick one variant, then add it. Each variant is its own cart line, so buying two means adding
  * them one at a time. Choosing only changes what is shown; the server re-checks on add.
  */
-export function VariantPurchase({ productId, productSlug, options, serverNow, saleEndAt }: Props) {
+export function VariantPurchase({ productId, productSlug, options, serverNow, saleEndAt, images }: Props) {
   const t = useTranslations("shop.product");
   const tBadge = useTranslations("shop.badge");
   const number = intlLocale(useLocale()).number;
@@ -69,6 +72,11 @@ export function VariantPurchase({ productId, productSlug, options, serverNow, sa
                 onChange={() => select(o.variantId)}
                 className="size-4 accent-[var(--color-brand-strong)]"
               />
+              {o.variantId && images[o.variantId] && (
+                <span className="relative size-11 shrink-0 overflow-hidden rounded-lg bg-muted">
+                  <PreviewImage src={images[o.variantId]} alt="" fill sizes="44px" className="object-cover" />
+                </span>
+              )}
               <span className="min-w-0 flex-1">
                 <span className="block font-medium">{o.name}</span>
                 {label && <span className="block text-xs text-muted-foreground">{label}</span>}

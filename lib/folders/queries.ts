@@ -17,7 +17,7 @@ const ADMIN_FOLDER_PRODUCT_SELECT = {
   images: {
     orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
     take: 1,
-    select: { imagePath: true },
+    select: { imagePath: true, cardPath: true },
   },
 } satisfies Prisma.ProductSelect;
 
