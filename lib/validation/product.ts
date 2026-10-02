@@ -81,6 +81,10 @@ export const productSchema = z
     descriptionTH: z.string().trim().max(20000, "ยาวเกินไป"),
     descriptionEN: z.string().trim().max(20000, "ยาวเกินไป"),
     categoryId: z.uuid("กรุณาเลือกหมวดหมู่"),
+    /** Optional folder; "" or "none" = no folder. */
+    folderId: z
+      .union([z.uuid("ไม่พบโฟลเดอร์"), z.literal(""), z.literal("none")])
+      .transform((v) => (v && v !== "none" ? v : null)),
 
     price: money,
     discountPercent: optionalPercent,

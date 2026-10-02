@@ -9,6 +9,7 @@ import { fail, formString, invalid, ok, okNotice, type ActionResult } from "@/li
 import { idSchema, MAX_BULK_ITEMS, productSchema, type ProductInput } from "@/lib/validation/product";
 import { BUCKETS } from "@/lib/storage/buckets";
 import { removeObjects } from "@/lib/storage/product-storage";
+import { previewObjectPaths } from "@/lib/storage/image-optimize";
 import { revalidateCatalog } from "@/lib/products/revalidate";
 import { scheduleWarnings } from "@/lib/products/status";
 
@@ -19,6 +20,7 @@ const PRODUCT_FIELDS = [
   "descriptionTH",
   "descriptionEN",
   "categoryId",
+  "folderId",
   "price",
   "discountPercent",
   "discountStartAt",
@@ -47,7 +49,7 @@ function parseProductForm(formData: FormData) {
   return productSchema.safeParse(raw);
 }
 
-/** Maps validated input to columns. Status fields are never taken from the form. */
+/** Maps validated input to columns. Status and folder placement are never taken from the form. */
 function toProductData(d: ProductInput) {
   return {
     slug: d.slug,
@@ -80,6 +82,17 @@ async function categoryExists(id: string) {
   return (await prisma.category.count({ where: { id } })) > 0;
 }
 
+async function folderExists(id: string | null) {
+  return id === null || (await prisma.folder.count({ where: { id } })) > 0;
+}
+
+/** Next position at the end of a folder (0 when the product goes to no folder). */
+async function endOfFolder(folderId: string | null) {
+  if (!folderId) return 0;
+  const last = await prisma.product.aggregate({ where: { folderId }, _max: { folderSortOrder: true } });
+  return (last._max.folderSortOrder ?? -1) + 1;
+}
+
 function writeError(error: unknown, context: string): ActionResult<never> {
   if (isUniqueViolation(error)) return fail("slug นี้ถูกใช้แล้ว", { slug: "slug นี้ถูกใช้แล้ว" });
   if (isNotFound(error)) return fail("ไม่พบสินค้า");
@@ -87,19 +100,26 @@ function writeError(error: unknown, context: string): ActionResult<never> {
   return fail("บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
 }
 
-export async function createProduct(_prev: ActionResult<unknown> | null, formData: FormData) {
+/** Creates the product as a DRAFT and returns its id; the editor then saves the other sections. */
+export async function createProduct(
+  _prev: ActionResult<unknown> | null,
+  formData: FormData,
+): Promise<ActionResult<{ id: string; warnings: ReturnType<typeof scheduleWarnings> }>> {
   await requireAdmin();
   const parsed = parseProductForm(formData);
   if (!parsed.success) return invalid(parsed.error);
   if (!(await categoryExists(parsed.data.categoryId))) {
     return fail("ไม่พบหมวดหมู่", { categoryId: "ไม่พบหมวดหมู่" });
   }
+  if (!(await folderExists(parsed.data.folderId))) return fail("ไม่พบโฟลเดอร์", { folderId: "ไม่พบโฟลเดอร์" });
 
   let id: string;
   try {
     const product = await prisma.product.create({
       data: {
         ...toProductData(parsed.data),
+        folderId: parsed.data.folderId,
+        folderSortOrder: await endOfFolder(parsed.data.folderId),
         publishStatus: "DRAFT",
         softwareTags: { createMany: { data: parsed.data.softwareTagIds.map((softwareTagId) => ({ softwareTagId })) } },
       },
@@ -112,7 +132,7 @@ export async function createProduct(_prev: ActionResult<unknown> | null, formDat
 
   console.info("[products] created", { productId: id });
   revalidateCatalog();
-  redirect(`/admin/products/${id}?created=1`);
+  return ok({ id, warnings: scheduleWarnings(parsed.data) }, "สร้างสินค้าแล้ว");
 }
 
 export async function updateProduct(productId: string, _prev: ActionResult<unknown> | null, formData: FormData) {
@@ -123,10 +143,18 @@ export async function updateProduct(productId: string, _prev: ActionResult<unkno
   if (!(await categoryExists(parsed.data.categoryId))) {
     return fail("ไม่พบหมวดหมู่", { categoryId: "ไม่พบหมวดหมู่" });
   }
+  if (!(await folderExists(parsed.data.folderId))) return fail("ไม่พบโฟลเดอร์", { folderId: "ไม่พบโฟลเดอร์" });
+  const current = await prisma.product.findUnique({ where: { id: productId }, select: { folderId: true } });
+  if (!current) return fail("ไม่พบสินค้า");
+  // Moving to another folder puts the product at its end; staying keeps the arranged position.
+  const folder =
+    current.folderId === parsed.data.folderId
+      ? {}
+      : { folderId: parsed.data.folderId, folderSortOrder: await endOfFolder(parsed.data.folderId) };
 
   try {
     await prisma.$transaction([
-      prisma.product.update({ where: { id: productId }, data: toProductData(parsed.data) }),
+      prisma.product.update({ where: { id: productId }, data: { ...toProductData(parsed.data), ...folder } }),
       prisma.productSoftwareTag.deleteMany({
         where: { productId, softwareTagId: { notIn: parsed.data.softwareTagIds } },
       }),
@@ -148,17 +176,6 @@ export async function updateProduct(productId: string, _prev: ActionResult<unkno
 const PUBLISH_TARGETS = ["DRAFT", "PUBLISHED", "DISABLED"] as const;
 type PublishTarget = (typeof PUBLISH_TARGETS)[number];
 
-const LATEST_FILE_COUNT = {
-  versions: { where: { isLatest: true }, select: { _count: { select: { files: true } } } },
-} as const;
-
-/** Why a product can't be published yet, or null when it can. */
-function publishBlocker(versions: { _count: { files: number } }[]): string | null {
-  const latest = versions[0];
-  if (!latest) return "ต้องมีเวอร์ชันล่าสุดก่อนเผยแพร่";
-  if (latest._count.files === 0) return "เวอร์ชันล่าสุดต้องมีไฟล์อย่างน้อย 1 ไฟล์ก่อนเผยแพร่";
-  return null;
-}
 
 export async function setPublishStatus(productId: string, target: PublishTarget): Promise<ActionResult> {
   await requireAdmin();
@@ -166,16 +183,9 @@ export async function setPublishStatus(productId: string, target: PublishTarget)
     return fail("คำขอไม่ถูกต้อง");
   }
 
-  const product = await prisma.product.findUnique({
-    where: { id: productId },
-    select: { publishedAt: true, ...LATEST_FILE_COUNT },
-  });
+  // No file is required: a product without files is delivered by email after the order.
+  const product = await prisma.product.findUnique({ where: { id: productId }, select: { publishedAt: true } });
   if (!product) return fail("ไม่พบสินค้า");
-
-  if (target === "PUBLISHED") {
-    const blocker = publishBlocker(product.versions);
-    if (blocker) return fail(blocker);
-  }
 
   await prisma.product.update({
     where: { id: productId },
@@ -198,26 +208,17 @@ export async function setPublishStatus(productId: string, target: PublishTarget)
 
 const bulkIdsSchema = z.array(idSchema).min(1).max(MAX_BULK_ITEMS);
 
-/**
- * Same rules as setPublishStatus, applied to many products. Products that can't be
- * published (no latest version / no files) are skipped and counted in the message.
- */
+/** Same rules as setPublishStatus, applied to many products; ids that no longer exist are skipped. */
 export async function bulkSetPublishStatus(productIds: string[], target: PublishTarget): Promise<ActionResult> {
   await requireAdmin();
   const parsed = bulkIdsSchema.safeParse(productIds);
   if (!parsed.success || !PUBLISH_TARGETS.includes(target)) return fail("คำขอไม่ถูกต้อง");
   const ids = [...new Set(parsed.data)];
 
-  const products = await prisma.product.findMany({
-    where: { id: { in: ids } },
-    select: { id: true, ...LATEST_FILE_COUNT },
-  });
-  const eligible =
-    target === "PUBLISHED" ? products.filter((p) => publishBlocker(p.versions) === null).map((p) => p.id) : products.map((p) => p.id);
+  const products = await prisma.product.findMany({ where: { id: { in: ids } }, select: { id: true } });
+  const eligible = products.map((p) => p.id);
   const skipped = ids.length - eligible.length;
-  if (eligible.length === 0) {
-    return fail(target === "PUBLISHED" ? "ยังเผยแพร่ไม่ได้ — สินค้าที่เลือกยังไม่มีเวอร์ชันหรือไฟล์" : "ไม่พบสินค้า");
-  }
+  if (eligible.length === 0) return fail("ไม่พบสินค้า");
 
   await prisma.$transaction([
     // First publication time is kept for "newest" sorting.
@@ -230,7 +231,7 @@ export async function bulkSetPublishStatus(productIds: string[], target: Publish
   console.info("[products] bulk publish status changed", { count: eligible.length, skipped, target });
   revalidateCatalog();
   const labels: Record<PublishTarget, string> = { PUBLISHED: "เผยแพร่", DRAFT: "เปลี่ยนเป็นฉบับร่าง", DISABLED: "ซ่อน" };
-  const skippedNote = skipped > 0 ? ` · ข้าม ${skipped} รายการ (ยังไม่มีเวอร์ชันหรือไฟล์)` : "";
+  const skippedNote = skipped > 0 ? ` · ข้าม ${skipped} รายการ (ไม่พบสินค้า)` : "";
   const message = `${labels[target]} ${eligible.length} รายการแล้ว${skippedNote}`;
   return skipped > 0 ? okNotice(undefined, message) : ok(undefined, message);
 }
@@ -347,7 +348,8 @@ export async function deleteProduct(productId: string): Promise<ActionResult> {
     where: { id: productId },
     select: {
       _count: { select: { orderItems: true } },
-      images: { select: { imagePath: true } },
+      images: { select: { imagePath: true, cardPath: true, detailPath: true } },
+      variants: { select: { imagePath: true } },
       versions: { select: { files: { select: { storagePath: true } } } },
     },
   });
@@ -365,7 +367,10 @@ export async function deleteProduct(productId: string): Promise<ActionResult> {
   }
 
   await Promise.all([
-    removeObjects(BUCKETS.productPreviews, product.images.map((i) => i.imagePath)),
+    removeObjects(BUCKETS.productPreviews, [
+      ...product.images.flatMap(previewObjectPaths),
+      ...product.variants.flatMap((v) => (v.imagePath ? [v.imagePath] : [])),
+    ]),
     removeObjects(
       BUCKETS.digitalFiles,
       product.versions.flatMap((v) => v.files.map((f) => f.storagePath)),

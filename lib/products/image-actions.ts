@@ -18,6 +18,7 @@ import {
   type SignedUpload,
 } from "@/lib/storage/product-storage";
 import { revalidateCatalog } from "@/lib/products/revalidate";
+import { optimizePreviewImage, previewObjectPaths } from "@/lib/storage/image-optimize";
 
 const MAX_IMAGES_PER_PRODUCT = 20;
 
@@ -43,10 +44,14 @@ export async function requestImageUpload(
   return upload ? ok(upload) : fail("เริ่มอัปโหลดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
 }
 
+/**
+ * Records a verified upload as the product's last image, then stores optimized WebP copies.
+ * The row is created first, so if optimizing fails or runs out of time the original still shows.
+ */
 export async function confirmImageUpload(
   productId: string,
   input: { path: string; fileName: string },
-): Promise<ActionResult> {
+): Promise<ActionResult<{ id: string }>> {
   await requireAdmin();
   if (!idSchema.safeParse(productId).success) return fail("คำขอไม่ถูกต้อง");
   // The path must be one we issued for this product, with the extension the checks run against.
@@ -62,20 +67,23 @@ export async function confirmImageUpload(
     return fail(verified.error === "not_found" ? "ไม่พบไฟล์ที่อัปโหลด" : FILE_TYPE_ERROR_TH[verified.error]);
   }
 
+  let id: string;
   try {
-    await prisma.$transaction(async (tx) => {
+    id = await prisma.$transaction(async (tx) => {
       const [primaryCount, max] = await Promise.all([
         tx.productImage.count({ where: { productId, isPrimary: true } }),
         tx.productImage.aggregate({ where: { productId }, _max: { sortOrder: true } }),
       ]);
-      await tx.productImage.create({
+      const image = await tx.productImage.create({
         data: {
           productId,
           imagePath: input.path,
           sortOrder: (max._max.sortOrder ?? -1) + 1,
           isPrimary: primaryCount === 0,
         },
+        select: { id: true },
       });
+      return image.id;
     });
   } catch (error) {
     await removeObjects(BUCKETS.productPreviews, [input.path]);
@@ -84,77 +92,61 @@ export async function confirmImageUpload(
     return fail("บันทึกรูปไม่สำเร็จ");
   }
 
+  const optimized = await optimizePreviewImage(input.path);
+  if (optimized) {
+    await prisma.productImage.update({
+      where: { id },
+      data: { cardPath: optimized.card ?? null, detailPath: optimized.detail ?? null },
+    });
+  }
+
   revalidateCatalog();
-  return ok(undefined, "อัปโหลดรูปแล้ว");
+  return ok({ id }, "อัปโหลดรูปแล้ว");
 }
 
-async function findImage(imageId: string) {
-  if (!idSchema.safeParse(imageId).success) return null;
-  return prisma.productImage.findUnique({ where: { id: imageId } });
-}
-
-export async function setPrimaryImage(imageId: string): Promise<ActionResult> {
+/**
+ * Applies the editor's image changes at once: removes `deleteIds`, then saves `orderedIds` as
+ * the new order. The first image is always the primary (shown on cards and first in the gallery).
+ */
+export async function saveImageChanges(
+  productId: string,
+  changes: { orderedIds: string[]; deleteIds: string[] },
+): Promise<ActionResult> {
   await requireAdmin();
-  const image = await findImage(imageId);
-  if (!image) return fail("ไม่พบรูปภาพ");
+  const ordered = z.array(idSchema).max(MAX_IMAGES_PER_PRODUCT).safeParse(changes?.orderedIds);
+  const deletes = z.array(idSchema).max(MAX_IMAGES_PER_PRODUCT).safeParse(changes?.deleteIds ?? []);
+  if (!idSchema.safeParse(productId).success || !ordered.success || !deletes.success) return fail("คำขอไม่ถูกต้อง");
+  if (new Set(ordered.data).size !== ordered.data.length) return fail("คำขอไม่ถูกต้อง");
+
+  const current = await prisma.productImage.findMany({
+    where: { productId },
+    select: { id: true, imagePath: true, cardPath: true, detailPath: true },
+  });
+  const known = new Set(current.map((i) => i.id));
+  const removed = current.filter((i) => deletes.data.includes(i.id));
+  const kept = current.filter((i) => !deletes.data.includes(i.id));
+  if (!deletes.data.every((id) => known.has(id))) return fail("รายการรูปเปลี่ยนไปแล้ว กรุณาโหลดหน้าใหม่");
+  if (kept.length !== ordered.data.length || !kept.every((i) => ordered.data.includes(i.id))) {
+    return fail("รายการรูปเปลี่ยนไปแล้ว กรุณาโหลดหน้าใหม่");
+  }
 
   try {
     await prisma.$transaction([
-      prisma.productImage.updateMany({
-        where: { productId: image.productId, isPrimary: true },
-        data: { isPrimary: false },
-      }),
-      prisma.productImage.update({ where: { id: image.id }, data: { isPrimary: true } }),
+      prisma.productImage.deleteMany({ where: { id: { in: removed.map((i) => i.id) }, productId } }),
+      // One primary per product (partial unique index): clear first, then mark the new first image.
+      prisma.productImage.updateMany({ where: { productId, isPrimary: true }, data: { isPrimary: false } }),
+      ...ordered.data.map((id, sortOrder) =>
+        prisma.productImage.update({ where: { id }, data: { sortOrder, isPrimary: sortOrder === 0 } }),
+      ),
     ]);
   } catch (error) {
     if (isUniqueViolation(error)) return fail("มีการแก้ไขพร้อมกัน กรุณาลองใหม่อีกครั้ง");
     throw error;
   }
-
-  revalidateCatalog();
-  return ok(undefined, "ตั้งเป็นรูปหลักแล้ว");
-}
-
-/** Saves a full new order. The id list must be exactly this product's images. */
-export async function reorderImages(productId: string, orderedIds: string[]): Promise<ActionResult> {
-  await requireAdmin();
-  const ids = z.array(idSchema).max(MAX_IMAGES_PER_PRODUCT).safeParse(orderedIds);
-  if (!idSchema.safeParse(productId).success || !ids.success || new Set(ids.data).size !== ids.data.length) {
-    return fail("คำขอไม่ถูกต้อง");
+  if (removed.length > 0) {
+    await removeObjects(BUCKETS.productPreviews, removed.flatMap(previewObjectPaths));
   }
 
-  const current = await prisma.productImage.findMany({ where: { productId }, select: { id: true } });
-  const known = new Set(current.map((i) => i.id));
-  if (current.length !== ids.data.length || !ids.data.every((id) => known.has(id))) {
-    return fail("รายการรูปเปลี่ยนไปแล้ว กรุณาโหลดหน้าใหม่");
-  }
-
-  await prisma.$transaction(
-    ids.data.map((id, sortOrder) => prisma.productImage.update({ where: { id }, data: { sortOrder } })),
-  );
-
   revalidateCatalog();
-  return ok(undefined, "บันทึกลำดับรูปแล้ว");
-}
-
-export async function deleteImage(imageId: string): Promise<ActionResult> {
-  await requireAdmin();
-  const image = await findImage(imageId);
-  if (!image) return fail("ไม่พบรูปภาพ");
-
-  await prisma.$transaction(async (tx) => {
-    await tx.productImage.delete({ where: { id: image.id } });
-    if (!image.isPrimary) return;
-    // Promote the next image so the product keeps a primary.
-    const next = await tx.productImage.findFirst({
-      where: { productId: image.productId },
-      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-      select: { id: true },
-    });
-    if (next) await tx.productImage.update({ where: { id: next.id }, data: { isPrimary: true } });
-  });
-  await removeObjects(BUCKETS.productPreviews, [image.imagePath]);
-
-  revalidateCatalog();
-  return ok(undefined, "ลบรูปแล้ว");
+  return ok(undefined, "บันทึกรูปแล้ว");
 }

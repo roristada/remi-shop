@@ -5,8 +5,19 @@ import { prisma } from "@/lib/prisma/client";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { isForeignKeyViolation, isNotFound } from "@/lib/prisma/errors";
 import { fail, formString, invalid, ok, type ActionResult } from "@/lib/actions/result";
-import { idSchema, variantSchema, type VariantInput } from "@/lib/validation/product";
+import { idSchema, uploadRequestSchema, variantSchema, type VariantInput } from "@/lib/validation/product";
 import { revalidateCatalog } from "@/lib/products/revalidate";
+import { BUCKETS, MAX_PRODUCT_FILE_SIZE } from "@/lib/storage/buckets";
+import { checkFileMeta, FILE_TYPE_ERROR_TH, getExtension, PRODUCT_IMAGE_FILE_TYPES } from "@/lib/storage/file-types";
+import {
+  createSignedUpload,
+  isVariantImagePath,
+  newVariantImagePath,
+  removeObjects,
+  verifyUploadedObject,
+  type SignedUpload,
+} from "@/lib/storage/product-storage";
+import { optimizePreviewImage } from "@/lib/storage/image-optimize";
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
@@ -55,7 +66,7 @@ export async function createVariant(
   productId: string,
   _prev: ActionResult | null,
   formData: FormData,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ id: string }>> {
   await requireAdmin();
   if (!idSchema.safeParse(productId).success) return fail("ไม่พบสินค้า");
   const parsed = parseVariantForm(formData);
@@ -64,10 +75,12 @@ export async function createVariant(
   const count = await prisma.productVariant.count({ where: { productId } });
   if (count >= MAX_VARIANTS_PER_PRODUCT) return fail(`ตัวเลือกได้สูงสุด ${MAX_VARIANTS_PER_PRODUCT} แบบต่อสินค้า`);
 
+  let id: string;
   try {
-    await prisma.$transaction(async (tx) => {
-      await tx.productVariant.create({ data: { productId, ...toVariantData(parsed.data) } });
+    id = await prisma.$transaction(async (tx) => {
+      const variant = await tx.productVariant.create({ data: { productId, ...toVariantData(parsed.data) }, select: { id: true } });
       await syncProductPrice(tx, productId);
+      return variant.id;
     });
   } catch (error) {
     if (isForeignKeyViolation(error) || isNotFound(error)) return fail("ไม่พบสินค้า");
@@ -77,7 +90,7 @@ export async function createVariant(
 
   console.info("[products] variant created", { productId });
   revalidateCatalog();
-  return ok(undefined, "เพิ่มตัวเลือกแล้ว");
+  return ok({ id }, "เพิ่มตัวเลือกแล้ว");
 }
 
 export async function updateVariant(
@@ -138,9 +151,11 @@ export async function setVariantActive(variantId: string, isActive: boolean): Pr
 export async function deleteVariant(variantId: string): Promise<ActionResult> {
   await requireAdmin();
   if (!idSchema.safeParse(variantId).success) return fail("ไม่พบตัวเลือก");
+  let removedImage: string | null = null;
   try {
     await prisma.$transaction(async (tx) => {
-      const variant = await tx.productVariant.delete({ where: { id: variantId }, select: { productId: true } });
+      const variant = await tx.productVariant.delete({ where: { id: variantId }, select: { productId: true, imagePath: true } });
+      removedImage = variant.imagePath;
       await syncProductPrice(tx, variant.productId);
     });
   } catch (error) {
@@ -150,7 +165,63 @@ export async function deleteVariant(variantId: string): Promise<ActionResult> {
     }
     throw error;
   }
+  if (removedImage) await removeObjects(BUCKETS.productPreviews, [removedImage]);
   console.info("[products] variant deleted", { variantId });
   revalidateCatalog();
   return ok(undefined, "ลบตัวเลือกแล้ว");
+}
+
+// ─────────────────────────── Option picture ───────────────────────────
+
+async function findVariant(variantId: string) {
+  if (!idSchema.safeParse(variantId).success) return null;
+  return prisma.productVariant.findUnique({ where: { id: variantId }, select: { id: true, productId: true, imagePath: true } });
+}
+
+export async function requestVariantImageUpload(
+  variantId: string,
+  input: { fileName: string; size: number },
+): Promise<ActionResult<SignedUpload>> {
+  await requireAdmin();
+  const parsed = uploadRequestSchema.safeParse(input);
+  if (!parsed.success) return fail("คำขอไม่ถูกต้อง");
+  const typeError = checkFileMeta(PRODUCT_IMAGE_FILE_TYPES, parsed.data.fileName, parsed.data.size, MAX_PRODUCT_FILE_SIZE);
+  if (typeError) return fail(FILE_TYPE_ERROR_TH[typeError]);
+  const variant = await findVariant(variantId);
+  if (!variant) return fail("ไม่พบตัวเลือก");
+  const upload = await createSignedUpload(BUCKETS.productPreviews, newVariantImagePath(variant.productId, parsed.data.fileName));
+  return upload ? ok(upload) : fail("เริ่มอัปโหลดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+}
+
+/** Verifies the uploaded picture, stores an optimized copy as the option's picture and drops the old one. */
+export async function confirmVariantImage(variantId: string, input: { path: string; fileName: string }): Promise<ActionResult> {
+  await requireAdmin();
+  const variant = await findVariant(variantId);
+  if (!variant) return fail("ไม่พบตัวเลือก");
+  if (!isVariantImagePath(input.path, variant.productId) || getExtension(input.path) !== getExtension(input.fileName)) {
+    return fail("คำขอไม่ถูกต้อง");
+  }
+  const verified = await verifyUploadedObject(BUCKETS.productPreviews, input.path, input.fileName);
+  if (!verified.ok) return fail(verified.error === "not_found" ? "ไม่พบไฟล์ที่อัปโหลด" : FILE_TYPE_ERROR_TH[verified.error]);
+
+  // The option picture is small everywhere it shows, so only an optimized card-size copy is kept.
+  const optimized = await optimizePreviewImage(input.path, ["card"]);
+  const imagePath = optimized?.card ?? input.path;
+  if (optimized?.card) await removeObjects(BUCKETS.productPreviews, [input.path]);
+
+  await prisma.productVariant.update({ where: { id: variant.id }, data: { imagePath } });
+  if (variant.imagePath) await removeObjects(BUCKETS.productPreviews, [variant.imagePath]);
+  revalidateCatalog();
+  return ok(undefined, "บันทึกรูปตัวเลือกแล้ว");
+}
+
+export async function removeVariantImage(variantId: string): Promise<ActionResult> {
+  await requireAdmin();
+  const variant = await findVariant(variantId);
+  if (!variant) return fail("ไม่พบตัวเลือก");
+  if (!variant.imagePath) return ok(undefined);
+  await prisma.productVariant.update({ where: { id: variant.id }, data: { imagePath: null } });
+  await removeObjects(BUCKETS.productPreviews, [variant.imagePath]);
+  revalidateCatalog();
+  return ok(undefined, "ลบรูปตัวเลือกแล้ว");
 }

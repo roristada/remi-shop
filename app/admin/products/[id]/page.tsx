@@ -1,36 +1,30 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/guards";
 import {
   countProductBuyers,
   countProductOrders,
   getAdminProduct,
   listCategoryOptions,
+  listFolderOptions,
   type AdminProduct,
 } from "@/lib/products/admin-queries";
-import { updateProduct } from "@/lib/products/admin-actions";
 import { listSoftwareTagOptions } from "@/lib/software-tags/queries";
 import { getDiscountWindowState, getProductStatus } from "@/lib/products/status";
 import { calculateProductPrice, formatTHB } from "@/lib/pricing/calculate";
 import { formatBangkokDateTime, toBangkokDateTimeLocal } from "@/lib/datetime";
 import { previewImageUrl } from "@/lib/storage/public-url";
 import { idSchema } from "@/lib/validation/product";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProductForm, type ProductFormValues } from "@/components/admin/product-form";
 import { ProductStatusBadge } from "@/components/admin/product-status-badge";
 import { ScheduleSummary } from "@/components/admin/schedule-summary";
-import { PublishControls } from "@/components/admin/publish-controls";
+import { ProductEditor } from "@/components/admin/product-editor";
 import { ImageManager } from "@/components/admin/image-manager";
 import { VersionManager } from "@/components/admin/version-manager";
 import { VariantManager, type ManagedVariant } from "@/components/admin/variant-manager";
 import { FormSection } from "@/components/admin/form-controls";
-import { FlashToast } from "@/components/admin/flash-toast";
 import { LicensePricingEditor } from "@/components/admin/license-pricing-editor";
 import { getProductLicensePricing } from "@/lib/licenses/admin-queries";
 import { countStockTaken } from "@/lib/products/storefront-queries";
-
-const HIDE_INACTIVE = "data-[state=inactive]:hidden";
 
 function toManagedVariant(v: AdminProduct["variants"][number], now: Date): ManagedVariant {
   const price = calculateProductPrice(v, now);
@@ -44,8 +38,8 @@ function toManagedVariant(v: AdminProduct["variants"][number], now: Date): Manag
     discountStartAt: toBangkokDateTimeLocal(v.discountStartAt),
     discountEndAt: toBangkokDateTimeLocal(v.discountEndAt),
     stockLimit: v.stockLimit === null ? "" : String(v.stockLimit),
-    sortOrder: String(v.sortOrder),
     isActive: v.isActive,
+    imageUrl: v.imagePath ? previewImageUrl(v.imagePath) : null,
     priceLabel: price.isDiscounted
       ? `${formatTHB(price.finalPrice)} (ปกติ ${formatTHB(price.unitPrice)})`
       : formatTHB(price.unitPrice),
@@ -69,6 +63,7 @@ function toFormValues(p: AdminProduct): ProductFormValues {
     descriptionTH: p.descriptionTH,
     descriptionEN: p.descriptionEN,
     categoryId: p.categoryId,
+    folderId: p.folderId ?? "none",
     price: p.price.toString(),
     discountPercent: p.discountPercent?.toString() ?? "",
     discountStartAt: toBangkokDateTimeLocal(p.discountStartAt),
@@ -91,15 +86,16 @@ function toFormValues(p: AdminProduct): ProductFormValues {
   };
 }
 
-export default async function EditProductPage({ params, searchParams }: PageProps<"/admin/products/[id]">) {
+export default async function EditProductPage({ params }: PageProps<"/admin/products/[id]">) {
   await requireAdmin();
   const { id } = await params;
   if (!idSchema.safeParse(id).success) notFound();
 
   const now = new Date();
-  const [product, categories, buyerCount, orderCount, licensePricing, softwareTags, stockTaken] = await Promise.all([
+  const [product, categories, folders, buyerCount, orderCount, licensePricing, softwareTags, stockTaken] = await Promise.all([
     getAdminProduct(id),
     listCategoryOptions(),
+    listFolderOptions(),
     countProductBuyers(id),
     countProductOrders(id),
     getProductLicensePricing(id),
@@ -108,104 +104,84 @@ export default async function EditProductPage({ params, searchParams }: PageProp
   ]);
   if (!product) notFound();
 
-  const sp = await searchParams;
   const status = getProductStatus(product, now);
   const price = calculateProductPrice(product, now);
+  const variants = product.variants.map((v) => toManagedVariant(v, now));
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      {sp.created && <FlashToast message="สร้างสินค้าแล้ว — เพิ่มรูปและเวอร์ชันต่อได้เลย" />}
-      {sp.duplicated && (
-        <FlashToast
-          message={
-            sp.imageCopyFailed
-              ? "ทำสำเนาแล้ว แต่คัดลอกรูปบางรูปไม่สำเร็จ — เพิ่มเวอร์ชันและไฟล์ก่อนเผยแพร่"
-              : "ทำสำเนาแล้ว (ฉบับร่าง) — เพิ่มเวอร์ชันและไฟล์ก่อนเผยแพร่"
-          }
-        />
-      )}
-      <Link href="/admin/products" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        <ChevronLeft className="size-4" aria-hidden /> สินค้าทั้งหมด
-      </Link>
-
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-1">
+    <ProductEditor
+      productId={product.id}
+      publishStatus={product.publishStatus}
+      hasOrders={orderCount > 0}
+      variants={variants.map((v) => ({ id: v.id, name: v.nameTH }))}
+      title={
+        <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-bold">{product.nameTH}</h1>
+            <h1 className="truncate text-xl font-bold">{product.nameTH}</h1>
             <ProductStatusBadge status={status} />
           </div>
-          <p className="text-sm text-muted-foreground">
+          <p className="truncate text-sm text-muted-foreground">
             {product.category.nameTH} · {formatTHB(price.finalPrice)}
             {price.isDiscounted && ` (ลด ${price.discountPercent / 100}% ถึง ${formatBangkokDateTime(price.discountEndsAt)})`}
             {" · "}ผู้ซื้อ {buyerCount.toLocaleString("th-TH")} คน
           </p>
-          <ScheduleSummary {...product} now={now} />
         </div>
-        <PublishControls productId={product.id} publishStatus={product.publishStatus} hasOrders={orderCount > 0} />
-      </header>
-
-      <Tabs defaultValue="details" className="gap-4">
-        <TabsList>
-          <TabsTrigger value="details">รายละเอียด</TabsTrigger>
-          <TabsTrigger value="variants">ตัวเลือก ({product.variants.length})</TabsTrigger>
-          <TabsTrigger value="versions">เวอร์ชันและไฟล์ ({product.versions.length})</TabsTrigger>
-          <TabsTrigger value="license">License ({licensePricing.filter((l) => l.price !== null).length})</TabsTrigger>
-        </TabsList>
-        {/* forceMount + hidden keeps unsaved edits when switching tabs. */}
-        <TabsContent value="details" forceMount className={`space-y-6 ${HIDE_INACTIVE}`}>
-          <FormSection title="รูปภาพ" description="รูปแรกคือรูปหลักที่แสดงหน้าร้าน">
-            <ImageManager
-              productId={product.id}
-              images={product.images.map((img) => ({
-                id: img.id,
-                url: previewImageUrl(img.imagePath),
-                isPrimary: img.isPrimary,
+      }
+      summary={<ScheduleSummary {...product} now={now} />}
+      tabs={[
+        {
+          value: "details",
+          label: "รายละเอียด",
+          content: (
+            <>
+              <FormSection title="รูปภาพ">
+                <ImageManager images={product.images.map((img) => ({ id: img.id, url: previewImageUrl(img.cardPath ?? img.imagePath) }))} />
+              </FormSection>
+              <ProductForm
+                values={toFormValues(product)}
+                categories={categories}
+                folders={folders}
+                softwareTags={softwareTags}
+                stockTaken={stockTaken}
+                hasVariants={product.variants.length > 0}
+              />
+            </>
+          ),
+        },
+        { value: "variants", label: `ตัวเลือก (${product.variants.length})`, content: <VariantManager variants={variants} /> },
+        {
+          value: "versions",
+          label: `เวอร์ชันและไฟล์ (${product.versions.length})`,
+          content: (
+            <VersionManager
+              buyerCount={buyerCount}
+              versions={product.versions.map((v) => ({
+                id: v.id,
+                versionNumber: v.versionNumber,
+                releaseDate: toBangkokDateTimeLocal(v.releaseDate),
+                releaseDateLabel: formatBangkokDateTime(v.releaseDate),
+                notifiedAtLabel: v.notifiedAt ? formatBangkokDateTime(v.notifiedAt) : null,
+                releaseNotesTH: v.releaseNotesTH ?? "",
+                releaseNotesEN: v.releaseNotesEN ?? "",
+                isLatest: v.isLatest,
+                // storagePath is intentionally not sent to the browser.
+                files: v.files.map((f) => ({
+                  id: f.id,
+                  fileName: f.fileName,
+                  fileSize: f.fileSize,
+                  fileType: f.fileType,
+                  variantId: f.variantId,
+                })),
               }))}
             />
-          </FormSection>
-          <ProductForm
-            action={updateProduct.bind(null, product.id)}
-            values={toFormValues(product)}
-            categories={categories}
-            softwareTags={softwareTags}
-            submitLabel="บันทึก"
-            stockTaken={stockTaken}
-            hasVariants={product.variants.length > 0}
-            saveOnlyWhenDirty
-          />
-        </TabsContent>
-        <TabsContent value="variants" forceMount className={HIDE_INACTIVE}>
-          <VariantManager productId={product.id} variants={product.variants.map((v) => toManagedVariant(v, now))} />
-        </TabsContent>
-        <TabsContent value="versions" forceMount className={HIDE_INACTIVE}>
-          <VersionManager
-            productId={product.id}
-            buyerCount={buyerCount}
-            versions={product.versions.map((v) => ({
-              id: v.id,
-              versionNumber: v.versionNumber,
-              releaseDate: toBangkokDateTimeLocal(v.releaseDate),
-              releaseDateLabel: formatBangkokDateTime(v.releaseDate),
-              notifiedAtLabel: v.notifiedAt ? formatBangkokDateTime(v.notifiedAt) : null,
-              releaseNotesTH: v.releaseNotesTH ?? "",
-              releaseNotesEN: v.releaseNotesEN ?? "",
-              isLatest: v.isLatest,
-              // storagePath is intentionally not sent to the browser.
-              files: v.files.map((f) => ({
-                id: f.id,
-                fileName: f.fileName,
-                fileSize: f.fileSize,
-                fileType: f.fileType,
-                variantId: f.variantId,
-              })),
-            }))}
-            variants={product.variants.map((v) => ({ id: v.id, name: v.nameTH }))}
-          />
-        </TabsContent>
-        <TabsContent value="license" forceMount className={HIDE_INACTIVE}>
-          <LicensePricingEditor productId={product.id} rows={licensePricing} />
-        </TabsContent>
-      </Tabs>
-    </div>
+          ),
+        },
+        {
+          value: "license",
+          label: `License (${licensePricing.filter((l) => l.price !== null).length})`,
+          content: <LicensePricingEditor rows={licensePricing} />,
+        },
+      ]}
+    />
   );
 }

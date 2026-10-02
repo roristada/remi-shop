@@ -1,14 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { FormSection, runWithToast } from "@/components/admin/form-controls";
+import { FormSection } from "@/components/admin/form-controls";
+import { useEditorSection } from "@/components/admin/product-editor";
 import { saveProductLicensePrices } from "@/lib/licenses/admin-actions";
 import type { FieldErrors } from "@/lib/validation/auth";
 
@@ -16,14 +15,37 @@ export type LicensePricingRow = { id: string; nameTH: string; nameEN: string; is
 
 type RowState = { enabled: boolean; price: string };
 
-/** Per-product price for each usage type. Unticked = not offered on this product. */
-export function LicensePricingEditor({ productId, rows }: { productId: string; rows: LicensePricingRow[] }) {
-  const router = useRouter();
-  const [state, setState] = useState<Record<string, RowState>>(() =>
-    Object.fromEntries(rows.map((r) => [r.id, { enabled: r.price !== null, price: r.price ?? "" }])),
-  );
+const initialState = (rows: LicensePricingRow[]): Record<string, RowState> =>
+  Object.fromEntries(rows.map((r) => [r.id, { enabled: r.price !== null, price: r.price ?? "" }]));
+
+/** Per-product price for each usage type. Unticked = not offered. Saved with the editor's save button. */
+export function LicensePricingEditor({ rows }: { rows: LicensePricingRow[] }) {
+  const [state, setState] = useState(() => initialState(rows));
+  const [saved, setSaved] = useState(() => JSON.stringify(initialState(rows)));
   const [errors, setErrors] = useState<FieldErrors>({});
-  const [pending, startTransition] = useTransition();
+  const dirty = JSON.stringify(state) !== saved;
+
+  useEditorSection(
+    "license",
+    {
+      order: 50,
+      tab: "license",
+      label: "ราคา License",
+      save: async (ctx) => {
+        if (!ctx.productId) return false;
+        const entries = rows.map((r) => ({ usageTypeId: r.id, ...state[r.id] }));
+        const result = await saveProductLicensePrices(ctx.productId, entries);
+        if (!result.ok) {
+          if (result.fieldErrors) setErrors(result.fieldErrors);
+          toast.error(`License: ${result.error}`);
+          return false;
+        }
+        setSaved(JSON.stringify(state));
+        return true;
+      },
+    },
+    dirty,
+  );
 
   function update(id: string, patch: Partial<RowState>) {
     setState((s) => ({ ...s, [id]: { ...s[id], ...patch } }));
@@ -31,18 +53,6 @@ export function LicensePricingEditor({ productId, rows }: { productId: string; r
       const next = { ...e };
       delete next[id];
       return next;
-    });
-  }
-
-  function save() {
-    startTransition(async () => {
-      const entries = rows.map((r) => ({ usageTypeId: r.id, ...state[r.id] }));
-      const done = await runWithToast(async () => {
-        const result = await saveProductLicensePrices(productId, entries);
-        if (!result.ok && result.fieldErrors) setErrors(result.fieldErrors);
-        return result;
-      });
-      if (done) router.refresh();
     });
   }
 
@@ -103,13 +113,6 @@ export function LicensePricingEditor({ productId, rows }: { productId: string; r
             );
           })}
         </ul>
-      )}
-      {rows.length > 0 && (
-        <div className="flex justify-end">
-          <Button onClick={save} disabled={pending} aria-busy={pending} className="h-10 rounded-full px-5">
-            {pending && <Loader2 className="animate-spin" aria-hidden />} บันทึกราคา License
-          </Button>
-        </div>
       )}
     </FormSection>
   );

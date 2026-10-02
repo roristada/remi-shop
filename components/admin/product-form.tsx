@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
-import { Loader2, Save, Wand2 } from "lucide-react";
-import { SaveBar, useSaveShortcut, useUnsavedWarning } from "@/components/admin/save-bar";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Wand2 } from "lucide-react";
+import { toast } from "sonner";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { FormSection, SelectInput, TextArea, TextInput, useResultToast } from "@/components/admin/form-controls";
+import { FormSection, SelectInput, TextArea, TextInput } from "@/components/admin/form-controls";
 import { DateTimeInput } from "@/components/admin/date-time-input";
+import { useEditorSection } from "@/components/admin/product-editor";
+import { createProduct, updateProduct } from "@/lib/products/admin-actions";
 import type { ActionResult } from "@/lib/actions/result";
 
 export type ProductFormValues = {
@@ -16,6 +18,8 @@ export type ProductFormValues = {
   descriptionTH: string;
   descriptionEN: string;
   categoryId: string;
+  /** "none" = no folder. */
+  folderId: string;
   price: string;
   discountPercent: string;
   discountStartAt: string;
@@ -44,6 +48,7 @@ export const EMPTY_PRODUCT_VALUES: ProductFormValues = {
   descriptionTH: "",
   descriptionEN: "",
   categoryId: "",
+  folderId: "none",
   price: "",
   discountPercent: "",
   discountStartAt: "",
@@ -80,8 +85,6 @@ function VariantsNotice() {
   );
 }
 
-type Action = (prev: ActionResult<unknown> | null, formData: FormData) => Promise<ActionResult<unknown>>;
-
 function slugify(value: string) {
   return value
     .normalize("NFKD")
@@ -92,52 +95,61 @@ function slugify(value: string) {
 }
 
 type ProductFormProps = {
-  action: Action;
   values: ProductFormValues;
   categories: { id: string; nameTH: string; status: string }[];
+  folders: { id: string; nameTH: string }[];
   softwareTags: { id: string; name: string; isActive: boolean }[];
-  submitLabel: string;
   /** Units held by open or completed orders; edit page only. */
   stockTaken?: number;
   /** Price, discount and stock then come from the variants (this price is kept at the cheapest). */
   hasVariants?: boolean;
-  /** Edit page: the save bar appears only after a change and offers "ยกเลิก". */
-  saveOnlyWhenDirty?: boolean;
 };
-
-export function ProductForm(props: ProductFormProps) {
-  // "ยกเลิก" remounts the form, so every field (including custom inputs) returns to `values`.
-  const [formKey, setFormKey] = useState(0);
-  return <ProductFormBody key={formKey} {...props} onDiscard={() => setFormKey((k) => k + 1)} />;
-}
 
 /** Field values as one comparable string; files are compared by name only. */
 function serializeForm(form: HTMLFormElement): string {
   return JSON.stringify([...new FormData(form).entries()].map(([k, v]) => [k, typeof v === "string" ? v : v.name]));
 }
 
-function ProductFormBody({
-  action,
-  values,
-  categories,
-  softwareTags,
-  submitLabel,
-  stockTaken,
-  hasVariants = false,
-  saveOnlyWhenDirty = false,
-  onDiscard,
-}: ProductFormProps & { onDiscard: () => void }) {
+/** Text, price, schedule and other details. Saved (or, for a new product, created first) by the editor. */
+export function ProductForm({ values, categories, folders, softwareTags, stockTaken, hasVariants = false }: ProductFormProps) {
   const [state, setState] = useState<ActionResult<unknown> | null>(null);
-  const [pending, startTransition] = useTransition();
   const [limitMode, setLimitMode] = useState(values.downloadLimitMode);
   const slugRef = useRef<HTMLInputElement>(null);
   const nameENRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const savedRef = useRef<string | null>(null);
   const [dirty, setDirty] = useState(false);
-  useResultToast(state);
-  useUnsavedWarning(dirty);
-  useSaveShortcut(() => formRef.current?.requestSubmit(), (dirty || !saveOnlyWhenDirty) && !pending, formRef);
+
+  useEditorSection(
+    "details",
+    {
+      order: 10,
+      tab: "details",
+      label: "รายละเอียด",
+      required: true,
+      save: async (ctx) => {
+        const form = formRef.current;
+        if (!form) return false;
+        const formData = new FormData(form);
+        const submitted = serializeForm(form);
+        const result = ctx.productId ? await updateProduct(ctx.productId, null, formData) : await createProduct(null, formData);
+        setState(result);
+        if (!result.ok) {
+          toast.error(result.error);
+          return false;
+        }
+        if (!ctx.productId && result.data && typeof result.data === "object" && "id" in result.data) {
+          ctx.productId = String(result.data.id);
+        }
+        // Warnings (e.g. a discount window already over) must be read before leaving the page.
+        if (result.notify && result.message) toast.info(result.message);
+        savedRef.current = submitted;
+        setDirty(serializeForm(form) !== submitted);
+        return true;
+      },
+    },
+    dirty,
+  );
 
   useEffect(() => {
     if (formRef.current) savedRef.current = serializeForm(formRef.current);
@@ -149,21 +161,8 @@ function ProductFormBody({
       if (formRef.current && savedRef.current !== null) setDirty(serializeForm(formRef.current) !== savedRef.current);
     }, 0);
 
-  // Submitting via onSubmit (not the `action` prop) keeps the user's input on validation errors.
-  function onSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const formData = new FormData(form);
-    const submitted = serializeForm(form);
-    startTransition(async () => {
-      const result = await action(state, formData);
-      setState(result);
-      if (result.ok) {
-        savedRef.current = submitted;
-        setDirty(serializeForm(form) !== submitted);
-      }
-    });
-  }
+  // Enter in a field must not submit: the editor's save button saves every tab together.
+  const onSubmit = (e: FormEvent<HTMLFormElement>) => e.preventDefault();
 
   const err = (name: string) => (state && !state.ok ? state.fieldErrors?.[name] : undefined);
   // Non-blocking notes from a successful save (e.g. a discount window that is already over).
@@ -222,6 +221,13 @@ function ProductFormBody({
             placeholder="— เลือกหมวดหมู่ —"
             options={categories.map((c) => ({ value: c.id, label: c.status === "HIDDEN" ? `${c.nameTH} (ซ่อน)` : c.nameTH }))}
             error={err("categoryId")}
+          />
+          <SelectInput
+            label="โฟลเดอร์ (ไม่บังคับ)"
+            name="folderId"
+            defaultValue={values.folderId}
+            options={[{ value: "none", label: "— ไม่มีโฟลเดอร์ —" }, ...folders.map((f) => ({ value: f.id, label: f.nameTH }))]}
+            error={err("folderId")}
           />
           <TextArea label="รายละเอียด (ไทย)" name="descriptionTH" defaultValue={values.descriptionTH} rows={6} error={err("descriptionTH")} />
           <TextArea label="รายละเอียด (English)" name="descriptionEN" defaultValue={values.descriptionEN} rows={6} error={err("descriptionEN")} />
@@ -351,17 +357,6 @@ function ProductFormBody({
         </div>
       </FormSection>
 
-      <SaveBar dirty={dirty || pending} idleMessage={saveOnlyWhenDirty ? undefined : "กด Ctrl+S เพื่อบันทึกได้"}>
-        {saveOnlyWhenDirty && (
-          <Button type="button" variant="outline" disabled={pending} className="h-10 rounded-full px-5" onClick={onDiscard}>
-            ยกเลิก
-          </Button>
-        )}
-        <Button type="submit" disabled={pending} aria-busy={pending} className="h-10 rounded-full px-6">
-          {pending ? <Loader2 className="animate-spin" aria-hidden /> : <Save aria-hidden />}
-          {submitLabel}
-        </Button>
-      </SaveBar>
     </form>
   );
 }

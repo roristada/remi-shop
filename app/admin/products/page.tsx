@@ -160,7 +160,7 @@ export default async function AdminProductsPage({ searchParams }: PageProps<"/ad
               </Link>
             </Button>
             <Button asChild className="h-10 rounded-full px-5">
-              <Link href="/admin/products/new">
+              <Link href={folder && folder !== "none" ? `/admin/products/new?folder=${folder}` : "/admin/products/new"}>
                 <Plus aria-hidden /> เพิ่มสินค้า
               </Link>
             </Button>

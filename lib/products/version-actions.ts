@@ -4,7 +4,7 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma/client";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { isForeignKeyViolation, isUniqueViolation } from "@/lib/prisma/errors";
-import { fail, formString, invalid, ok, type ActionResult } from "@/lib/actions/result";
+import { fail, formString, invalid, ok, okNotice, type ActionResult } from "@/lib/actions/result";
 import { idSchema, uploadRequestSchema, versionSchema } from "@/lib/validation/product";
 import { BUCKETS, MAX_PRODUCT_FILE_SIZE } from "@/lib/storage/buckets";
 import {
@@ -47,11 +47,12 @@ async function findVersion(versionId: string) {
 
 // ───────────────────────────── Versions ─────────────────────────────
 
+/** Adds a version and returns its id. The first version is always the latest; later ones when `setLatest`. */
 export async function createVersion(
   productId: string,
   _prev: ActionResult | null,
   formData: FormData,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ id: string }>> {
   await requireAdmin();
   if (!idSchema.safeParse(productId).success) return fail("ไม่พบสินค้า");
   const parsed = parseVersionForm(formData);
@@ -61,24 +62,19 @@ export async function createVersion(
   const duplicate = await prisma.productVersion.count({ where: { productId, versionNumber: data.versionNumber } });
   if (duplicate > 0) return fail(DUPLICATE_VERSION, { versionNumber: DUPLICATE_VERSION });
 
-  let deferredLatest = false;
+  let id: string;
   try {
-    await prisma.$transaction(async (tx) => {
-      const [existing, product] = await Promise.all([
-        tx.productVersion.count({ where: { productId } }),
-        tx.product.findUnique({ where: { id: productId }, select: { publishStatus: true } }),
-      ]);
-      // The first version is always the latest; later ones only when asked.
-      // A new version has no files yet, so a published product keeps its current
-      // latest until files are uploaded and the admin promotes it (setLatestVersion).
-      deferredLatest = existing > 0 && setLatest && product?.publishStatus === "PUBLISHED";
-      const makeLatest = existing === 0 || (setLatest && !deferredLatest);
+    id = await prisma.$transaction(async (tx) => {
+      const existing = await tx.productVersion.count({ where: { productId } });
+      const makeLatest = existing === 0 || setLatest;
       if (makeLatest) {
         await tx.productVersion.updateMany({ where: { productId, isLatest: true }, data: { isLatest: false } });
       }
-      await tx.productVersion.create({
+      const version = await tx.productVersion.create({
         data: { ...data, productId, isLatest: makeLatest, ...(releaseDate ? { releaseDate } : {}) },
+        select: { id: true },
       });
+      return version.id;
     });
   } catch (error) {
     // Duplicate number or latest flag raced with another request.
@@ -89,12 +85,7 @@ export async function createVersion(
 
   console.info("[products] version created", { productId, versionNumber: data.versionNumber });
   revalidateCatalog();
-  return ok(
-    undefined,
-    deferredLatest
-      ? `เพิ่ม v${data.versionNumber} แล้ว — อัปโหลดไฟล์ แล้วกด “ตั้งเป็นล่าสุด”`
-      : "เพิ่มเวอร์ชันแล้ว",
-  );
+  return ok({ id }, "เพิ่มเวอร์ชันแล้ว");
 }
 
 export async function updateVersion(
@@ -130,15 +121,6 @@ export async function setLatestVersion(versionId: string): Promise<ActionResult>
   const version = await findVersion(versionId);
   if (!version) return fail("ไม่พบเวอร์ชัน");
   if (version.isLatest) return ok(undefined);
-
-  const product = await prisma.product.findUnique({
-    where: { id: version.productId },
-    select: { publishStatus: true },
-  });
-  const fileCount = await prisma.productVersionFile.count({ where: { versionId: version.id } });
-  if (product?.publishStatus === "PUBLISHED" && fileCount === 0) {
-    return fail("สินค้าเผยแพร่อยู่ เวอร์ชันล่าสุดต้องมีไฟล์อย่างน้อย 1 ไฟล์");
-  }
 
   try {
     // Partial unique index (one latest per product) guards concurrent switches.
@@ -278,7 +260,12 @@ export async function saveVersionFiles(versionId: string, changes: VersionFileCh
   await requireAdmin();
   const version = await prisma.productVersion.findUnique({
     where: { id: idSchema.safeParse(versionId).success ? versionId : "" },
-    select: { id: true, productId: true, isLatest: true, product: { select: { publishStatus: true } } },
+    select: {
+      id: true,
+      productId: true,
+      versionNumber: true,
+      product: { select: { publishStatus: true, nameTH: true, nameEN: true } },
+    },
   });
   if (!version) return fail("ไม่พบเวอร์ชัน");
 
@@ -323,11 +310,9 @@ export async function saveVersionFiles(versionId: string, changes: VersionFileCh
   const existingIds = new Set(existing.map((f) => f.id));
   if (!touchedIds.every((id) => existingIds.has(id))) return reject("ไม่พบไฟล์");
 
+  // Files may change at any time, published or not (an empty version is delivered by email).
   const finalCount = existing.length - deleteIds.length + uploads.length;
   if (finalCount > MAX_FILES_PER_VERSION) return reject(`ไฟล์ได้สูงสุด ${MAX_FILES_PER_VERSION} ไฟล์ต่อเวอร์ชัน`);
-  if (finalCount === 0 && version.isLatest && version.product.publishStatus === "PUBLISHED") {
-    return reject("สินค้าเผยแพร่อยู่ ต้องเหลือไฟล์ในเวอร์ชันล่าสุดอย่างน้อย 1 ไฟล์ (เพิ่มไฟล์ใหม่ก่อน หรือเปลี่ยนเป็นฉบับร่าง)");
-  }
 
   // New files: key issued for this version, extension unchanged, stored bytes verified.
   const checked: { path: string; fileName: string; variantId: string | null }[] = [];
@@ -378,15 +363,31 @@ export async function saveVersionFiles(versionId: string, changes: VersionFileCh
   const deletedPaths = existing.filter((f) => deleteIds.includes(f.id)).map((f) => f.storagePath);
   await removeObjects(BUCKETS.digitalFiles, deletedPaths);
 
+  // Buyers of a published product hear about new or removed files in any version.
+  let notified = 0;
+  if (version.product.publishStatus === "PUBLISHED" && (creates.length > 0 || deleteIds.length > 0)) {
+    try {
+      notified = await notifyProductBuyers(prisma, version.productId, {
+        productNameTH: version.product.nameTH,
+        productNameEN: version.product.nameEN,
+        versionNumber: version.versionNumber,
+        update: "files",
+      });
+    } catch (error) {
+      console.error("[products] notify buyers of file change failed", { versionId, message: (error as Error).message });
+    }
+  }
+
   console.info("[products] version files saved", {
     productId: version.productId,
     versionId,
     uploaded: creates.length,
     moved: moveList.length,
     deleted: deleteIds.length,
+    notified,
   });
   revalidateCatalog();
-  return ok(undefined, "บันทึกไฟล์แล้ว");
+  return notified > 0 ? okNotice(undefined, `บันทึกไฟล์แล้ว · แจ้งลูกค้าที่ซื้อแล้ว ${notified} คน`) : ok(undefined, "บันทึกไฟล์แล้ว");
 }
 
 /** Removes objects uploaded for a save that never reached saveVersionFiles (e.g. a later upload failed). */

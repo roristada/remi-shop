@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { PreviewImage } from "@/components/shared/preview-image";
-import { useRouter } from "next/navigation";
 import {
   closestCenter,
   DndContext,
@@ -20,27 +20,21 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, ImagePlus, Loader2, Star, Trash2 } from "lucide-react";
+import { ImagePlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ConfirmDialog } from "@/components/admin/confirm-dialog";
-import { runWithToast } from "@/components/admin/form-controls";
-import { useDirectUpload } from "@/components/admin/use-direct-upload";
-import {
-  confirmImageUpload,
-  deleteImage,
-  reorderImages,
-  requestImageUpload,
-  setPrimaryImage,
-} from "@/lib/products/image-actions";
-import { acceptAttribute, PRODUCT_IMAGE_FILE_TYPES } from "@/lib/storage/file-types";
+import { useEditorSection } from "@/components/admin/product-editor";
+import { uploadToStorage } from "@/components/admin/use-direct-upload";
+import { confirmImageUpload, requestImageUpload, saveImageChanges } from "@/lib/products/image-actions";
+import { acceptAttribute, checkFileMeta, FILE_TYPE_ERROR_TH, PRODUCT_IMAGE_FILE_TYPES } from "@/lib/storage/file-types";
+import { MAX_PRODUCT_FILE_SIZE } from "@/lib/storage/buckets";
 import { cn } from "@/lib/utils";
 
-export type ManagedImage = {
-  id: string;
-  url: string;
-  isPrimary: boolean;
-};
+export type ManagedImage = { id: string; url: string };
+
+const MAX_IMAGES = 20;
+
+/** A saved image (`id`) or one picked in this session (`file`, previewed from memory). */
+type Item = { key: string; id: string | null; url: string; file: File | null };
 
 const DND_A11Y = {
   screenReaderInstructions: {
@@ -54,183 +48,200 @@ const DND_A11Y = {
   },
 };
 
-export function ImageManager({ productId, images }: { productId: string; images: ManagedImage[] }) {
-  const router = useRouter();
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [pending, startTransition] = useTransition();
-  const { upload, uploading } = useDirectUpload(
-    (input) => requestImageUpload(productId, input),
-    (input) => confirmImageUpload(productId, input),
-  );
+const fromSaved = (images: ManagedImage[]): Item[] => images.map((i) => ({ key: i.id, id: i.id, url: i.url, file: null }));
 
-  // Local order for instant feedback while dragging; reset whenever the server sends new data.
-  const [items, setItems] = useState(images);
+/**
+ * Product pictures. Adding, reordering and removing only change this list; everything is saved by
+ * the editor's save button (pictures can be added before the product exists). The first picture
+ * is the main one shown in the shop.
+ */
+export function ImageManager({ images }: { images: ManagedImage[] }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [items, setItems] = useState(() => fromSaved(images));
   const [serverImages, setServerImages] = useState(images);
+  // New data from the server (after a save) replaces the local list.
   if (images !== serverImages) {
     setServerImages(images);
-    setItems(images);
+    setItems(fromSaved(images));
   }
 
+  // Object URLs of picked files are released when they leave the list.
+  const objectUrls = useRef(new Set<string>());
+  useEffect(() => {
+    const urls = objectUrls.current;
+    return () => urls.forEach((u) => URL.revokeObjectURL(u));
+  }, []);
+
+  const savedIds = images.map((i) => i.id);
+  const currentIds = items.map((i) => i.id ?? i.key);
+  const dirty = items.some((i) => i.file) || savedIds.join() !== currentIds.join();
+
+  const { saving } = useEditorSection(
+    "images",
+    {
+      order: 30,
+      tab: "details",
+      label: "รูปภาพ",
+      save: async (ctx) => {
+        const productId = ctx.productId;
+        if (!productId) return false;
+        const list = [...items];
+        // Upload new pictures one by one; each becomes a saved image right away, so a retry skips it.
+        for (const [index, item] of list.entries()) {
+          if (!item.file) continue;
+          const stored = await uploadToStorage((input) => requestImageUpload(productId, input), item.file);
+          const confirmed = stored.ok ? await confirmImageUpload(productId, { path: stored.path, fileName: item.file.name }) : null;
+          if (!stored.ok || !confirmed?.ok) {
+            const error = !stored.ok ? stored.error : confirmed && !confirmed.ok ? confirmed.error : "อัปโหลดไม่สำเร็จ";
+            toast.error(`${item.file.name}: ${error}`);
+            setItems(list);
+            return false;
+          }
+          list[index] = { ...item, id: confirmed.data.id, file: null };
+        }
+        setItems(list);
+        const orderedIds = list.map((i) => i.id as string);
+        const deleteIds = savedIds.filter((id) => !orderedIds.includes(id));
+        const result = await saveImageChanges(productId, { orderedIds, deleteIds });
+        if (!result.ok) {
+          toast.error(`รูปภาพ: ${result.error}`);
+          return false;
+        }
+        return true;
+      },
+    },
+    dirty,
+  );
+
   const sensors = useSensors(
-    // Small distance so clicks on buttons/inputs inside a card don't start a drag.
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const busy = pending || uploading !== null;
-
-  const run = (fn: () => ReturnType<typeof setPrimaryImage>) =>
-    startTransition(async () => {
-      if (await runWithToast(fn)) router.refresh();
+  function addFiles(files: File[]) {
+    const room = MAX_IMAGES - items.length;
+    if (files.length > room) toast.error(`รูปภาพได้สูงสุด ${MAX_IMAGES} รูป`);
+    const accepted = files.slice(0, Math.max(0, room)).filter((file) => {
+      const error = checkFileMeta(PRODUCT_IMAGE_FILE_TYPES, file.name, file.size, MAX_PRODUCT_FILE_SIZE);
+      if (error) toast.error(`${file.name}: ${FILE_TYPE_ERROR_TH[error]}`);
+      return !error;
     });
+    const added = accepted.map((file) => {
+      const url = URL.createObjectURL(file);
+      objectUrls.current.add(url);
+      return { key: crypto.randomUUID(), id: null, url, file };
+    });
+    setItems((prev) => [...prev, ...added]);
+  }
+
+  function remove(key: string) {
+    setItems((prev) => prev.filter((i) => i.key !== key));
+  }
 
   function onDragEnd({ active, over }: DragEndEvent) {
     if (!over || active.id === over.id) return;
-    const previous = items;
-    const next = arrayMove(
-      items,
-      items.findIndex((i) => i.id === active.id),
-      items.findIndex((i) => i.id === over.id),
+    setItems((prev) =>
+      arrayMove(
+        prev,
+        prev.findIndex((i) => i.key === active.id),
+        prev.findIndex((i) => i.key === over.id),
+      ),
     );
-    setItems(next);
-    startTransition(async () => {
-      const saved = await runWithToast(() => reorderImages(productId, next.map((i) => i.id)));
-      if (!saved) setItems(previous);
-      router.refresh();
-    });
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <input
-          ref={inputRef}
-          type="file"
-          accept={acceptAttribute(PRODUCT_IMAGE_FILE_TYPES)}
-          multiple
-          hidden
-          onChange={async (e) => {
-            const input = e.currentTarget;
-            if (!input.files?.length) return;
-            if ((await upload(input.files)) > 0) router.refresh();
-            input.value = "";
-          }}
-        />
-        <Button onClick={() => inputRef.current?.click()} disabled={busy} className="rounded-full">
-          {uploading ? <Loader2 className="animate-spin" aria-hidden /> : <ImagePlus aria-hidden />}
-          {uploading ? `กำลังอัปโหลด ${uploading}` : "เพิ่มรูปภาพ"}
+    <div className="space-y-3">
+      <input
+        ref={inputRef}
+        type="file"
+        accept={acceptAttribute(PRODUCT_IMAGE_FILE_TYPES)}
+        multiple
+        hidden
+        onChange={(e) => {
+          const input = e.currentTarget;
+          if (input.files?.length) addFiles(Array.from(input.files));
+          input.value = "";
+        }}
+      />
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd} accessibility={DND_A11Y}>
+        <SortableContext items={items.map((i) => i.key)} strategy={rectSortingStrategy}>
+          <ul className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-7">
+            {items.map((item, i) => (
+              <SortableImage key={item.key} item={item} index={i} disabled={saving} onRemove={() => remove(item.key)} />
+            ))}
+            {items.length < MAX_IMAGES && (
+              <li>
+                <button
+                  type="button"
+                  onClick={() => inputRef.current?.click()}
+                  disabled={saving}
+                  className="flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-50"
+                >
+                  <ImagePlus className="size-5" aria-hidden />
+                  เพิ่มรูป
+                </button>
+              </li>
+            )}
+          </ul>
+        </SortableContext>
+      </DndContext>
+      <p className="text-xs text-muted-foreground">
+        รูปแรกคือรูปหลักที่แสดงหน้าร้าน · ลากเพื่อเรียงลำดับ · JPG, PNG, WEBP, GIF ไม่เกิน 50 MB ต่อรูป (สูงสุด {MAX_IMAGES} รูป) ·
+        ระบบแปลงเป็น WebP ให้อัตโนมัติ GIF ยังเคลื่อนไหวได้
+      </p>
+      {items.length === 0 && (
+        <Button type="button" variant="secondary" className="rounded-full" onClick={() => inputRef.current?.click()} disabled={saving}>
+          <ImagePlus aria-hidden /> เพิ่มรูปภาพ
         </Button>
-        <p className="text-xs text-muted-foreground">
-          JPG, PNG, WEBP, GIF ไม่เกิน 50 MB ต่อรูป · ลาก <GripVertical className="inline size-3" aria-hidden /> เพื่อเรียงลำดับ ·
-          รูปแรกที่อัปโหลดเป็นรูปหลักอัตโนมัติ
-        </p>
-      </div>
-
-      {items.length === 0 ? (
-        <div className="rounded-2xl border border-dashed p-10 text-center text-sm text-muted-foreground">ยังไม่มีรูปภาพ</div>
-      ) : (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd} accessibility={DND_A11Y}>
-          <SortableContext items={items.map((i) => i.id)} strategy={rectSortingStrategy}>
-            <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {items.map((img, i) => (
-                <SortableImageCard
-                  key={img.id}
-                  image={img}
-                  index={i}
-                  disabled={busy}
-                  onSetPrimary={() => run(() => setPrimaryImage(img.id))}
-                  onDelete={async () => {
-                    const done = await runWithToast(() => deleteImage(img.id));
-                    if (done) router.refresh();
-                    return done;
-                  }}
-                />
-              ))}
-            </ul>
-          </SortableContext>
-        </DndContext>
       )}
     </div>
   );
 }
 
-function SortableImageCard({
-  image,
-  index,
-  disabled,
-  onSetPrimary,
-  onDelete,
-}: {
-  image: ManagedImage;
-  index: number;
-  disabled: boolean;
-  onSetPrimary: () => void;
-  onDelete: () => Promise<boolean>;
-}) {
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
-    id: image.id,
-    disabled,
-  });
-
+function SortableImage({ item, index, disabled, onRemove }: { item: Item; index: number; disabled: boolean; onRemove: () => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.key, disabled });
+  const label = index === 0 ? "รูปหลัก" : `รูปที่ ${index + 1}`;
   return (
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={cn(
-        "overflow-hidden rounded-2xl border bg-card shadow-soft",
-        isDragging && "relative z-10 opacity-80 shadow-lg ring-2 ring-primary",
-      )}
+      className={cn("group relative", isDragging && "z-10 opacity-80")}
     >
-      <div className="relative aspect-[4/3] bg-muted">
-        <PreviewImage
-          src={image.url}
-          alt={`รูปที่ ${index + 1}`}
-          fill
-          sizes="(min-width: 1280px) 33vw, (min-width: 640px) 50vw, 100vw"
-          className="pointer-events-none object-cover select-none"
-          draggable={false}
-        />
-        {image.isPrimary && (
-          <Badge className="absolute top-2 left-2">
-            <Star aria-hidden /> รูปหลัก
-          </Badge>
+      <div
+        {...attributes}
+        {...listeners}
+        aria-label={`${label} — ลากเพื่อย้าย`}
+        className={cn(
+          "relative aspect-square cursor-grab touch-none overflow-hidden rounded-xl bg-muted ring-1 ring-black/5 outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing",
+          index === 0 && "ring-2 ring-brand-strong",
+          isDragging && "shadow-lg",
         )}
-        <button
-          ref={setActivatorNodeRef}
-          type="button"
-          aria-label={`ลากเพื่อย้ายรูปที่ ${index + 1}`}
-          className="absolute top-2 right-2 grid size-9 cursor-grab touch-none place-items-center rounded-full bg-background/90 shadow-soft outline-none focus-visible:ring-3 focus-visible:ring-ring/80 active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={disabled}
-          {...attributes}
-          {...listeners}
+      >
+        {item.url.startsWith("blob:") ? (
+          // A local preview of a picked file; next/image cannot load blob: URLs.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={item.url} alt="" className="pointer-events-none size-full object-cover select-none" draggable={false} />
+        ) : (
+          <PreviewImage src={item.url} alt="" fill sizes="120px" className="pointer-events-none object-cover select-none" draggable={false} />
+        )}
+        <span
+          className={cn(
+            "absolute bottom-1 left-1 rounded-full px-1.5 text-[0.65rem] font-medium",
+            index === 0 ? "bg-brand-strong text-white" : "bg-background/90",
+          )}
         >
-          <GripVertical className="size-4" aria-hidden />
-        </button>
-        <span className="absolute bottom-2 left-2 rounded-full bg-background/90 px-2 text-xs font-medium">
-          {index + 1}
+          {index === 0 ? "รูปหลัก" : index + 1}
         </span>
       </div>
-      <div className="space-y-3 p-3">
-        <div className="flex flex-wrap gap-1">
-          {!image.isPrimary && (
-            <Button size="sm" variant="outline" disabled={disabled} onClick={onSetPrimary}>
-              <Star aria-hidden /> ตั้งเป็นรูปหลัก
-            </Button>
-          )}
-          <ConfirmDialog
-            trigger={
-              <Button size="sm" variant="destructive" disabled={disabled} className="ml-auto">
-                <Trash2 aria-hidden /> ลบ
-              </Button>
-            }
-            title="ลบรูปนี้?"
-            description="รูปจะถูกลบออกจากสินค้าและ storage"
-            confirmLabel="ลบรูป"
-            destructive
-            onConfirm={onDelete}
-          />
-        </div>
-      </div>
+      <button
+        type="button"
+        onClick={onRemove}
+        disabled={disabled}
+        aria-label={`ลบ${label}`}
+        className="absolute -top-1.5 -right-1.5 grid size-6 place-items-center rounded-full bg-foreground text-background shadow-soft transition-opacity hover:bg-destructive focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+      >
+        <X className="size-3.5" aria-hidden />
+      </button>
     </li>
   );
 }

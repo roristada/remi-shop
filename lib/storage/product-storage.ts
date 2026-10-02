@@ -22,6 +22,15 @@ export function newProductImagePath(productId: string, fileName: string): string
   return `products/${productId}/${crypto.randomUUID()}.${getExtension(fileName)}`;
 }
 
+/** An option's own picture: products/{productId}/variants/{uuid}.{ext}. */
+export function newVariantImagePath(productId: string, fileName: string): string {
+  return `products/${productId}/variants/${crypto.randomUUID()}.${getExtension(fileName)}`;
+}
+
+export function isVariantImagePath(path: string, productId: string): boolean {
+  return new RegExp(`^products/${productId}/variants/${UUID}\\.(jpe?g|png|webp|gif)$`).test(path);
+}
+
 export function newProductFilePath(productId: string, versionId: string, fileName: string): string {
   return `products/${productId}/${versionId}/${crypto.randomUUID()}-${sanitizeFileName(fileName)}`;
 }

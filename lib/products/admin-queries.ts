@@ -145,3 +145,10 @@ export async function listFolderCounts() {
     unfiled: byFolder.get(null) ?? 0,
   };
 }
+
+export function listFolderOptions() {
+  return prisma.folder.findMany({
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    select: { id: true, nameTH: true },
+  });
+}
