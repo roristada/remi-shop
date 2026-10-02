@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  dueReviewReminder,
   adminReviewFilterParams,
   canReviewOrder,
   parseAdminReviewFilters,
@@ -84,4 +85,20 @@ test("adminReviewFilterParams omits defaults", () => {
     rating: "1",
     visibility: "hidden",
   });
+});
+
+test("dueReviewReminder: latest due stage only, once, inside the window", () => {
+  const paidAt = new Date("2026-10-01T00:00:00Z");
+  const order = { paidAt, createdAt: paidAt };
+  const day = (n: number) => new Date(paidAt.getTime() + n * 24 * 60 * 60 * 1000);
+  assert.equal(dueReviewReminder(order, [], day(6)), null);
+  assert.equal(dueReviewReminder(order, [], day(7)), 7);
+  assert.equal(dueReviewReminder(order, [7], day(10)), null);
+  assert.equal(dueReviewReminder(order, [7], day(15)), 15);
+  // Came back late: one reminder for the latest stage, earlier stages are skipped.
+  assert.equal(dueReviewReminder(order, [], day(20)), 15);
+  assert.equal(dueReviewReminder(order, [15], day(28)), 28);
+  assert.equal(dueReviewReminder(order, [28], day(29)), null);
+  // Window closed.
+  assert.equal(dueReviewReminder(order, [], day(30)), null);
 });

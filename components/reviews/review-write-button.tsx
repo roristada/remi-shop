@@ -9,7 +9,7 @@ import { getMyReviewState } from "@/lib/reviews/actions";
 import { ReviewDialog } from "@/components/reviews/review-dialog";
 import type { ReviewEligibility } from "@/lib/reviews/rules";
 
-type State = { state: ReviewEligibility; existing?: { rating: number; body: string } };
+type State = { state: ReviewEligibility; existing?: { rating: number; body: string; isAnonymous: boolean } };
 
 /**
  * The product page is cached for everyone, so what this viewer may do (sign in / buy first /

@@ -56,7 +56,8 @@ export async function ReviewSection({ productId, productName, productSlug }: { p
           rating: r.rating,
           body: r.body,
           createdAt: r.createdAt.toISOString(),
-          name: reviewerName(r.user.displayName, ""),
+          name: r.isAnonymous ? "" : reviewerName(r.user.displayName, ""),
+          anonymous: r.isAnonymous,
         }))}
       />
     </section>

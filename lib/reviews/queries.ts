@@ -35,7 +35,7 @@ export async function listProductReviews(productId: string, page: number) {
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       skip: (page - 1) * REVIEWS_PAGE_SIZE,
       take: REVIEWS_PAGE_SIZE,
-      select: { id: true, rating: true, body: true, createdAt: true, user: { select: { displayName: true } } },
+      select: { id: true, rating: true, body: true, isAnonymous: true, createdAt: true, user: { select: { displayName: true } } },
     }),
   ]);
   return { total, rows, hasMore: page * REVIEWS_PAGE_SIZE < total };
@@ -56,7 +56,7 @@ export async function getReviewEligibility(userId: string | null, productId: str
   const [existing, orders] = await Promise.all([
     prisma.review.findUnique({
       where: { productId_userId: { productId, userId } },
-      select: { id: true, rating: true, body: true },
+      select: { id: true, rating: true, body: true, isAnonymous: true },
     }),
     prisma.order.findMany({
       where: { userId, kind: "PRODUCT", status: "COMPLETED", items: { some: { productId } } },
@@ -123,6 +123,8 @@ export async function listReviewsForAdmin({ q, rating, visibility, page }: Admin
         id: true,
         rating: true,
         body: true,
+        isAnonymous: true,
+        orderId: true,
         isHidden: true,
         createdAt: true,
         product: { select: { id: true, nameTH: true } },
@@ -130,5 +132,15 @@ export async function listReviewsForAdmin({ q, rating, visibility, page }: Admin
       },
     }),
   ]);
-  return { total, rows, pageCount: Math.max(1, Math.ceil(total / ADMIN_PAGE_SIZE)) };
+  // Which order made the reviewer eligible: shown to the admin even for anonymous reviews.
+  const orders = await prisma.order.findMany({
+    where: { id: { in: [...new Set(rows.map((r) => r.orderId))] } },
+    select: { id: true, orderNumber: true },
+  });
+  const orderNumbers = new Map(orders.map((o) => [o.id, o.orderNumber]));
+  return {
+    total,
+    rows: rows.map((r) => ({ ...r, orderNumber: orderNumbers.get(r.orderId) ?? null })),
+    pageCount: Math.max(1, Math.ceil(total / ADMIN_PAGE_SIZE)),
+  };
 }

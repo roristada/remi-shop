@@ -9,9 +9,23 @@ export type NotificationParams = {
   versionNumber?: string;
   orderNumber?: string;
   reason?: string;
+  /** REVIEW_REMINDER: which purchase and which reminder (days after approval), for de-duplication. */
+  productId?: string;
+  stage?: string;
+  /** PRODUCT_UPDATED: "files" when files of an existing version changed rather than a new version. */
+  update?: string;
 };
 
-const PARAM_KEYS = ["productNameTH", "productNameEN", "versionNumber", "orderNumber", "reason"] as const;
+const PARAM_KEYS = [
+  "productNameTH",
+  "productNameEN",
+  "versionNumber",
+  "orderNumber",
+  "reason",
+  "productId",
+  "stage",
+  "update",
+] as const;
 
 /** Reads a stored params value defensively: unknown keys and non-strings are dropped. */
 export function parseNotificationParams(value: unknown): NotificationParams {
@@ -40,6 +54,7 @@ export function notificationTarget(
       return { path: "/downloads", localized: true };
     case "PAYMENT_APPROVED":
     case "PAYMENT_REJECTED":
+    case "REVIEW_REMINDER":
       return params.orderNumber
         ? { path: `/orders/${encodeURIComponent(params.orderNumber)}`, localized: true }
         : { path: "/orders", localized: true };

@@ -90,16 +90,22 @@ export default async function AdminReviewsPage({ searchParams }: PageProps<"/adm
                   <p className="text-xs text-muted-foreground">
                     {r.user.displayName ? `${r.user.displayName} (${r.user.email})` : r.user.email} ·{" "}
                     {formatBangkokDateTime(r.createdAt)}
+                    {r.orderNumber && <> · คำสั่งซื้อ {r.orderNumber}</>}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center gap-1 text-sm font-medium tabular-nums">
                     <Star className="size-4 text-brand-strong" fill="currentColor" strokeWidth={0} aria-hidden /> {r.rating}/5
                   </span>
+                  {r.isAnonymous && <Badge className="bg-secondary text-secondary-foreground">ไม่ระบุตัวตน</Badge>}
                   {r.isHidden && <Badge className="bg-muted text-muted-foreground">ซ่อนอยู่</Badge>}
                 </div>
               </div>
-              <p className="text-sm whitespace-pre-line break-words">{r.body}</p>
+              {r.body ? (
+                <p className="text-sm whitespace-pre-line break-words">{r.body}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground">ให้คะแนนอย่างเดียว ไม่มีข้อความ</p>
+              )}
               <ReviewVisibilityButton reviewId={r.id} hidden={r.isHidden} />
             </li>
           ))}

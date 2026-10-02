@@ -10,6 +10,7 @@ import {
   type NotificationParams,
 } from "@/lib/notifications/rules";
 import { idSchema } from "@/lib/validation/product";
+import { syncReviewReminders } from "@/lib/notifications/review-reminders";
 
 export type NotificationView = {
   id: string;
@@ -22,10 +23,16 @@ export type NotificationView = {
 
 export type NotificationPage = { items: NotificationView[]; hasMore: boolean };
 
-/** Unread count for the navbar badge; null for guests (the bell is hidden). */
+/** Unread count for the navbar badge; null for guests (the bell is hidden). Due review reminders are created first. */
 export async function getUnreadNotificationCount(): Promise<number | null> {
   const user = await getCurrentUser();
   if (!user) return null;
+  try {
+    await syncReviewReminders(user.id);
+  } catch (error) {
+    // A reminder can wait for the next page view; the badge must still load.
+    console.error("[notifications] review reminders failed", { message: (error as Error).message });
+  }
   return prisma.notification.count({ where: { userId: user.id, readAt: null } });
 }
 

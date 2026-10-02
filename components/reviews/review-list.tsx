@@ -8,7 +8,8 @@ import { Stars } from "@/components/reviews/stars";
 import { intlLocale } from "@/i18n/localize";
 import { loadMoreReviews } from "@/lib/reviews/actions";
 
-export type ReviewItem = { id: string; rating: number; body: string; createdAt: string; name: string };
+/** `name` is empty for an anonymous review (the server never sends it). */
+export type ReviewItem = { id: string; rating: number; body: string; createdAt: string; name: string; anonymous: boolean };
 
 /** First page comes from the server; "load more" pages through a public server action. */
 export function ReviewList({ productId, initial, initialHasMore }: { productId: string; initial: ReviewItem[]; initialHasMore: boolean }) {
@@ -46,7 +47,7 @@ export function ReviewList({ productId, initial, initialHasMore }: { productId: 
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <Stars value={r.rating} />
               <span className="sr-only">{t("starsOption", { count: r.rating })}</span>
-              <span className="text-sm font-medium">{r.name || t("anonymous")}</span>
+              <span className="text-sm font-medium">{r.anonymous ? t("anonymousName") : r.name || t("anonymous")}</span>
               <span className="inline-flex items-center gap-1 text-xs text-success">
                 <BadgeCheck className="size-3.5" aria-hidden /> {t("verified")}
               </span>
@@ -54,7 +55,7 @@ export function ReviewList({ productId, initial, initialHasMore }: { productId: 
                 {date.format(new Date(r.createdAt))}
               </time>
             </div>
-            <p className="text-sm leading-relaxed whitespace-pre-line break-words">{r.body}</p>
+            {r.body && <p className="text-sm leading-relaxed whitespace-pre-line break-words">{r.body}</p>}
           </li>
         ))}
       </ul>

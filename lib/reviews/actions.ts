@@ -49,7 +49,7 @@ export async function submitReview(input: unknown): Promise<ReviewResult> {
   if (!user) return { ok: false, code: "LOGIN_REQUIRED" };
   const parsed = reviewInputSchema.safeParse(input);
   if (!parsed.success) return { ok: false, code: "INVALID", fieldErrors: zodFieldErrors(parsed.error) };
-  const { productId, rating, body } = parsed.data;
+  const { productId, rating, body, isAnonymous } = parsed.data;
 
   try {
     const outcome = await prisma.$transaction(async (tx) => {
@@ -58,11 +58,11 @@ export async function submitReview(input: unknown): Promise<ReviewResult> {
         select: { id: true },
       });
       if (existing) {
-        await tx.review.update({ where: { id: existing.id }, data: { rating, body } });
+        await tx.review.update({ where: { id: existing.id }, data: { rating, body, isAnonymous } });
       } else {
         const order = await findReviewableOrder(user.id, productId, new Date());
         if (!order) return "NOT_ELIGIBLE" as const;
-        await tx.review.create({ data: { productId, userId: user.id, orderId: order.id, rating, body } });
+        await tx.review.create({ data: { productId, userId: user.id, orderId: order.id, rating, body, isAnonymous } });
       }
       await syncProductRating(tx, productId);
       return "OK" as const;
@@ -90,7 +90,9 @@ export async function loadMoreReviews(productId: string, page: number) {
       rating: r.rating,
       body: r.body,
       createdAt: r.createdAt.toISOString(),
-      name: reviewerName(r.user.displayName, ""),
+      // An anonymous reviewer's name never leaves the server.
+      name: r.isAnonymous ? "" : reviewerName(r.user.displayName, ""),
+      anonymous: r.isAnonymous,
     })),
     hasMore,
   };
@@ -99,7 +101,7 @@ export async function loadMoreReviews(productId: string, page: number) {
 /** What the product page's review button should show for the current viewer. */
 export async function getMyReviewState(
   productId: string,
-): Promise<{ state: ReviewEligibility; existing?: { rating: number; body: string } }> {
+): Promise<{ state: ReviewEligibility; existing?: { rating: number; body: string; isAnonymous: boolean } }> {
   if (!idSchema.safeParse(productId).success) return { state: "NOT_PURCHASED" };
   const user = await getCurrentUser();
   const result = await getReviewEligibility(user?.id ?? null, productId);

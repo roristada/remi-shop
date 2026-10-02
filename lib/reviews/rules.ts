@@ -21,6 +21,28 @@ export function canReviewOrder(order: ReviewableOrder, now: Date = new Date()): 
   return order.kind === "PRODUCT" && order.status === "COMPLETED" && now < reviewDeadline(order);
 }
 
+/**
+ * Days after approval when an unreviewed purchase gets an in-site reminder. The last one comes
+ * two days before the window closes (a reminder on day 30 would land after it).
+ */
+export const REVIEW_REMINDER_DAYS = [7, 15, REVIEW_WINDOW_DAYS - 2] as const;
+
+/**
+ * The reminder to send now for one purchase, or null. Only the latest due stage is sent (someone
+ * returning on day 20 gets one reminder, not two), never one already sent or older than one sent.
+ */
+export function dueReviewReminder(
+  order: Pick<ReviewableOrder, "paidAt" | "createdAt">,
+  sentStages: readonly number[],
+  now: Date = new Date(),
+): number | null {
+  if (now >= reviewDeadline(order)) return null;
+  const elapsedDays = (now.getTime() - (order.paidAt ?? order.createdAt).getTime()) / DAY_MS;
+  const due = REVIEW_REMINDER_DAYS.filter((d) => d <= elapsedDays).at(-1);
+  if (due === undefined) return null;
+  return sentStages.some((s) => s >= due) ? null : due;
+}
+
 export type ReviewEligibility = "LOGIN" | "NOT_PURCHASED" | "CAN_REVIEW" | "REVIEWED" | "EXPIRED";
 
 /** Average rating to one decimal; 0 when there are no reviews. */

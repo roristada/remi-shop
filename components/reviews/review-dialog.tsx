@@ -3,10 +3,10 @@
 import { useState, useTransition, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Loader2, Star } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useRouter } from "@/i18n/navigation";
 import { submitReview } from "@/lib/reviews/actions";
 import { REVIEW_BODY_MAX } from "@/lib/reviews/rules";
@@ -17,14 +17,14 @@ type Props = {
   productName: string;
   trigger?: ReactNode;
   /** Edit mode pre-fills the form. */
-  initial?: { rating: number; body: string };
+  initial?: { rating: number; body: string; isAnonymous: boolean };
   /** Controlled open state, for the post-purchase popup. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   onSaved?: () => void;
 };
 
-/** Star picker + text. The server re-checks that the customer bought the product and the 30-day window. */
+/** Star picker, optional text and anonymous switch. The server re-checks that the customer bought the product and the 30-day window. */
 export function ReviewDialog({ productId, productName, trigger, initial, open: controlledOpen, onOpenChange, onSaved }: Props) {
   const t = useTranslations("shop.reviews");
   const router = useRouter();
@@ -32,6 +32,7 @@ export function ReviewDialog({ productId, productName, trigger, initial, open: c
   const open = controlledOpen ?? innerOpen;
   const [rating, setRating] = useState(initial?.rating ?? 0);
   const [body, setBody] = useState(initial?.body ?? "");
+  const [anonymous, setAnonymous] = useState(initial?.isAnonymous ?? false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -45,15 +46,13 @@ export function ReviewDialog({ productId, productName, trigger, initial, open: c
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (rating < 1) return setError(t("errors.rating"));
-    if (!body.trim()) return setError(t("errors.required"));
     setError(null);
     startTransition(async () => {
-      const result = await submitReview({ productId, rating, body });
+      const result = await submitReview({ productId, rating, body, isAnonymous: anonymous });
       if (!result.ok) {
         const field = result.fieldErrors?.body ?? result.fieldErrors?.rating;
         return setError(t(`errors.${field ?? result.code}`));
       }
-      toast.success(t("saved"));
       setInnerOpen(false);
       if (onSaved) onSaved();
       else onOpenChange?.(false);
@@ -109,6 +108,18 @@ export function ReviewDialog({ productId, productName, trigger, initial, open: c
             <p className="text-right text-xs text-muted-foreground tabular-nums">
               {body.length}/{REVIEW_BODY_MAX}
             </p>
+          </div>
+          <div className="flex items-start gap-2.5 rounded-xl bg-muted/60 p-3">
+            <Checkbox
+              id={`review-anon-${productId}`}
+              checked={anonymous}
+              onCheckedChange={(v) => setAnonymous(v === true)}
+              className="mt-0.5"
+            />
+            <label htmlFor={`review-anon-${productId}`} className="space-y-0.5 text-sm">
+              <span className="block font-medium">{t("anonymousLabel")}</span>
+              <span className="block text-xs text-muted-foreground">{t("anonymousHint")}</span>
+            </label>
           </div>
           {error && (
             <p role="alert" className="text-sm text-destructive">

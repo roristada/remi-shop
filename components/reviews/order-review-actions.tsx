@@ -2,7 +2,7 @@
 
 import { useState, useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
-import { BadgeCheck, PenLine } from "lucide-react";
+import { BadgeCheck, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ReviewDialog } from "@/components/reviews/review-dialog";
 
@@ -26,17 +26,20 @@ export function OrderReviewButton({ item }: { item: OrderReviewItem }) {
   }
   if (item.state === "EXPIRED") return <p className="text-xs text-muted-foreground">{t("expired")}</p>;
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl bg-accent/60 px-3 py-2.5">
+      <span className="rounded-full bg-brand-strong/10 px-2.5 py-0.5 text-xs font-semibold text-brand-strong">
+        {t("notReviewed")}
+      </span>
+      <span className="flex-1 text-xs text-muted-foreground">{t("reviewUntil", { date: item.until })}</span>
       <ReviewDialog
         productId={item.productId}
         productName={item.name}
         trigger={
-          <Button variant="outline" size="sm" className="h-9 rounded-full px-4">
-            <PenLine aria-hidden /> {t("write")}
+          <Button size="sm" className="h-9 rounded-full px-4">
+            <Star fill="currentColor" aria-hidden /> {t("rateNow")}
           </Button>
         }
       />
-      <span className="text-xs text-muted-foreground">{t("reviewUntil", { date: item.until })}</span>
     </div>
   );
 }

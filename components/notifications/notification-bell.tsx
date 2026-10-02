@@ -158,7 +158,8 @@ function NotificationRow({ notification: n, onClick }: { notification: Notificat
   const t = useTranslations("notifications");
   const locale = useLocale();
   const product = localized(locale, n.params.productNameTH ?? "", n.params.productNameEN ?? "");
-  const message = t(`types.${n.type}`, {
+  const key = n.type === "PRODUCT_UPDATED" && n.params.update === "files" ? "PRODUCT_FILES_UPDATED" : n.type;
+  const message = t(`types.${key}`, {
     product,
     version: n.params.versionNumber ?? "",
     orderNumber: n.params.orderNumber ?? "",
