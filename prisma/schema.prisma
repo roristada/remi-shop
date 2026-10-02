@@ -94,6 +94,7 @@ enum NotificationType {
   LICENSE_REJECTED
   ADMIN_SLIP_SUBMITTED
   ADMIN_LICENSE_REQUESTED
+  REVIEW_REMINDER
 }
 
 // ───────────────────────────── Users ─────────────────────────────
@@ -270,15 +271,18 @@ model ProductSoftwareTag {
 }
 
 model ProductImage {
-  id        String   @id @default(uuid(7)) @db.Uuid
-  productId String   @map("product_id") @db.Uuid
-  imagePath String   @map("image_path")
-  altTextTH String?  @map("alt_text_th")
-  altTextEN String?  @map("alt_text_en")
-  sortOrder Int      @default(0) @map("sort_order")
-  /// At most one primary per product (partial unique index in SQL migration).
-  isPrimary Boolean  @default(false) @map("is_primary")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id         String   @id @default(uuid(7)) @db.Uuid
+  productId  String   @map("product_id") @db.Uuid
+  imagePath  String   @map("image_path")
+  altTextTH  String?  @map("alt_text_th")
+  altTextEN  String?  @map("alt_text_en")
+  /// Optimized WebP copies (animation kept); null until processed, then the original is the fallback.
+  cardPath   String?  @map("card_path")
+  detailPath String?  @map("detail_path")
+  sortOrder  Int      @default(0) @map("sort_order")
+  /// The first image by sortOrder; at most one per product (partial unique index in SQL migration).
+  isPrimary  Boolean  @default(false) @map("is_primary")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
@@ -304,6 +308,8 @@ model ProductVariant {
   /// Admin switch: an inactive variant cannot be bought (existing buyers keep their files).
   isActive        Boolean   @default(true) @map("is_active")
   sortOrder       Int       @default(0) @map("sort_order")
+  /// Optional picture of this option (optimized WebP in product-previews).
+  imagePath       String?   @map("image_path")
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -437,11 +443,24 @@ model Order {
   payments       Payment[]
   downloads      Download[]
   licenseRequest LicenseRequest?
+  adminNote      OrderAdminNote?
 
   @@index([userId, createdAt(sort: Desc)])
   @@index([status, createdAt(sort: Desc)])
   @@index([status, expiresAt])
   @@map("orders")
+}
+
+/// The shop owner's internal note on an order. Its own table (RLS on, no grants) so the
+/// customer's "read own orders" access can never include it.
+model OrderAdminNote {
+  orderId   String   @id @map("order_id") @db.Uuid
+  body      String
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_admin_notes")
 }
 
 /// Snapshot of what was bought — never recomputed from Product.
@@ -477,22 +496,22 @@ model OrderItem {
 /// One row per slip upload. Re-upload after rejection = new row.
 /// At most one non-REJECTED payment per order (partial unique index in SQL).
 model Payment {
-  id           String        @id @default(uuid(7)) @db.Uuid
-  orderId      String        @map("order_id") @db.Uuid
-  amount       Decimal       @db.Decimal(10, 2)
+  id              String           @id @default(uuid(7)) @db.Uuid
+  orderId         String           @map("order_id") @db.Uuid
+  amount          Decimal          @db.Decimal(10, 2)
   /// Object key inside the private `payment-slips` bucket.
-  slipPath     String        @map("slip_path")
-  status       PaymentStatus @default(WAITING)
-  reviewedById String?       @map("reviewed_by") @db.Uuid
-  reviewedAt   DateTime?     @map("reviewed_at") @db.Timestamptz(6)
-  rejectReason String?       @map("reject_reason")
+  slipPath        String           @map("slip_path")
+  status          PaymentStatus    @default(WAITING)
+  reviewedById    String?          @map("reviewed_by") @db.Uuid
+  reviewedAt      DateTime?        @map("reviewed_at") @db.Timestamptz(6)
+  rejectReason    String?          @map("reject_reason")
   /// Bank transaction reference read from the slip. Unique, so one transfer can pay one order only.
   transRef        String?          @unique @map("trans_ref")
   /// Automatic slip check (SlipOK). Null when it was not run (not configured). PASSED + no reviewer = auto-approved.
   autoCheckResult SlipCheckResult? @map("auto_check_result")
   autoCheckedAt   DateTime?        @map("auto_checked_at") @db.Timestamptz(6)
-  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   reviewedBy Profile? @relation("PaymentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
@@ -675,17 +694,20 @@ model StoreSetting {
 /// A verified buyer's review of a product (one per customer per product).
 /// Writes are server-only; `isHidden` lets the admin take a review down without deleting it.
 model Review {
-  id        String   @id @default(uuid(7)) @db.Uuid
-  productId String   @map("product_id") @db.Uuid
-  userId    String   @map("user_id") @db.Uuid
+  id          String   @id @default(uuid(7)) @db.Uuid
+  productId   String   @map("product_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
   /// The completed order that made this customer eligible.
-  orderId   String   @map("order_id") @db.Uuid
+  orderId     String   @map("order_id") @db.Uuid
   /// 1-5 (CHECK constraint in SQL).
-  rating    Int
-  body      String
-  isHidden  Boolean  @default(false) @map("is_hidden")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  rating      Int
+  /// May be empty: a star rating alone is a review.
+  body        String
+  /// Shown publicly as "Anonymous"; admins still see who wrote it and from which order.
+  isAnonymous Boolean  @default(false) @map("is_anonymous")
+  isHidden    Boolean  @default(false) @map("is_hidden")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   user    Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
