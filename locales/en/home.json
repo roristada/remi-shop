@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "Remi Shop — Digital files for artists",
+    "title": "REMI — Digital files for artists",
     "description": "Brushes, textures, presets, patterns, fonts and templates for digital art."
   },
   "hero": {
@@ -26,7 +26,7 @@
     "fallbackBody": "Brushes, textures, presets and assets for digital art, updated regularly.",
     "fallbackCta": "Go to shop"
   },
-  "onSale": "On sale / special prices",
+  "onSale": "On sale",
   "limitedTime": "Limited time",
   "limitedTimeHint": "Only available for a limited period",
   "trending": "Trending",

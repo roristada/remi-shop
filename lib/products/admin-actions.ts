@@ -5,10 +5,10 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma/client";
 import { isForeignKeyViolation, isNotFound, isUniqueViolation } from "@/lib/prisma/errors";
-import { fail, formString, invalid, ok, type ActionResult } from "@/lib/actions/result";
+import { fail, formString, invalid, ok, okNotice, type ActionResult } from "@/lib/actions/result";
 import { idSchema, MAX_BULK_ITEMS, productSchema, type ProductInput } from "@/lib/validation/product";
 import { BUCKETS } from "@/lib/storage/buckets";
-import { copyObject, newProductImagePath, removeObjects } from "@/lib/storage/product-storage";
+import { removeObjects } from "@/lib/storage/product-storage";
 import { revalidateCatalog } from "@/lib/products/revalidate";
 import { scheduleWarnings } from "@/lib/products/status";
 
@@ -142,7 +142,7 @@ export async function updateProduct(productId: string, _prev: ActionResult<unkno
   revalidateCatalog();
   const warnings = scheduleWarnings(parsed.data);
   const warned = Object.keys(warnings).length > 0;
-  return ok({ warnings }, warned ? "บันทึกแล้ว — โปรดตรวจช่วงเวลาที่ตั้งไว้" : "บันทึกแล้ว");
+  return warned ? okNotice({ warnings }, "บันทึกแล้ว — โปรดตรวจช่วงเวลาที่ตั้งไว้") : ok({ warnings }, "บันทึกแล้ว");
 }
 
 const PUBLISH_TARGETS = ["DRAFT", "PUBLISHED", "DISABLED"] as const;
@@ -191,7 +191,7 @@ export async function setPublishStatus(productId: string, target: PublishTarget)
   const messages: Record<PublishTarget, string> = {
     PUBLISHED: "เผยแพร่แล้ว",
     DRAFT: "เปลี่ยนเป็นฉบับร่างแล้ว",
-    DISABLED: "ปิดการขายแล้ว",
+    DISABLED: "ซ่อนสินค้าแล้ว",
   };
   return ok(undefined, messages[target]);
 }
@@ -229,9 +229,10 @@ export async function bulkSetPublishStatus(productIds: string[], target: Publish
 
   console.info("[products] bulk publish status changed", { count: eligible.length, skipped, target });
   revalidateCatalog();
-  const labels: Record<PublishTarget, string> = { PUBLISHED: "เผยแพร่", DRAFT: "เปลี่ยนเป็นฉบับร่าง", DISABLED: "ปิดการขาย" };
+  const labels: Record<PublishTarget, string> = { PUBLISHED: "เผยแพร่", DRAFT: "เปลี่ยนเป็นฉบับร่าง", DISABLED: "ซ่อน" };
   const skippedNote = skipped > 0 ? ` · ข้าม ${skipped} รายการ (ยังไม่มีเวอร์ชันหรือไฟล์)` : "";
-  return ok(undefined, `${labels[target]} ${eligible.length} รายการแล้ว${skippedNote}`);
+  const message = `${labels[target]} ${eligible.length} รายการแล้ว${skippedNote}`;
+  return skipped > 0 ? okNotice(undefined, message) : ok(undefined, message);
 }
 
 const COPY_SUFFIX = "-copy";
@@ -249,9 +250,9 @@ async function nextCopySlug(slug: string): Promise<string> {
 }
 
 /**
- * Copies a product as a new DRAFT: details, pricing, schedule, tags, license prices, folder
- * and preview images. Versions and digital files are not copied — the copy is usually a
- * different item, so its files are uploaded fresh.
+ * Copies a product as a new DRAFT: text details, pricing, schedule, tags, license prices,
+ * folder and options. Pictures, versions and files (also the options' own) are not copied —
+ * the copy is usually a different item, so they are uploaded fresh.
  */
 export async function duplicateProduct(productId: string): Promise<ActionResult> {
   await requireAdmin();
@@ -260,7 +261,6 @@ export async function duplicateProduct(productId: string): Promise<ActionResult>
   const source = await prisma.product.findUnique({
     where: { id: productId },
     include: {
-      images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
       softwareTags: { select: { softwareTagId: true } },
       licensePrices: { select: { usageTypeId: true, price: true } },
       variants: {
@@ -280,8 +280,8 @@ export async function duplicateProduct(productId: string): Promise<ActionResult>
   });
   if (!source) return fail("ไม่พบสินค้า");
 
-  // Variants are copied without files, like versions (files belong to the original's versions).
-  const { slug, nameTH, nameEN, images, softwareTags, licensePrices, variants } = source;
+  // Variants are copied as text only: no picture and no files.
+  const { slug, nameTH, nameEN, softwareTags, licensePrices, variants } = source;
   // Explicit list: status, publish time, OG image and timestamps are deliberately not copied.
   const columns = {
     descriptionTH: source.descriptionTH,
@@ -333,31 +333,9 @@ export async function duplicateProduct(productId: string): Promise<ActionResult>
     return writeError(error, "duplicate");
   }
 
-  // Each copy owns its own storage objects, so deleting one product never breaks the other.
-  const copied = await Promise.all(
-    images.map(async (img) => {
-      const imagePath = newProductImagePath(id, img.imagePath);
-      return (await copyObject(BUCKETS.productPreviews, img.imagePath, imagePath)) ? { ...img, imagePath } : null;
-    }),
-  );
-  const kept = copied.filter((img) => img !== null);
-  if (kept.length > 0) {
-    const hasPrimary = kept.some((img) => img.isPrimary);
-    await prisma.productImage.createMany({
-      data: kept.map((img, i) => ({
-        productId: id,
-        imagePath: img.imagePath,
-        altTextTH: img.altTextTH,
-        altTextEN: img.altTextEN,
-        sortOrder: img.sortOrder,
-        isPrimary: hasPrimary ? img.isPrimary : i === 0,
-      })),
-    });
-  }
-
-  console.info("[products] duplicated", { sourceId: productId, productId: id, images: kept.length });
+  console.info("[products] duplicated", { sourceId: productId, productId: id });
   revalidateCatalog();
-  redirect(`/admin/products/${id}?duplicated=1${kept.length < images.length ? "&imageCopyFailed=1" : ""}`);
+  redirect(`/admin/products/${id}?duplicated=1`);
 }
 
 /** Hard delete only for never-sold products; sold products must be disabled instead. */
@@ -375,14 +353,14 @@ export async function deleteProduct(productId: string): Promise<ActionResult> {
   });
   if (!product) return fail("ไม่พบสินค้า");
   if (product._count.orderItems > 0) {
-    return fail("สินค้านี้มีคำสั่งซื้อแล้ว ลบไม่ได้ — ใช้ “ปิดการขาย” แทน");
+    return fail("สินค้านี้มีคำสั่งซื้อแล้ว ลบไม่ได้ — ใช้ “ซ่อนสินค้า” แทน");
   }
 
   try {
     await prisma.product.delete({ where: { id: productId } });
   } catch (error) {
     // An order may have been created between the check and the delete (FK Restrict).
-    if (isForeignKeyViolation(error)) return fail("สินค้านี้มีคำสั่งซื้อแล้ว ลบไม่ได้ — ใช้ “ปิดการขาย” แทน");
+    if (isForeignKeyViolation(error)) return fail("สินค้านี้มีคำสั่งซื้อแล้ว ลบไม่ได้ — ใช้ “ซ่อนสินค้า” แทน");
     return writeError(error, "delete");
   }
 

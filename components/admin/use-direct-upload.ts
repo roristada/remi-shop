@@ -62,7 +62,6 @@ export function useDirectUpload(request: Request, confirm: Confirm) {
     } finally {
       setUploading(null);
     }
-    if (done > 0) toast.success(`อัปโหลดสำเร็จ ${done} ไฟล์`);
     return done;
   }
 

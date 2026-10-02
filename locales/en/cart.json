@@ -55,7 +55,7 @@
     "version": "Version {version}",
     "downloadsUnlimited": "Unlimited downloads",
     "downloadsLimited": "{count} downloads per file",
-    "discountUntil": "Special price until {date}",
+    "discountUntil": "On sale until {date}",
     "next": "After you order",
     "step1": "Pay with QR PromptPay within {minutes} minutes",
     "step2": "Attach your slip; the store checks the payment",
@@ -132,7 +132,13 @@
       "NOT_ALLOWED": "This order cannot be ordered again",
       "NOTHING_TO_ORDER": "The products in this order cannot be bought right now (off sale, or you already own them)",
       "ERROR": "Something went wrong. Please try again"
-    }
+    },
+    "gallery": "Gallery",
+    "galleryBack": "Back to the order",
+    "viewList": "List",
+    "viewLabel": "View",
+    "toReview": "{count, plural, one {# item} other {# items}} waiting for your review",
+    "toReviewHint": "Rate until {date} — just tap the stars, no text needed"
   },
   "slip": {
     "title": "Attach your transfer slip",

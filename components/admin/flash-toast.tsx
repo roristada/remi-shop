@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { toast } from "sonner";
 
-const FLASH_PARAMS = ["deleted", "created", "duplicated", "imageCopyFailed"];
+const FLASH_PARAMS = ["deleted", "created", "duplicated"];
 
 /** Shows a one-time toast for redirect-based notices (e.g. `?deleted=1`), then cleans the URL. */
 export function FlashToast({ message }: { message: string }) {

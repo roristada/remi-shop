@@ -43,7 +43,8 @@
     "label": "Pagination",
     "previous": "Previous",
     "next": "Next",
-    "page": "Page {page} of {pageCount}"
+    "page": "Page {page} of {pageCount}",
+    "goTo": "Go to page {page}"
   },
   "categories": {
     "title": "Categories",
@@ -55,7 +56,7 @@
     "discount": "{percent}% off",
     "comingSoon": "Coming soon",
     "saleEnded": "Sale ended",
-    "unavailable": "Sale closed",
+    "unavailable": "Hidden",
     "soldOut": "Sold out",
     "stock": "{left}/{limit} left",
     "fromPrice": "From"
@@ -81,7 +82,7 @@
     "opensAt": "On sale from {date}",
     "endsAt": "On sale until {date}",
     "saleEnded": "This product is no longer on sale.",
-    "unavailable": "This product is no longer available.",
+    "unavailable": "This product can't be ordered right now.",
     "instantDownload": "Download after your payment is confirmed",
     "lifetimeUpdates": "Free updates to every future version",
     "description": "Description",
@@ -223,7 +224,7 @@
     "dialogTitle": "Review this product",
     "editTitle": "Edit your review",
     "ratingLabel": "Your rating",
-    "bodyLabel": "Your review",
+    "bodyLabel": "Comment (optional)",
     "bodyPlaceholder": "How was it? Which software did you use it with?",
     "submit": "Send review",
     "submitting": "Sending...",
@@ -236,6 +237,11 @@
       "INVALID": "Please check what you entered",
       "NOT_ELIGIBLE": "You can review products you bought and that were approved, within 30 days",
       "ERROR": "Something went wrong. Please try again"
-    }
+    },
+    "anonymousLabel": "Post anonymously",
+    "anonymousHint": "Others see “Anonymous” instead of your name. The shop can still see which order the review came from, to confirm the purchase.",
+    "anonymousName": "Anonymous",
+    "notReviewed": "Not reviewed yet",
+    "rateNow": "Rate it"
   }
 }

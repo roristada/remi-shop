@@ -118,13 +118,6 @@ export async function createSignedDownloadUrl(
   return data.signedUrl;
 }
 
-/** Server-side copy within a bucket. Returns false (and logs) on failure. */
-export async function copyObject(bucket: BucketName, from: string, to: string): Promise<boolean> {
-  const { error } = await createAdminClient().storage.from(bucket).copy(from, to);
-  if (error) console.error("[storage] copy failed", { bucket, message: error.message });
-  return !error;
-}
-
 /** Best-effort delete; failures are logged (orphans are harmless in a private bucket). */
 export async function removeObjects(bucket: BucketName, paths: string[]): Promise<void> {
   if (paths.length === 0) return;

@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: LayoutProps<"/[locale]">): Pr
   const t = await getTranslations({ locale, namespace: "home.meta" });
   return {
     metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
-    title: { default: t("title"), template: `%s | Remi Shop` },
+    title: { default: t("title"), template: `%s | REMI` },
     description: t("description"),
     alternates: { languages: { th: "/th", en: "/en" } },
   };

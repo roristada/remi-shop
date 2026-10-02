@@ -127,19 +127,20 @@ export function useResultToast(state: ActionResult<unknown> | null) {
     if (!state || state === last.current) return;
     last.current = state;
     if (state.ok) {
-      if (state.message) toast.success(state.message);
+      // Plain successes stay quiet; only notices that need reading pop up.
+      if (state.notify && state.message) toast.info(state.message);
     } else {
       toast.error(state.error);
     }
   }, [state]);
 }
 
-/** Runs a one-off action and toasts its result. Returns true on success. */
+/** Runs a one-off action; errors (and success notices) are toasted. Returns true on success. */
 export async function runWithToast(action: () => Promise<ActionResult<unknown>>): Promise<boolean> {
   try {
     const result = await action();
     if (result.ok) {
-      if (result.message) toast.success(result.message);
+      if (result.notify && result.message) toast.info(result.message);
       return true;
     }
     toast.error(result.error);

@@ -59,7 +59,6 @@ export function ReviewActions({
         if (!result.fieldErrors) toast.error(result.error);
         return;
       }
-      toast.success(result.message);
       setOpen(false);
       router.refresh();
     });
@@ -78,8 +77,7 @@ export function ReviewActions({
         confirmLabel="อนุมัติ"
         onConfirm={async () => {
           const result = await approve();
-          if (result.ok) toast.success(result.message);
-          else toast.error(result.error);
+          if (!result.ok) toast.error(result.error);
           router.refresh();
         }}
       />

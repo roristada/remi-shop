@@ -293,7 +293,7 @@ function ProductFormBody({
         </div>
       </FormSection>
 
-      <FormSection title="สต็อกสินค้า" description="เว้นว่าง = ไม่จำกัด ถ้ากำหนดไว้ หน้าร้านจะแสดงจำนวนที่เหลือ และปิดการขายเมื่อหมด">
+      <FormSection title="สต็อกสินค้า" description="เว้นว่าง = ไม่จำกัด ถ้ากำหนดไว้ หน้าร้านจะแสดงจำนวนที่เหลือ และขึ้นป้าย “สินค้าหมด” (ซื้อไม่ได้) เมื่อหมด">
         {hasVariants && <VariantsNotice />}
         <div className="grid gap-4 md:grid-cols-2">
           <TextInput

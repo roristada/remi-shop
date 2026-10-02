@@ -10,7 +10,7 @@ import notificationMessages from "@/locales/th/notifications.json";
 import "../globals.css";
 
 export const metadata: Metadata = {
-  title: "Admin | Remi Shop",
+  title: "Admin | REMI",
   robots: { index: false, follow: false },
 };
 
@@ -35,7 +35,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
     <html lang="th" className={`${fontVariables} h-full antialiased`}>
       <body className="flex min-h-full bg-muted/40">
         <aside className="hidden w-60 shrink-0 border-r bg-sidebar p-4 md:block">
-          <p className="mb-6 px-2 font-bold">Remi Shop Admin</p>
+          <p className="mb-6 px-2 font-bold">REMI Admin</p>
           <nav aria-label="Admin" className="flex flex-col gap-1">
             {ADMIN_NAV.map(({ href, label, icon: Icon }) => (
               <Link

@@ -16,6 +16,8 @@
     "LICENSE_APPROVED": "Your license request for {product} is approved. Pay on My Licenses",
     "LICENSE_REJECTED": "Your license request for {product} was not approved",
     "ADMIN_SLIP_SUBMITTED": "New slip to review: order {orderNumber}",
-    "ADMIN_LICENSE_REQUESTED": "New license request: {product}"
+    "ADMIN_LICENSE_REQUESTED": "New license request: {product}",
+    "REVIEW_REMINDER": "You bought {product} — leave a quick star rating (no text needed)",
+    "PRODUCT_FILES_UPDATED": "{product} v{version} has updated files, ready to download"
   }
 }

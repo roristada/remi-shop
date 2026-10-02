@@ -18,12 +18,13 @@ export function ShopPagination({ page, pageCount, params, path }: Props) {
       pageCount={pageCount}
       params={params}
       basePath={`/${locale}${path}`}
-      className="flex items-center justify-center gap-2 text-sm"
+      className="flex flex-wrap items-center justify-center gap-2 text-sm"
       labels={{
         nav: t("label"),
         previous: t("previous"),
         next: t("next"),
         page: (p, count) => t("page", { page: p, pageCount: count }),
+        goTo: (p) => t("goTo", { page: p }),
       }}
     />
   );

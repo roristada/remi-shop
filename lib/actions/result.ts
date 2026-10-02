@@ -1,13 +1,22 @@
 import type { z } from "zod";
 import type { FieldErrors } from "@/lib/validation/auth";
 
-/** Result shape for admin server actions. `error` is a safe, user-facing message. */
+/**
+ * Result shape for admin server actions. `error` is a safe, user-facing message. A success
+ * `message` is not shown (the change itself is visible) unless `notify` says the admin must
+ * read it, e.g. something was skipped or still needs doing.
+ */
 export type ActionResult<T = undefined> =
-  | { ok: true; data: T; message?: string }
+  | { ok: true; data: T; message?: string; notify?: boolean }
   | { ok: false; error: string; fieldErrors?: FieldErrors };
 
 export function ok<T>(data: T, message?: string): ActionResult<T> {
   return { ok: true, data, message };
+}
+
+/** Success the admin needs to be told about (shown as a toast). */
+export function okNotice<T>(data: T, message: string): ActionResult<T> {
+  return { ok: true, data, message, notify: true };
 }
 
 export function fail(error: string, fieldErrors?: FieldErrors): { ok: false; error: string; fieldErrors?: FieldErrors } {

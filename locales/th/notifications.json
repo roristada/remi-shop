@@ -16,6 +16,8 @@
     "LICENSE_APPROVED": "คำขอ License ของ {product} ได้รับอนุมัติแล้ว ชำระเงินได้ที่หน้า License ของฉัน",
     "LICENSE_REJECTED": "คำขอ License ของ {product} ไม่ได้รับอนุมัติ",
     "ADMIN_SLIP_SUBMITTED": "มีสลิปใหม่รอตรวจ: คำสั่งซื้อ {orderNumber}",
-    "ADMIN_LICENSE_REQUESTED": "มีคำขอ License ใหม่: {product}"
+    "ADMIN_LICENSE_REQUESTED": "มีคำขอ License ใหม่: {product}",
+    "REVIEW_REMINDER": "ซื้อ {product} ไปแล้ว ให้คะแนนสั้น ๆ ได้เลย (ไม่ต้องเขียนข้อความก็ได้)",
+    "PRODUCT_FILES_UPDATED": "{product} อัปเดตไฟล์ของ v{version} แล้ว ดาวน์โหลดได้เลย"
   }
 }
