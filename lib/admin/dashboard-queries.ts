@@ -2,7 +2,15 @@ import "server-only";
 import { prisma } from "@/lib/prisma/client";
 import { toHundredths } from "@/lib/pricing/calculate";
 import { stockTakingOrderWhere, toStockInfo } from "@/lib/products/stock";
-import { bangkokDayKeys, startOfBangkokDay, startOfBangkokMonth, startOfPreviousBangkokMonth } from "@/lib/admin/dashboard";
+import {
+  bangkokDayKeys,
+  bangkokMonthRange,
+  monthDayKeys,
+  startOfBangkokDay,
+  startOfBangkokMonth,
+  startOfPreviousBangkokMonth,
+  type YearMonth,
+} from "@/lib/admin/dashboard";
 
 /** Days shown in the daily charts and ranked in "top products" / "by category". */
 export const DASHBOARD_WINDOW_DAYS = 30;
@@ -34,15 +42,20 @@ export type PeriodSummary = Awaited<ReturnType<typeof periodSummary>>;
 export type DailyPoint = { day: string; revenue: number; orders: number };
 
 /** One row per Bangkok calendar day for the last `days` days, zero-filled. */
-async function dailySeries(now: Date, days: number): Promise<DailyPoint[]> {
-  const keys = bangkokDayKeys(now, days);
+function dailySeries(now: Date, days: number): Promise<DailyPoint[]> {
+  return dailySeriesFor(bangkokDayKeys(now, days));
+}
+
+/** One row per given Bangkok date (consecutive, oldest first), zero-filled. */
+async function dailySeriesFor(keys: string[]): Promise<DailyPoint[]> {
   const since = startOfBangkokDay(new Date(`${keys[0]}T12:00:00+07:00`));
+  const until = new Date(startOfBangkokDay(new Date(`${keys.at(-1)}T12:00:00+07:00`)).getTime() + 86_400_000);
   const rows = await prisma.$queryRaw<{ day: string; revenue: string | null; orders: bigint }[]>`
     select to_char(paid_at at time zone 'Asia/Bangkok', 'YYYY-MM-DD') as day,
            sum(total)::text as revenue,
            count(*) as orders
     from orders
-    where status = 'COMPLETED' and paid_at >= ${since}
+    where status = 'COMPLETED' and paid_at >= ${since} and paid_at < ${until}
     group by 1`;
   const byDay = new Map(rows.map((r) => [r.day, r]));
   return keys.map((day) => {
@@ -54,10 +67,10 @@ async function dailySeries(now: Date, days: number): Promise<DailyPoint[]> {
 export type RankedRow = { id: string; name: string; revenue: number; units: number };
 
 /** Product lines of paid product orders in the window, by revenue (license orders have no lines). */
-async function topProducts(since: Date, take: number): Promise<RankedRow[]> {
+async function topProducts(since: Date, take: number, until?: Date): Promise<RankedRow[]> {
   const groups = await prisma.orderItem.groupBy({
     by: ["productId"],
-    where: { order: { ...paid(since), kind: "PRODUCT" } },
+    where: { order: { ...paid(since, until), kind: "PRODUCT" } },
     _sum: { finalPrice: true },
     _count: { _all: true },
     orderBy: { _sum: { finalPrice: "desc" } },
@@ -77,14 +90,14 @@ async function topProducts(since: Date, take: number): Promise<RankedRow[]> {
   }));
 }
 
-async function salesByCategory(since: Date): Promise<RankedRow[]> {
+async function salesByCategory(since: Date, until: Date = new Date("9999-12-31T00:00:00Z")): Promise<RankedRow[]> {
   const rows = await prisma.$queryRaw<{ id: string; name: string; revenue: string; units: bigint }[]>`
     select c.id, c.name_th as name, sum(oi.final_price)::text as revenue, count(*) as units
     from order_items oi
     join orders o on o.id = oi.order_id
     join products p on p.id = oi.product_id
     join categories c on c.id = p.category_id
-    where o.status = 'COMPLETED' and o.kind = 'PRODUCT' and o.paid_at >= ${since}
+    where o.status = 'COMPLETED' and o.kind = 'PRODUCT' and o.paid_at >= ${since} and o.paid_at < ${until}
     group by c.id, c.name_th
     order by sum(oi.final_price) desc`;
   return rows.map((r) => ({ id: r.id, name: r.name, revenue: toHundredths(r.revenue), units: Number(r.units) }));
@@ -144,3 +157,41 @@ export async function getDashboardData(now: Date = new Date()) {
 }
 
 export type DashboardData = Awaited<ReturnType<typeof getDashboardData>>;
+
+/** Everything for one month of the statement view: totals, each day, best sellers, categories. */
+export async function getMonthStatement(ym: YearMonth) {
+  const { since, until } = bangkokMonthRange(ym);
+  const [summary, daily, top, categories] = await Promise.all([
+    periodSummary(since, until),
+    dailySeriesFor(monthDayKeys(ym)),
+    topProducts(since, 5, until),
+    salesByCategory(since, until),
+  ]);
+  return { summary, daily, top, categories };
+}
+
+export type MonthTotal = { month: number; revenue: number; orders: number };
+
+/** Revenue and paid orders per Bangkok month of a year (12 rows, zero-filled). */
+export async function getYearTotals(year: number): Promise<MonthTotal[]> {
+  const since = bangkokMonthRange({ year, month: 1 }).since;
+  const until = bangkokMonthRange({ year, month: 12 }).until;
+  const rows = await prisma.$queryRaw<{ month: number; revenue: string | null; orders: bigint }[]>`
+    select extract(month from paid_at at time zone 'Asia/Bangkok')::int as month,
+           sum(total)::text as revenue,
+           count(*) as orders
+    from orders
+    where status = 'COMPLETED' and paid_at >= ${since} and paid_at < ${until}
+    group by 1`;
+  const byMonth = new Map(rows.map((r) => [Number(r.month), r]));
+  return Array.from({ length: 12 }, (_, i) => {
+    const r = byMonth.get(i + 1);
+    return { month: i + 1, revenue: r?.revenue ? toHundredths(r.revenue) : 0, orders: r ? Number(r.orders) : 0 };
+  });
+}
+
+/** The first year with a paid order (statement years start there). */
+export async function firstSalesYear(): Promise<number | null> {
+  const first = await prisma.order.findFirst({ where: { status: "COMPLETED", paidAt: { not: null } }, orderBy: { paidAt: "asc" }, select: { paidAt: true } });
+  return first?.paidAt ? Number(new Date(first.paidAt.getTime() + 7 * 3_600_000).toISOString().slice(0, 4)) : null;
+}

@@ -1,8 +1,16 @@
 import Link from "next/link";
 import { connection } from "next/server";
-import { AlertTriangle, BadgeCheck, CheckCircle2, ChevronRight, Stamp } from "lucide-react";
+import { AlertTriangle, BadgeCheck, CheckCircle2, ChevronLeft, ChevronRight, Stamp } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/guards";
-import { DASHBOARD_WINDOW_DAYS, getDashboardData, type PeriodSummary } from "@/lib/admin/dashboard-queries";
+import {
+  DASHBOARD_WINDOW_DAYS,
+  firstSalesYear,
+  getDashboardData,
+  getMonthStatement,
+  getYearTotals,
+  type PeriodSummary,
+} from "@/lib/admin/dashboard-queries";
+import { monthKey, parseMonthParam, type YearMonth } from "@/lib/admin/dashboard";
 import { formatTHB } from "@/lib/pricing/calculate";
 import { Button } from "@/components/ui/button";
 import { DailyMetricChart, RankBars } from "@/components/admin/charts";
@@ -111,12 +119,129 @@ function TaskRow({ href, icon: Icon, label, n, hint }: { href: string; icon: typ
   );
 }
 
-export default async function AdminDashboardPage() {
+const MONTH_NAMES = Array.from({ length: 12 }, (_, i) =>
+  new Intl.DateTimeFormat("th-TH", { month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(2026, i, 15))),
+);
+const MONTH_LONG = Array.from({ length: 12 }, (_, i) =>
+  new Intl.DateTimeFormat("th-TH", { month: "long", timeZone: "UTC" }).format(new Date(Date.UTC(2026, i, 15))),
+);
+
+/**
+ * Bank-statement style: pick a year, then a month; that month's figures stay separate from
+ * every other month, so any past month can be checked again later.
+ */
+async function Statement({ selected, current }: { selected: YearMonth; current: YearMonth }) {
+  const [totals, month, firstYear] = await Promise.all([getYearTotals(selected.year), getMonthStatement(selected), firstSalesYear()]);
+  const minYear = Math.min(firstYear ?? current.year, current.year);
+  const yearHref = (year: number) => {
+    // Same month in the other year, or its last allowed month.
+    const m = year === current.year ? Math.min(selected.month, current.month) : selected.month;
+    return `/admin/dashboard?month=${monthKey({ year, month: m })}#statement`;
+  };
+  const s = month.summary;
+  const tiles = [
+    { label: "ยอดขาย", value: formatTHB(s.revenue) },
+    { label: "คำสั่งซื้อที่สำเร็จ", value: count(s.orders) },
+    { label: "ลูกค้าที่ซื้อ", value: `${count(s.customers)} คน` },
+    { label: "สินค้าที่ขายได้", value: `${count(s.productsSold)} ชิ้น` },
+  ];
+  const label = `${MONTH_LONG[selected.month - 1]} ${selected.year}`;
+
+  return (
+    <Panel className="space-y-5">
+      <div id="statement" className="flex flex-wrap items-center justify-between gap-3 scroll-mt-6">
+        <div>
+          <h2 className="font-semibold">ยอดขายรายเดือน</h2>
+          <p className="text-sm text-muted-foreground">เลือกปีและเดือนเพื่อดูยอดย้อนหลัง · นับตามวันที่อนุมัติสลิป</p>
+        </div>
+        <nav aria-label="เลือกปี" className="flex items-center gap-1">
+          {selected.year > minYear ? (
+            <Button asChild variant="ghost" size="icon" className="rounded-full">
+              <Link href={yearHref(selected.year - 1)} aria-label={`ปี ${selected.year - 1}`}>
+                <ChevronLeft aria-hidden />
+              </Link>
+            </Button>
+          ) : (
+            <span className="size-9" aria-hidden />
+          )}
+          <span className="min-w-16 text-center text-lg font-semibold tabular-nums">{selected.year}</span>
+          {selected.year < current.year ? (
+            <Button asChild variant="ghost" size="icon" className="rounded-full">
+              <Link href={yearHref(selected.year + 1)} aria-label={`ปี ${selected.year + 1}`}>
+                <ChevronRight aria-hidden />
+              </Link>
+            </Button>
+          ) : (
+            <span className="size-9" aria-hidden />
+          )}
+        </nav>
+      </div>
+
+      <ol className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+        {totals.map((t) => {
+          const future = selected.year === current.year && t.month > current.month;
+          const active = t.month === selected.month;
+          const body = (
+            <>
+              <span className="block text-sm font-medium">{MONTH_NAMES[t.month - 1]}</span>
+              <span className="block text-xs text-muted-foreground tabular-nums">{future ? "—" : formatTHB(t.revenue)}</span>
+            </>
+          );
+          return (
+            <li key={t.month}>
+              {future ? (
+                <span className="block rounded-xl border border-dashed px-3 py-2 opacity-50">{body}</span>
+              ) : (
+                <Link
+                  href={`/admin/dashboard?month=${monthKey({ year: selected.year, month: t.month })}#statement`}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "block rounded-xl border px-3 py-2 transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                    active && "border-brand-strong bg-accent",
+                  )}
+                >
+                  {body}
+                </Link>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+
+      <div className="space-y-4 border-t pt-5">
+        <h3 className="font-semibold">{label}</h3>
+        <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {tiles.map((tile) => (
+            <div key={tile.label} className="rounded-xl bg-muted/50 p-3">
+              <dt className="text-xs text-muted-foreground">{tile.label}</dt>
+              <dd className="text-lg font-semibold tabular-nums">{tile.value}</dd>
+            </div>
+          ))}
+        </dl>
+        <DailyMetricChart daily={month.daily} days={month.daily.length} period={label} />
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold">สินค้าขายดี · {label}</h4>
+            <RankBars rows={month.top} empty={`ไม่มียอดขายใน${label}`} />
+          </div>
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold">ยอดขายตามหมวดหมู่ · {label}</h4>
+            <RankBars rows={month.categories} empty={`ไม่มียอดขายใน${label}`} />
+          </div>
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+export default async function AdminDashboardPage({ searchParams }: PageProps<"/admin/dashboard">) {
   // Every admin page and server action must call requireAdmin() itself —
   // the layout check alone doesn't stop a page from rendering.
   await requireAdmin();
   await connection(); // "Today" and "this month" depend on the current time.
   const now = new Date();
+  const selectedMonth = parseMonthParam((await searchParams).month, now);
+  const currentMonth = parseMonthParam(undefined, now);
   const d = await getDashboardData(now);
   const window = `${DASHBOARD_WINDOW_DAYS} วันล่าสุด`;
   const today = new Intl.DateTimeFormat("th-TH-u-ca-gregory", {
@@ -209,6 +334,8 @@ export default async function AdminDashboardPage() {
           <RankBars rows={d.categories} empty="ยังไม่มียอดขายใน 30 วันล่าสุด" />
         </Panel>
       </div>
+
+      <Statement selected={selectedMonth} current={currentMonth} />
     </div>
   );
 }

@@ -207,9 +207,12 @@ const METRICS: { key: Metric; label: string; kind: ValueKind }[] = [
 export function DailyMetricChart({
   daily,
   days,
+  period,
 }: {
   daily: { day: string; revenue: number; orders: number }[];
   days: number;
+  /** Shown instead of "N วันล่าสุด", e.g. a month name. */
+  period?: string;
 }) {
   const [metric, setMetric] = useState<Metric>("revenue");
   const current = METRICS.find((m) => m.key === metric) ?? METRICS[0];
@@ -222,7 +225,7 @@ export function DailyMetricChart({
         <div>
           <h2 className="font-semibold">{current.label}รายวัน</h2>
           <p className="text-sm text-muted-foreground">
-            {days} วันล่าสุด · รวม <span className="font-semibold text-foreground tabular-nums">{fmt(total, current.kind)}</span>
+            {period ?? `${days} วันล่าสุด`} · รวม <span className="font-semibold text-foreground tabular-nums">{fmt(total, current.kind)}</span>
           </p>
         </div>
         {/* Segmented toggle: powder-sky track, the active segment on paper. */}
