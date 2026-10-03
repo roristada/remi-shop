@@ -58,12 +58,8 @@ const fromSaved = (images: ManagedImage[]): Item[] => images.map((i) => ({ key: 
 export function ImageManager({ images }: { images: ManagedImage[] }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState(() => fromSaved(images));
-  const [serverImages, setServerImages] = useState(images);
-  // New data from the server (after a save) replaces the local list.
-  if (images !== serverImages) {
-    setServerImages(images);
-    setItems(fromSaved(images));
-  }
+  // Server data is read once. Saving refreshes the route (revalidation) while later sections still
+  // hold unsaved work, so the list is never reset from props; after a save the page navigates.
 
   // Object URLs of picked files are released when they leave the list.
   const objectUrls = useRef(new Set<string>());

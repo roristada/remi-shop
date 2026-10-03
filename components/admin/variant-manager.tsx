@@ -103,11 +103,8 @@ function toFormData(values: VariantValues, sortOrder: number) {
  */
 export function VariantManager({ variants }: { variants: ManagedVariant[] }) {
   const [rows, setRows] = useState(() => toRows(variants));
-  const [serverVariants, setServerVariants] = useState(variants);
-  if (variants !== serverVariants) {
-    setServerVariants(variants);
-    setRows(toRows(variants));
-  }
+  // Server data is read once. Saving refreshes the route (revalidation) while later sections still
+  // hold unsaved work, so the list is never reset from props; after a save the page navigates.
   const { setVariants } = useEditorVariants();
 
   // The files tab lists the options that will exist after saving.

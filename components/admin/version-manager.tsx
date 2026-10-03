@@ -113,13 +113,8 @@ function versionForm(meta: Meta) {
 export function VersionManager({ versions, buyerCount }: { versions: ManagedVersion[]; buyerCount: number }) {
   const [rows, setRows] = useState(() => toRows(versions));
   const [latestKey, setLatestKey] = useState(() => versions.find((v) => v.isLatest)?.id ?? rows[0]?.key ?? null);
-  const [serverVersions, setServerVersions] = useState(versions);
-  if (versions !== serverVersions) {
-    const next = toRows(versions);
-    setServerVersions(versions);
-    setRows(next);
-    setLatestKey(versions.find((v) => v.isLatest)?.id ?? next[0]?.key ?? null);
-  }
+  // Server data is read once. Saving refreshes the route (revalidation) while later sections still
+  // hold unsaved work, so the list is never reset from props; after a save the page navigates.
   const { variants } = useEditorVariants();
 
   const savedLatest = versions.find((v) => v.isLatest)?.id ?? null;

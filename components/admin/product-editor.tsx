@@ -175,9 +175,9 @@ export function ProductEditor({ productId, publishStatus, title, summary, tabs, 
         if (!(await runWithToast(() => setPublishStatus(id, status)))) return;
       }
       if (target === "KEEP") {
-        // Ctrl+S: stay here. A new product moves to its own edit page.
-        if (!productId) router.replace(`/admin/products/${id}`);
-        router.refresh();
+        // A full load on purpose: every section must start again from the saved data.
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+        window.location.assign(`/admin/products/${id}`);
         return;
       }
       router.push("/admin/products");
