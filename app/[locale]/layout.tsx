@@ -41,7 +41,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
             {t("skipToContent")}
           </a>
           <SiteHeader />
-          <main id="main" className="bg-page-gradient flex-1">
+          <main id="main" className="flex-1 bg-background">
             {children}
           </main>
           <SiteFooter />

@@ -26,7 +26,7 @@ export function SwatchStack({ products, caption }: { products: ProductCardData[]
     return acc;
   }, []);
   return (
-    <div className="relative aspect-[5/4] w-full rounded-[2rem] bg-secondary">
+    <div className="relative aspect-[5/4] w-full rounded-[2rem] bg-muted/70 ring-1 ring-black/5">
       {/* The one Charmonman line the whole page gets (DESIGN.md § The One Script Line Rule) — a
           hand-written aside pinned to the art itself, never a kicker sitting above the h1. */}
       {caption && (

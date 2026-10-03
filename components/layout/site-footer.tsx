@@ -18,7 +18,7 @@ export async function SiteFooter() {
   ];
 
   return (
-    <footer className="border-t bg-secondary/40">
+    <footer className="border-t bg-muted/40">
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:grid-cols-2 md:grid-cols-4">
         <div className="space-y-2">
           <p className="font-bold">{t("brand")}</p>

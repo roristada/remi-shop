@@ -19,7 +19,7 @@ export function ProductCard({ product, priority = false }: { product: ProductCar
   const soldOut = isSoldOut(stock) || product.variantsSoldOut;
   return (
     <article className="group relative flex w-full flex-col gap-3 rounded-3xl bg-card p-2 pb-3 shadow-soft ring-1 ring-black/5 transition-shadow duration-300 hover:shadow-md motion-reduce:transition-none">
-      <div className="relative aspect-square overflow-hidden rounded-2xl bg-secondary/60">
+      <div className="relative aspect-square overflow-hidden rounded-2xl bg-muted">
         {product.image ? (
           <PreviewImage
             src={product.image.url}
