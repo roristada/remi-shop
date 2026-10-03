@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import sharp from "sharp";
-import { optimizedPath, pickServedPath, toWebp } from "./webp";
+import { optimizedPath, pickServedPath, toWebp, worthEncoding } from "./webp";
 
 async function animatedGif(width: number, height: number, frames: number) {
   const raw = await Promise.all(
@@ -38,4 +38,11 @@ test("toWebp never enlarges a small image", async () => {
 test("pickServedPath keeps the original when the copy is not smaller", () => {
   assert.equal(pickServedPath({ path: "a.gif", bytes: 100 }, { path: "a.card.webp", bytes: 60 }), "a.card.webp");
   assert.equal(pickServedPath({ path: "a.gif", bytes: 100 }, { path: "a.card.webp", bytes: 140 }), "a.gif");
+});
+
+test("worthEncoding skips animations that are already small enough", () => {
+  assert.equal(worthEncoding({ width: 900, frames: 75 }, "detail"), false);
+  assert.equal(worthEncoding({ width: 900, frames: 75 }, "card"), true);
+  assert.equal(worthEncoding({ width: 500, frames: 10 }, "card"), false);
+  assert.equal(worthEncoding({ width: 900, frames: 1 }, "detail"), true);
 });

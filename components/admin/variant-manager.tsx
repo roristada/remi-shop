@@ -18,7 +18,7 @@ import { TextInput } from "@/components/admin/form-controls";
 import { DateTimeInput } from "@/components/admin/date-time-input";
 import { PreviewImage } from "@/components/shared/preview-image";
 import { newId, useEditorSection, useEditorVariants, type SaveContext } from "@/components/admin/product-editor";
-import { uploadToStorage } from "@/components/admin/use-direct-upload";
+import { requestImageOptimize, uploadToStorage } from "@/components/admin/use-direct-upload";
 import {
   confirmVariantImage,
   createVariant,
@@ -215,6 +215,7 @@ async function saveRows(ctx: SaveContext, rows: Row[], setRows: (rows: Row[]) =>
       if (!stored.ok) return fail(row, stored.error);
       const result = await confirmVariantImage(id, { path: stored.path, fileName: file.name });
       if (!result.ok) return fail(row, result.error);
+      requestImageOptimize("variant", id);
     }
     // Saved: later failures must not redo this row.
     next[index] = {

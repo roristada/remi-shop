@@ -67,3 +67,17 @@ export function useDirectUpload(request: Request, confirm: Confirm) {
 
   return { upload, uploading };
 }
+
+/**
+ * Asks the server to make optimized copies of a saved picture, without waiting: it can take
+ * a while for long animations, and the original shows until it is done. `keepalive` lets it
+ * finish after the editor navigates away.
+ */
+export function requestImageOptimize(kind: "product" | "variant", id: string) {
+  void fetch("/api/admin/images/optimize", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ kind, id }),
+    keepalive: true,
+  }).catch(() => undefined);
+}

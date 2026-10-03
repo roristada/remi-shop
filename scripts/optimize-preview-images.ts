@@ -10,7 +10,8 @@ import { config } from "dotenv";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { createClient } from "@supabase/supabase-js";
 import { PrismaClient } from "../lib/generated/prisma/client";
-import { optimizedPath, pickServedPath, toWebp, type PreviewSize } from "../lib/storage/webp";
+import sharp from "sharp";
+import { optimizedPath, pickServedPath, toWebp, worthEncoding, type PreviewSize } from "../lib/storage/webp";
 
 config({ path: ".env.local", quiet: true });
 
@@ -46,7 +47,14 @@ async function main() {
         const original = Buffer.from(await data.arrayBuffer());
         const paths: Partial<Record<PreviewSize, string>> = {};
         const notes: string[] = [];
+        const meta = await sharp(original, { animated: true, limitInputPixels: 2_000_000_000 }).metadata();
+        const info = { width: meta.width ?? 0, frames: meta.pages ?? 1 };
         for (const size of SIZES) {
+          if (!worthEncoding(info, size)) {
+            paths[size] = image.imagePath;
+            notes.push(`${size} = original (small animation)`);
+            continue;
+          }
           const target = optimizedPath(image.imagePath, size);
           const body = await toWebp(original, size);
           const served = pickServedPath({ path: image.imagePath, bytes: original.length }, { path: target, bytes: body.length });

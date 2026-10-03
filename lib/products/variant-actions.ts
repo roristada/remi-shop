@@ -17,7 +17,6 @@ import {
   verifyUploadedObject,
   type SignedUpload,
 } from "@/lib/storage/product-storage";
-import { optimizePreviewImage } from "@/lib/storage/image-optimize";
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
@@ -193,7 +192,7 @@ export async function requestVariantImageUpload(
   return upload ? ok(upload) : fail("เริ่มอัปโหลดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
 }
 
-/** Verifies the uploaded picture, stores an optimized copy as the option's picture and drops the old one. */
+/** Verifies the uploaded picture, makes it the option's picture and drops the old one. */
 export async function confirmVariantImage(variantId: string, input: { path: string; fileName: string }): Promise<ActionResult> {
   await requireAdmin();
   const variant = await findVariant(variantId);
@@ -204,13 +203,8 @@ export async function confirmVariantImage(variantId: string, input: { path: stri
   const verified = await verifyUploadedObject(BUCKETS.productPreviews, input.path, input.fileName);
   if (!verified.ok) return fail(verified.error === "not_found" ? "ไม่พบไฟล์ที่อัปโหลด" : FILE_TYPE_ERROR_TH[verified.error]);
 
-  // The option picture is small everywhere it shows, so only an optimized card-size copy is kept.
-  const optimized = await optimizePreviewImage(input.path, ["card"]);
-  const imagePath = optimized?.card ?? input.path;
-  // The upload is dropped only when a smaller copy replaced it; otherwise it is the served picture.
-  if (imagePath !== input.path) await removeObjects(BUCKETS.productPreviews, [input.path]);
-
-  await prisma.productVariant.update({ where: { id: variant.id }, data: { imagePath } });
+  // A card-size copy replaces it afterwards (lib/products/image-jobs.ts).
+  await prisma.productVariant.update({ where: { id: variant.id }, data: { imagePath: input.path } });
   if (variant.imagePath) await removeObjects(BUCKETS.productPreviews, [variant.imagePath]);
   revalidateCatalog();
   return ok(undefined, "บันทึกรูปตัวเลือกแล้ว");

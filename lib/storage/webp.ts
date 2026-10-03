@@ -42,3 +42,12 @@ export async function toWebp(input: Buffer, size: PreviewSize): Promise<Buffer> 
 export function pickServedPath(original: { path: string; bytes: number }, copy: { path: string; bytes: number }): string {
   return copy.bytes < original.bytes ? copy.path : original.path;
 }
+
+/**
+ * Whether a copy at `size` is worth encoding. An animation already within the size's width is
+ * served as uploaded: re-encoding every frame costs far more server time (it can exceed the
+ * hosting function's limit) than the few bytes it saves.
+ */
+export function worthEncoding(image: { width: number; frames: number }, size: PreviewSize): boolean {
+  return image.frames <= 1 || image.width > SIZES[size].width;
+}

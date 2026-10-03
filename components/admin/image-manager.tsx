@@ -23,7 +23,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { ImagePlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEditorSection } from "@/components/admin/product-editor";
-import { uploadToStorage } from "@/components/admin/use-direct-upload";
+import { requestImageOptimize, uploadToStorage } from "@/components/admin/use-direct-upload";
 import { confirmImageUpload, requestImageUpload, saveImageChanges } from "@/lib/products/image-actions";
 import { acceptAttribute, checkFileMeta, FILE_TYPE_ERROR_TH, PRODUCT_IMAGE_FILE_TYPES } from "@/lib/storage/file-types";
 import { MAX_PRODUCT_FILE_SIZE } from "@/lib/storage/buckets";
@@ -94,6 +94,7 @@ export function ImageManager({ images }: { images: ManagedImage[] }) {
             return false;
           }
           list[index] = { ...item, id: confirmed.data.id, file: null };
+          requestImageOptimize("product", confirmed.data.id);
         }
         setItems(list);
         const orderedIds = list.map((i) => i.id as string);

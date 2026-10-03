@@ -18,7 +18,7 @@ import {
   type SignedUpload,
 } from "@/lib/storage/product-storage";
 import { revalidateCatalog } from "@/lib/products/revalidate";
-import { optimizePreviewImage, previewObjectPaths } from "@/lib/storage/image-optimize";
+import { previewObjectPaths } from "@/lib/storage/image-optimize";
 
 const MAX_IMAGES_PER_PRODUCT = 20;
 
@@ -45,8 +45,8 @@ export async function requestImageUpload(
 }
 
 /**
- * Records a verified upload as the product's last image, then stores optimized WebP copies.
- * The row is created first, so if optimizing fails or runs out of time the original still shows.
+ * Records a verified upload as the product's last image. Optimized copies are made afterwards
+ * (lib/products/image-jobs.ts), so this stays fast however long the animation is.
  */
 export async function confirmImageUpload(
   productId: string,
@@ -90,14 +90,6 @@ export async function confirmImageUpload(
     if (isUniqueViolation(error)) return fail("อัปโหลดพร้อมกันหลายรูป กรุณาลองใหม่อีกครั้ง");
     console.error("[products] image create failed", { productId, message: (error as Error).message });
     return fail("บันทึกรูปไม่สำเร็จ");
-  }
-
-  const optimized = await optimizePreviewImage(input.path);
-  if (optimized) {
-    await prisma.productImage.update({
-      where: { id },
-      data: { cardPath: optimized.card ?? null, detailPath: optimized.detail ?? null },
-    });
   }
 
   revalidateCatalog();
