@@ -2,7 +2,7 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { listCategoryOptions, listFolderOptions } from "@/lib/products/admin-queries";
 import { listSoftwareTagOptions } from "@/lib/software-tags/queries";
 import { listUsageTypes } from "@/lib/licenses/admin-queries";
-import { EMPTY_PRODUCT_VALUES, ProductForm } from "@/components/admin/product-form";
+import { ProductForm } from "@/components/admin/product-form";
 import { ProductEditor } from "@/components/admin/product-editor";
 import { ImageManager } from "@/components/admin/image-manager";
 import { VariantManager } from "@/components/admin/variant-manager";
@@ -38,7 +38,7 @@ export default async function NewProductPage({ searchParams }: PageProps<"/admin
                 <ImageManager images={[]} />
               </FormSection>
               <ProductForm
-                values={{ ...EMPTY_PRODUCT_VALUES, folderId: folder }}
+                initialFolderId={folder}
                 categories={categories}
                 folders={folders}
                 softwareTags={softwareTags}

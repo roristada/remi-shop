@@ -42,7 +42,7 @@ export type ProductFormValues = {
   metaDescriptionEN: string;
 };
 
-export const EMPTY_PRODUCT_VALUES: ProductFormValues = {
+const EMPTY_PRODUCT_VALUES: ProductFormValues = {
   slug: "",
   nameTH: "",
   nameEN: "",
@@ -96,7 +96,10 @@ function slugify(value: string) {
 }
 
 type ProductFormProps = {
-  values: ProductFormValues;
+  /** Omitted for a new product (empty form). */
+  values?: ProductFormValues;
+  /** New product: the folder it starts in. */
+  initialFolderId?: string;
   categories: { id: string; nameTH: string; status: string }[];
   folders: { id: string; nameTH: string }[];
   softwareTags: { id: string; name: string; isActive: boolean }[];
@@ -112,7 +115,16 @@ function serializeForm(form: HTMLFormElement): string {
 }
 
 /** Text, price, schedule and other details. Saved (or, for a new product, created first) by the editor. */
-export function ProductForm({ values, categories, folders, softwareTags, stockTaken, hasVariants = false }: ProductFormProps) {
+export function ProductForm({
+  values: savedValues,
+  initialFolderId,
+  categories,
+  folders,
+  softwareTags,
+  stockTaken,
+  hasVariants = false,
+}: ProductFormProps) {
+  const values = savedValues ?? { ...EMPTY_PRODUCT_VALUES, folderId: initialFolderId ?? "none" };
   const [state, setState] = useState<ActionResult<unknown> | null>(null);
   const [limitMode, setLimitMode] = useState(values.downloadLimitMode);
   const slugRef = useRef<HTMLInputElement>(null);
