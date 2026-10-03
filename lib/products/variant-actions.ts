@@ -207,7 +207,8 @@ export async function confirmVariantImage(variantId: string, input: { path: stri
   // The option picture is small everywhere it shows, so only an optimized card-size copy is kept.
   const optimized = await optimizePreviewImage(input.path, ["card"]);
   const imagePath = optimized?.card ?? input.path;
-  if (optimized?.card) await removeObjects(BUCKETS.productPreviews, [input.path]);
+  // The upload is dropped only when a smaller copy replaced it; otherwise it is the served picture.
+  if (imagePath !== input.path) await removeObjects(BUCKETS.productPreviews, [input.path]);
 
   await prisma.productVariant.update({ where: { id: variant.id }, data: { imagePath } });
   if (variant.imagePath) await removeObjects(BUCKETS.productPreviews, [variant.imagePath]);
