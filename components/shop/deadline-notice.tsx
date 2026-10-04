@@ -65,6 +65,9 @@ export function DeadlineNotice({ kind, at, serverNow, size = "md" }: Props) {
   const sm = size === "sm";
   const date = new Intl.DateTimeFormat(dateLocale, { timeZone: BUSINESS_TIMEZONE, dateStyle: "medium" }).format(end);
   const time = new Intl.DateTimeFormat(dateLocale, { timeZone: BUSINESS_TIMEZONE, timeStyle: "short" }).format(end);
+  // Cards are narrow: drop the year and the connective words so the chip stays on one line.
+  const shortDate = new Intl.DateTimeFormat(dateLocale, { timeZone: BUSINESS_TIMEZONE, day: "numeric", month: "short" }).format(end);
+  const full = t(`${kind}.at`, { date, time });
   const Icon = mode === "countdown" ? Clock : CalendarClock;
 
   return (
@@ -72,8 +75,9 @@ export function DeadlineNotice({ kind, at, serverNow, size = "md" }: Props) {
       className={cn(
         "inline-flex max-w-full items-center rounded-full",
         mode === "countdown" ? "bg-accent" : "bg-secondary",
-        sm ? "min-h-7 flex-wrap gap-x-1.5 px-2.5 py-1 text-xs" : "min-h-9 gap-2 px-3 py-1.5 text-sm",
+        sm ? "min-h-7 gap-1.5 px-2.5 py-1 text-xs whitespace-nowrap" : "min-h-9 gap-2 px-3 py-1.5 text-sm",
       )}
+      title={sm ? full : undefined}
     >
       <Icon className={cn("shrink-0 text-brand-strong", sm ? "size-3.5" : "size-4")} aria-hidden />
       {mode === "countdown" && now !== null ? (
@@ -85,7 +89,7 @@ export function DeadlineNotice({ kind, at, serverNow, size = "md" }: Props) {
           </span>
         </>
       ) : (
-        <span>{t(`${kind}.at`, { date, time })}</span>
+        <span className={cn(sm && "min-w-0 truncate")}>{sm ? t(`${kind}.short`, { date: shortDate, time }) : full}</span>
       )}
     </p>
   );

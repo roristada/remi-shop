@@ -248,14 +248,17 @@
   "deadline": {
     "opens": {
       "at": "เปิดขาย {date} เวลา {time}",
+      "short": "เปิดขาย {date} {time}",
       "in": "เปิดขายใน"
     },
     "saleEnds": {
       "at": "สิ้นสุดการขาย {date} เวลา {time}",
+      "short": "ปิดขาย {date} {time}",
       "in": "สิ้นสุดการขายใน"
     },
     "discountEnds": {
       "at": "ส่วนลดสิ้นสุด {date} เวลา {time}",
+      "short": "ลดถึง {date} {time}",
       "in": "ส่วนลดสิ้นสุดใน"
     }
   }

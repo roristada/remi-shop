@@ -248,14 +248,17 @@
   "deadline": {
     "opens": {
       "at": "On sale {date} at {time}",
+      "short": "On sale {date}, {time}",
       "in": "On sale in"
     },
     "saleEnds": {
       "at": "Sale ends {date} at {time}",
+      "short": "Ends {date}, {time}",
       "in": "Sale ends in"
     },
     "discountEnds": {
       "at": "Discount ends {date} at {time}",
+      "short": "Deal ends {date}, {time}",
       "in": "Discount ends in"
     }
   }
