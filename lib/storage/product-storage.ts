@@ -110,6 +110,10 @@ async function readHead(bucket: BucketName, path: string): Promise<Uint8Array | 
 /**
  * Short-lived URL that makes Storage answer with `Content-Disposition: attachment`, so the
  * browser saves the file under its original name instead of previewing it inline.
+ *
+ * `download` is appended here rather than passed as an option: storage-js runs the query
+ * through `encodeURI` after `URLSearchParams`, double-encoding non-ASCII names, so customers
+ * received files literally named `%E5%A4%9A...psd` (and iOS Safari left them as `.download`).
  */
 export async function createSignedDownloadUrl(
   bucket: BucketName,
@@ -117,14 +121,12 @@ export async function createSignedDownloadUrl(
   fileName: string,
   ttlSeconds = SIGNED_URL_TTL_SECONDS,
 ): Promise<string | null> {
-  const { data, error } = await createAdminClient()
-    .storage.from(bucket)
-    .createSignedUrl(path, ttlSeconds, { download: fileName });
+  const { data, error } = await createAdminClient().storage.from(bucket).createSignedUrl(path, ttlSeconds);
   if (error || !data) {
     console.error("[storage] signed download url failed", { bucket, message: error?.message });
     return null;
   }
-  return data.signedUrl;
+  return `${data.signedUrl}&download=${encodeURIComponent(fileName)}`;
 }
 
 /** Best-effort delete; failures are logged (orphans are harmless in a private bucket). */
