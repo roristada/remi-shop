@@ -135,21 +135,19 @@ export async function getPurchaseOptions(
   locale: string,
   now: Date,
 ): Promise<PurchaseOption[]> {
-  const product = await prisma.product.findUnique({
-    where: { id: productId },
-    select: {
-      ...checkoutProductSelect(now),
-      variants: { where: { isActive: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: checkoutVariantSelect(now) },
-    },
-  });
+  // All at once: none of these depends on another.
+  const [product, ownership, cartLines] = await Promise.all([
+    prisma.product.findUnique({
+      where: { id: productId },
+      select: {
+        ...checkoutProductSelect(now),
+        variants: { where: { isActive: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: checkoutVariantSelect(now) },
+      },
+    }),
+    userId ? getOwnership(userId, [productId], now) : null,
+    userId ? prisma.cartItem.findMany({ where: { productId, cart: { userId } }, select: { variantId: true } }) : [],
+  ]);
   if (!product) return [];
-
-  const [ownership, cartLines] = userId
-    ? await Promise.all([
-        getOwnership(userId, [productId], now),
-        prisma.cartItem.findMany({ where: { productId, cart: { userId } }, select: { variantId: true } }),
-      ])
-    : [null, []];
   const inCart = new Set(cartLines.map((c) => lineKey(productId, c.variantId)));
 
   const lines = product._count.variants > 0 ? product.variants.map((v) => ({ variant: v })) : [{ variant: null }];

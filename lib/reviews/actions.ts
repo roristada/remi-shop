@@ -10,6 +10,7 @@ import { reviewInputSchema } from "@/lib/reviews/validation";
 import { getReviewEligibility, findReviewableOrder, listProductReviews } from "@/lib/reviews/queries";
 import { reviewerName, type ReviewEligibility } from "@/lib/reviews/rules";
 import type { Prisma } from "@/lib/generated/prisma/client";
+import { expireCatalogCache } from "@/lib/products/revalidate";
 
 /** Codes map to `shop.reviews.errors.*` translation keys. */
 export type ReviewErrorCode = "LOGIN_REQUIRED" | "INVALID" | "NOT_ELIGIBLE" | "ERROR";
@@ -34,6 +35,7 @@ async function syncProductRating(tx: Tx, productId: string) {
 }
 
 function revalidateReviews() {
+  expireCatalogCache(); // Rating totals live on the cached product row.
   revalidatePath("/[locale]/product/[slug]", "page");
   revalidatePath("/[locale]/shop", "page");
   revalidatePath("/[locale]", "page");

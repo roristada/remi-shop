@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma/client";
 import { isForeignKeyViolation, isNotFound, isUniqueViolation } from "@/lib/prisma/errors";
 import { fail, formString, invalid, ok, type ActionResult } from "@/lib/actions/result";
 import { idSchema } from "@/lib/validation/product";
+import { expireCatalogCache } from "@/lib/products/revalidate";
 
 // Admin is Thai-only, so messages are Thai strings.
 
@@ -17,6 +18,7 @@ const softwareTagSchema = z.object({
 });
 
 function revalidateSoftwareTags() {
+  expireCatalogCache(); // Tag names are part of the cached product row.
   revalidatePath("/admin/products", "layout");
   revalidatePath("/[locale]/shop", "layout");
   revalidatePath("/[locale]/product/[slug]", "layout");

@@ -1,6 +1,8 @@
 import "server-only";
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma/client";
+import { CATALOG_CACHE_SECONDS, CATALOG_CACHE_TAG } from "@/lib/products/revalidate";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { localized } from "@/i18n/localize";
 import { calculateProductPrice, type ProductPrice } from "@/lib/pricing/calculate";
@@ -14,6 +16,7 @@ import {
   type StockInfo,
 } from "@/lib/products/stock";
 import { previewImageSrc } from "@/lib/storage/public-url";
+import { listActiveSoftwareTags } from "@/lib/software-tags/queries";
 import { ratingAverage } from "@/lib/reviews/rules";
 import {
   activeDiscountWhere,
@@ -222,17 +225,18 @@ export async function listShopProducts(
   now: Date = new Date(),
   userId: string | null = null,
 ) {
+  // Both lookups at once: each is a round trip to the database.
+  const lookupCategories = !filters.categoryId && filters.category.length > 0;
+  const [matched, buyable] = await Promise.all([
+    lookupCategories
+      ? prisma.category.findMany({ where: { slug: { in: filters.category }, status: "ACTIVE" }, select: { id: true } })
+      : [],
+    buyableWhere(now),
+  ]);
   const and: Prisma.ProductWhereInput[] = [browsableProductWhere()];
   // A fixed route category (category/folder page) wins over the sidebar's multi-select.
-  if (filters.categoryId) {
-    and.push({ categoryId: filters.categoryId });
-  } else if (filters.category.length > 0) {
-    const matched = await prisma.category.findMany({
-      where: { slug: { in: filters.category }, status: "ACTIVE" },
-      select: { id: true },
-    });
-    and.push({ categoryId: { in: matched.map((c) => c.id) } });
-  }
+  if (filters.categoryId) and.push({ categoryId: filters.categoryId });
+  else if (lookupCategories) and.push({ categoryId: { in: matched.map((c) => c.id) } });
   if (filters.folderId) and.push({ folderId: filters.folderId });
   if (filters.software.length > 0) and.push({ softwareTags: { some: { softwareTagId: { in: filters.software } } } });
   if (filters.price) and.push(priceBucketWhere(filters.price));
@@ -248,7 +252,7 @@ export async function listShopProducts(
         find: (skip, take) => prisma.product.findMany({ where, orderBy, skip, take, select: cardSelect(userId, now) }),
       };
     },
-    await buyableWhere(now),
+    buyable,
     (filters.page - 1) * SHOP_PAGE_SIZE,
     SHOP_PAGE_SIZE,
   );
@@ -457,6 +461,40 @@ export async function listPriceBucketCounts(
   return PRICE_BUCKETS.map((b, i) => ({ key: b.key, count: counts[i] }));
 }
 
+/** Facet counts move only with catalog edits and sale/discount windows, so a minute stale is fine. */
+const SHOP_FACETS_CACHE_SECONDS = 60;
+
+const cachedShopFacets = unstable_cache(
+  async (sale: boolean) => {
+    const now = new Date();
+    const facetFilters = { sale };
+    const [folders, categories, softwareTags, priceCounts] = await Promise.all([
+      listShopFolders(),
+      listShopCategories(now, facetFilters),
+      listActiveSoftwareTags(now, facetFilters),
+      listPriceBucketCounts(now, facetFilters),
+    ]);
+    return { folders, categories, softwareTags, priceCounts };
+  },
+  ["shop-facets"],
+  { tags: [CATALOG_CACHE_TAG], revalidate: SHOP_FACETS_CACHE_SECONDS },
+);
+
+/**
+ * /shop sidebar data: folder chips and the category, software and price counts. Shared across
+ * requests except for searches, whose free-text keys would only fill the cache.
+ */
+export async function listShopFacets(facetFilters: { q?: string; sale: boolean }, now: Date = new Date()) {
+  if (!facetFilters.q) return cachedShopFacets(facetFilters.sale);
+  const [folders, categories, softwareTags, priceCounts] = await Promise.all([
+    listShopFolders(),
+    listShopCategories(now, facetFilters),
+    listActiveSoftwareTags(now, facetFilters),
+    listPriceBucketCounts(now, facetFilters),
+  ]);
+  return { folders, categories, softwareTags, priceCounts };
+}
+
 export const getShopCategory = cache((slug: string) =>
   prisma.category.findFirst({
     where: { slug, status: "ACTIVE" },
@@ -545,13 +583,8 @@ export async function listShopFolderSections(
     .filter((s) => s.total > 0);
 }
 
-/**
- * Published product for the detail page (any sale state, so ended products still resolve).
- * `includeHidden` (admins only) also finds drafts and hidden products, for previewing them.
- * Cached per request so generateMetadata and the page share one query.
- */
-export const getShopProduct = cache((slug: string, includeHidden = false) =>
-  prisma.product.findFirst({
+function queryShopProduct(slug: string, includeHidden: boolean) {
+  return prisma.product.findFirst({
     where: { slug, ...(includeHidden ? {} : { publishStatus: "PUBLISHED" as const }) },
     select: {
       id: true,
@@ -616,10 +649,60 @@ export const getShopProduct = cache((slug: string, includeHidden = false) =>
         },
       },
     },
-  }),
+  });
+}
+
+type ShopProductRow = NonNullable<Awaited<ReturnType<typeof queryShopProduct>>>;
+
+/** Money as plain decimal strings, so the row survives the data cache's JSON round trip. */
+export type ShopProduct = Omit<ShopProductRow, "price" | "discountPercent"> & {
+  price: string;
+  discountPercent: string | null;
+};
+
+async function loadShopProduct(slug: string, includeHidden: boolean): Promise<ShopProduct | null> {
+  const row = await queryShopProduct(slug, includeHidden);
+  if (!row) return null;
+  return { ...row, price: row.price.toString(), discountPercent: row.discountPercent?.toString() ?? null };
+}
+
+/**
+ * Published products, shared across requests: the server runs far from the database, so a cache
+ * hit saves a slow round trip. Holds catalog data only — prices are still calculated per request
+ * from these fields and the current time, and checkout always reads the database.
+ */
+const cachedPublishedProduct = unstable_cache(
+  (slug: string) => loadShopProduct(slug, false),
+  ["shop-product"],
+  { tags: [CATALOG_CACHE_TAG], revalidate: CATALOG_CACHE_SECONDS },
 );
 
-export type ShopProduct = NonNullable<Awaited<ReturnType<typeof getShopProduct>>>;
+const asDate = (value: Date | string) => new Date(value);
+const asDateOrNull = (value: Date | string | null) => (value === null ? null : new Date(value));
+
+/** A cache hit comes back as JSON: dates are strings again. */
+function reviveShopProduct(p: ShopProduct): ShopProduct {
+  return {
+    ...p,
+    saleStartAt: asDateOrNull(p.saleStartAt),
+    saleEndAt: asDateOrNull(p.saleEndAt),
+    discountStartAt: asDateOrNull(p.discountStartAt),
+    discountEndAt: asDateOrNull(p.discountEndAt),
+    updatedAt: asDate(p.updatedAt),
+    versions: p.versions.map((v) => ({ ...v, releaseDate: asDate(v.releaseDate), createdAt: asDate(v.createdAt) })),
+  };
+}
+
+/**
+ * Published product for the detail page (any sale state, so ended products still resolve).
+ * `includeHidden` (admins only) also finds drafts and hidden products, for previewing them, and
+ * always reads the database. Deduped per request so generateMetadata and the page share it.
+ */
+export const getShopProduct = cache(async (slug: string, includeHidden = false): Promise<ShopProduct | null> => {
+  if (includeHidden) return loadShopProduct(slug, true);
+  const product = await cachedPublishedProduct(slug);
+  return product ? reviveShopProduct(product) : null;
+});
 
 /**
  * Versions customers can see: the latest and anything created before it. A newer version

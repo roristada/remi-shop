@@ -6,13 +6,10 @@ import { getCurrentUser } from "@/lib/auth/guards";
 import { hasShopFilters, parseShopFilters, shopFilterParams, type ShopFilters } from "@/lib/products/storefront";
 import {
   getShopFolder,
-  listPriceBucketCounts,
-  listShopCategories,
+  listShopFacets,
   listShopFolderSections,
-  listShopFolders,
   listShopProducts,
 } from "@/lib/products/storefront-queries";
-import { listActiveSoftwareTags } from "@/lib/software-tags/queries";
 import { PageHeading } from "@/components/shop/page-heading";
 import { ProductGrid } from "@/components/shop/product-grid";
 import { ShopFilterForm } from "@/components/shop/shop-filters";
@@ -81,12 +78,9 @@ export default async function ShopPage({ params, searchParams }: PageProps<"/[lo
   }
 
   const facetFilters = { q: filters.q, sale: filters.sale };
-  const [{ items, total, pageCount }, folders, categories, softwareTags, priceCounts] = await Promise.all([
+  const [{ items, total, pageCount }, { folders, categories, softwareTags, priceCounts }] = await Promise.all([
     listShopProducts({ ...filters, folderId: folder?.id }, locale, now, userId),
-    listShopFolders(),
-    listShopCategories(now, facetFilters),
-    listActiveSoftwareTags(now, facetFilters),
-    listPriceBucketCounts(now, facetFilters),
+    listShopFacets(facetFilters, now),
   ]);
   const folderName = folder ? localized(locale, folder.nameTH, folder.nameEN) : null;
   const sidebarHidden = { q: filters.q, sort: filters.sort === "newest" ? undefined : filters.sort, sale: filters.sale ? "1" : undefined, folder: filters.folder };

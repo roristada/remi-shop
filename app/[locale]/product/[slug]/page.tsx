@@ -1,3 +1,4 @@
+import { cache, Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
@@ -19,6 +20,7 @@ import {
   releasedVersions,
   type ShopProduct,
 } from "@/lib/products/storefront-queries";
+import { Skeleton } from "@/components/ui/skeleton";
 import { previewImageSrc, previewImageUrl } from "@/lib/storage/public-url";
 import { ProductGallery } from "@/components/shop/product-gallery";
 import { PurchasePanel } from "@/components/shop/purchase-panel";
@@ -37,11 +39,27 @@ import { richTextToPlain } from "@/lib/rich-text";
 import { sanitizeRichText } from "@/lib/rich-text-sanitize";
 
 /** Published product in a visible category, or null. Admins also see drafts and hidden products. */
-async function loadProduct(slug: string): Promise<ShopProduct | null> {
+const loadProduct = cache(async (slug: string): Promise<ShopProduct | null> => {
+  const product = await getShopProduct(slug);
+  if (product?.category.status === "ACTIVE") return product;
+  // Only now look up the role, so customers never wait on it.
   const isAdmin = (await getCurrentProfile())?.role === "ADMIN";
-  const product = await getShopProduct(slug, isAdmin);
-  if (!product) return null;
-  return isAdmin || product.category.status === "ACTIVE" ? product : null;
+  return isAdmin ? getShopProduct(slug, true) : null;
+});
+
+/** Streamed after the main content, so it never holds up the purchase panel. */
+async function RelatedProducts({ product, locale, now, userId }: { product: ShopProduct; locale: string; now: Date; userId: string | null }) {
+  const t = await getTranslations("shop.product");
+  const related = await listRelatedProducts(product.categoryId, product.id, locale, now, 4, userId);
+  if (related.length === 0) return null;
+  return (
+    <section aria-labelledby="related-heading" className="space-y-4">
+      <h2 id="related-heading" className="text-xl">
+        {t("related")}
+      </h2>
+      <ProductGrid products={related} />
+    </section>
+  );
 }
 
 function plainExcerpt(text: string, max = 160) {
@@ -85,7 +103,8 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
   setRequestLocale(locale);
   await connection(); // Price, discount and sale state depend on the current time.
 
-  const product = await loadProduct(slug);
+  // Started together: the product usually comes from the cache, the user from Supabase Auth.
+  const [product, user] = await Promise.all([loadProduct(slug), getCurrentUser()]);
   if (!product) notFound();
 
   const t = await getTranslations("shop.product");
@@ -106,16 +125,13 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
     alt: localized(locale, img.altTextTH, img.altTextEN) || name,
   }));
 
-  const user = await getCurrentUser();
   const userId = user?.id ?? null;
-  const [related, licenseOffers] = await Promise.all([
-    listRelatedProducts(product.categoryId, product.id, locale, now, 4, userId),
+  const [licenseOffers, purchaseOptions, variantImagePaths, wishlisted] = await Promise.all([
     // A license can be requested only while the product is on sale.
     status === "ACTIVE" ? getLicenseOffers(product.id) : Promise.resolve([]),
-  ]);
-  const [purchaseOptions, variantImagePaths] = await Promise.all([
     getPurchaseOptions(userId, product.id, locale, now),
     listVariantImages(product.id),
+    userId ? isWishlisted(userId, product.id) : false,
   ]);
   const variantImages = Object.fromEntries(
     purchaseOptions.flatMap((o) => {
@@ -126,7 +142,6 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
   // Same start as the variant picker, so the file list matches it before any click.
   const pickerShown = status === "ACTIVE" && purchaseOptions.length > 0 && purchaseOptions[0].variantId !== null;
   const initialVariantId = pickerShown ? defaultVariantId(purchaseOptions) : null;
-  const wishlisted = userId ? await isWishlisted(userId, product.id) : false;
 
   const details = [
     { label: t("software"), value: product.softwareTags.map((st) => st.softwareTag.name).join(", ") || null },
@@ -290,16 +305,13 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
         )}
       </div>
 
-      <ReviewSection productId={product.id} productName={name} productSlug={product.slug} />
+      <Suspense fallback={<Skeleton className="h-48 rounded-2xl" />}>
+        <ReviewSection productId={product.id} productName={name} productSlug={product.slug} />
+      </Suspense>
 
-      {related.length > 0 && (
-        <section aria-labelledby="related-heading" className="space-y-4">
-          <h2 id="related-heading" className="text-xl">
-            {t("related")}
-          </h2>
-          <ProductGrid products={related} />
-        </section>
-      )}
+      <Suspense fallback={<Skeleton className="h-72 rounded-2xl" />}>
+        <RelatedProducts product={product} locale={locale} now={now} userId={userId} />
+      </Suspense>
     </div>
   );
 }
