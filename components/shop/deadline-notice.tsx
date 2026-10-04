@@ -43,7 +43,9 @@ export function DeadlineNotice({ kind, at, serverNow, size = "md" }: Props) {
 
   useEffect(() => {
     const skew = new Date(serverNow).getTime() - Date.now();
-    let refreshed = false;
+    // Refresh only when the deadline passes while mounted. Already past on mount means the
+    // server rendered it that way; refreshing would bring a new serverNow and loop forever.
+    let refreshed = Date.now() + skew >= end;
     const tick = () => {
       const current = Date.now() + skew;
       setNow(current);

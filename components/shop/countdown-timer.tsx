@@ -37,7 +37,9 @@ export function CountdownTimer({ endsAt, serverNow, label, endedLabel, size = "m
 
   useEffect(() => {
     const skew = new Date(serverNow).getTime() - Date.now();
-    let refreshed = false;
+    // Refresh only when the deadline passes while mounted. Already past on mount means the
+    // server rendered it that way; refreshing would bring a new serverNow and loop forever.
+    let refreshed = end - (Date.now() + skew) < 0;
     const tick = () => {
       const left = end - (Date.now() + skew);
       setRemaining(left);
