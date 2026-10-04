@@ -51,7 +51,7 @@ export function Pagination({ page, pageCount, params, basePath, labels = THAI_LA
     <nav aria-label={labels.nav} className={className ?? "flex flex-wrap items-center justify-end gap-2 text-sm"}>
       <Button asChild={page > 1} variant="outline" size="sm" disabled={page <= 1}>
         {page > 1 ? (
-          <Link href={href(basePath, params, page - 1)} rel="prev">
+          <Link href={href(basePath, params, page - 1)} rel="prev" prefetch={false}>
             <ChevronLeft aria-hidden /> {labels.previous}
           </Link>
         ) : (
@@ -70,6 +70,7 @@ export function Pagination({ page, pageCount, params, basePath, labels = THAI_LA
             <li key={item}>
               <Link
                 href={href(basePath, params, item)}
+                prefetch={false}
                 aria-label={labels.goTo(item)}
                 aria-current={item === page ? "page" : undefined}
                 className={cn(
@@ -86,7 +87,7 @@ export function Pagination({ page, pageCount, params, basePath, labels = THAI_LA
       <span className="sr-only">{labels.page(page, pageCount)}</span>
       <Button asChild={page < pageCount} variant="outline" size="sm" disabled={page >= pageCount}>
         {page < pageCount ? (
-          <Link href={href(basePath, params, page + 1)} rel="next">
+          <Link href={href(basePath, params, page + 1)} rel="next" prefetch={false}>
             {labels.next} <ChevronRight aria-hidden />
           </Link>
         ) : (
