@@ -3,7 +3,7 @@
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Bell, BellRing, CheckCircle2, FilePlus2, FileText, Pencil, Plus, Trash2, Undo2 } from "lucide-react";
+import { Bell, BellRing, CheckCircle2, Download, FilePlus2, FileText, Pencil, Plus, Trash2, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -453,6 +453,17 @@ function FileGroup({
                 {f.fileName}
               </span>
               <span className="shrink-0 text-xs text-muted-foreground">{formatBytes(f.fileSize)}</span>
+              {f.savedId && !f.deleted && (
+                <Button asChild size="icon-sm" variant="ghost">
+                  <a
+                    href={`/api/admin/files/${f.savedId}/download`}
+                    aria-label={`ทดสอบดาวน์โหลด ${f.fileName}`}
+                    title="ทดสอบดาวน์โหลด (ไม่นับเป็นยอดดาวน์โหลด)"
+                  >
+                    <Download />
+                  </a>
+                </Button>
+              )}
               {f.deleted ? (
                 <Button size="sm" variant="ghost" disabled={disabled} onClick={() => onRemove(f.key)}>
                   <Undo2 aria-hidden /> เลิกลบ
