@@ -6,11 +6,12 @@ import { useLocale, useTranslations } from "next-intl";
 import { Check, ImageOff, Loader2, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Link, usePathname } from "@/i18n/navigation";
+import { Link } from "@/i18n/navigation";
 import { intlLocale } from "@/i18n/localize";
-import { getCartCount, getMiniCart, type MiniCart } from "@/lib/cart/actions";
+import { getMiniCart, type MiniCart } from "@/lib/cart/actions";
 import { formatTHB } from "@/lib/pricing/calculate";
-import { onCartAdded, onCartChanged, type CartAddedDetail } from "./cart-events";
+import { onCartAdded, type CartAddedDetail } from "./cart-events";
+import { patchHeaderState, useHeaderState } from "@/components/layout/header-state";
 
 /** How long the "added" popover stays up unless the pointer or focus is inside it. */
 const AUTO_CLOSE_MS = 6000;
@@ -24,14 +25,13 @@ type Mode = "added" | "cart";
  * total, a button to the cart page); adding a product opens the same popover as a short-lived
  * "added" confirmation. Everything shown is read from the server, never kept client-side.
  */
-export function HeaderCartButton() {
+export function HeaderCartButton({ hasSession }: { hasSession: boolean }) {
   const t = useTranslations("cart.add");
   const tCart = useTranslations("cart.cart");
   const tHeader = useTranslations("common.header");
   const locale = useLocale();
   const fmt = intlLocale(locale);
-  const pathname = usePathname();
-  const [count, setCount] = useState(0);
+  const count = useHeaderState(hasSession)?.cartCount ?? 0;
   const [added, setAdded] = useState<CartAddedDetail | null>(null);
   const [mode, setMode] = useState<Mode>("cart");
   const [open, setOpen] = useState(false);
@@ -45,26 +45,11 @@ export function HeaderCartButton() {
     timer.current = window.setTimeout(() => setOpen(false), AUTO_CLOSE_MS);
   };
 
-  useEffect(() => {
-    let active = true;
-    const refresh = () => {
-      getCartCount()
-        .then((n) => active && setCount(n))
-        .catch(() => {});
-    };
-    refresh();
-    const offChanged = onCartChanged(refresh);
-    return () => {
-      active = false;
-      offChanged();
-    };
-  }, [pathname]);
-
   useEffect(
     () =>
       onCartAdded((detail) => {
         setAdded(detail);
-        setCount(detail.count);
+        patchHeaderState({ cartCount: detail.count });
         setMode("added");
         setOpen(true);
         window.clearTimeout(timer.current);
@@ -81,7 +66,7 @@ export function HeaderCartButton() {
     getMiniCart(locale)
       .then((m) => {
         setMini(m);
-        setCount(m?.lines.length ?? 0);
+        patchHeaderState({ cartCount: m?.lines.length ?? 0 });
       })
       .catch(() => setFailed(true));
   }

@@ -9,9 +9,10 @@ import { MobileNav } from "./mobile-nav";
 import { HeaderCartButton } from "@/components/cart/header-cart-button";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { NAV_LINKS } from "./nav-links";
+import { hasSessionCookie } from "@/lib/auth/guards";
 
 export async function SiteHeader() {
-  const [t, locale] = await Promise.all([getTranslations("common"), getLocale()]);
+  const [t, locale, hasSession] = await Promise.all([getTranslations("common"), getLocale(), hasSessionCookie()]);
   const searchAction = getPathname({ href: "/search", locale });
 
   return (
@@ -67,8 +68,8 @@ export async function SiteHeader() {
               <User />
             </Link>
           </Button>
-          <NotificationBell />
-          <HeaderCartButton />
+          <NotificationBell hasSession={hasSession} />
+          <HeaderCartButton hasSession={hasSession} />
         </div>
       </div>
     </header>

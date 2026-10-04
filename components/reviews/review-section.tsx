@@ -3,12 +3,17 @@ import { Stars } from "@/components/reviews/stars";
 import { ReviewList } from "@/components/reviews/review-list";
 import { ReviewWriteButton } from "@/components/reviews/review-write-button";
 import { getReviewSummary, listProductReviews } from "@/lib/reviews/queries";
+import { hasSessionCookie } from "@/lib/auth/guards";
 import { ratingAverage, reviewerName } from "@/lib/reviews/rules";
 
 /** Product-page reviews: average, per-star bars, write button and the first page of reviews. */
 export async function ReviewSection({ productId, productName, productSlug }: { productId: string; productName: string; productSlug: string }) {
   const t = await getTranslations("shop.reviews");
-  const [summary, first] = await Promise.all([getReviewSummary(productId), listProductReviews(productId, 1)]);
+  const [summary, first, hasSession] = await Promise.all([
+    getReviewSummary(productId),
+    listProductReviews(productId, 1),
+    hasSessionCookie(),
+  ]);
   const average = ratingAverage(summary.sum, summary.count);
 
   return (
@@ -31,7 +36,7 @@ export async function ReviewSection({ productId, productName, productSlug }: { p
             <p className="text-sm text-muted-foreground">{t("none")}</p>
           )}
           <div className="pt-2">
-            <ReviewWriteButton productId={productId} productName={productName} productSlug={productSlug} />
+            <ReviewWriteButton productId={productId} productName={productName} productSlug={productSlug} hasSession={hasSession} />
           </div>
         </div>
         <ul className="space-y-2" aria-label={t("distribution")}>

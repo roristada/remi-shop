@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma/client";
 import { isUniqueViolation } from "@/lib/prisma/errors";
 import { getOwnership } from "@/lib/orders/ownership";
 import { evaluateLine, lineKey, type LineProblem } from "@/lib/orders/rules";
-import { checkoutProductSelect, checkoutVariantSelect, getCartView, toCheckoutProduct } from "@/lib/cart/queries";
+import { checkoutProductSelect, checkoutVariantSelect, countCartItems, getCartView, toCheckoutProduct } from "@/lib/cart/queries";
 import { toLocale } from "@/lib/auth/redirect";
 import { idSchema } from "@/lib/validation/product";
 import { localized } from "@/i18n/localize";
@@ -20,10 +20,6 @@ export type AddedCartItem = { name: string; imageUrl: string | null; finalPrice:
 export type AddToCartResult =
   | { ok: true; item: AddedCartItem; count: number }
   | { ok: false; code: LineProblem | "LOGIN_REQUIRED" | "ERROR" };
-
-async function countCartItems(userId: string): Promise<number> {
-  return prisma.cartItem.count({ where: { cart: { userId } } });
-}
 
 /** One line of the header mini-cart. Prices are server-calculated (satang). */
 export type MiniCartLine = {
@@ -55,12 +51,6 @@ export async function getMiniCart(locale: string): Promise<MiniCart | null> {
     total: totals.total,
     hasProblems: lines.some((l) => l.problem !== null),
   };
-}
-
-/** Item count for the header badge; 0 for guests. */
-export async function getCartCount(): Promise<number> {
-  const user = await getCurrentUser();
-  return user ? countCartItems(user.id) : 0;
 }
 
 /** Adds one line: the product, or one of its variants (`variantId`). Each variant is its own line. */

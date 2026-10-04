@@ -1,17 +1,17 @@
 "use client";
 
 import NextLink from "next/link";
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useState, useTransition } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Bell, CheckCheck, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Link, usePathname } from "@/i18n/navigation";
+import { Link } from "@/i18n/navigation";
+import { patchHeaderState, useHeaderState } from "@/components/layout/header-state";
 import { intlLocale, localized } from "@/i18n/localize";
 import { formatBangkokDateTime } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 import {
-  getUnreadNotificationCount,
   loadNotifications,
   markAllNotificationsRead,
   markNotificationRead,
@@ -20,28 +20,17 @@ import {
 import { UNREAD_BADGE_MAX } from "@/lib/notifications/rules";
 
 /**
- * Navbar bell with an unread badge. Hidden for guests. The count is re-read from the server on
- * navigation; the list loads when the popover opens, so pages pay nothing until it is used.
+ * Navbar bell with an unread badge. Hidden for guests. The count comes from the shared header
+ * state (see header-state.ts); the list loads when the popover opens, so pages pay nothing until it is used.
  */
-export function NotificationBell({ className }: { className?: string }) {
+export function NotificationBell({ className, hasSession = true }: { className?: string; hasSession?: boolean }) {
   const t = useTranslations("notifications");
-  const pathname = usePathname();
-  const [unread, setUnread] = useState<number | null>(null);
+  const unread = useHeaderState(hasSession)?.unread ?? null;
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<NotificationView[] | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [failed, setFailed] = useState(false);
   const [loading, startLoading] = useTransition();
-
-  useEffect(() => {
-    let active = true;
-    getUnreadNotificationCount()
-      .then((n) => active && setUnread(n))
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, [pathname]);
 
   const load = useCallback((before?: string) => {
     startLoading(async () => {
@@ -65,13 +54,13 @@ export function NotificationBell({ className }: { className?: string }) {
     setOpen(false);
     if (n.read) return;
     setItems((prev) => prev?.map((i) => (i.id === n.id ? { ...i, read: true } : i)) ?? prev);
-    setUnread((c) => (c ? c - 1 : c));
+    if (unread) patchHeaderState({ unread: unread - 1 });
     void markNotificationRead(n.id);
   }
 
   function onMarkAll() {
     setItems((prev) => prev?.map((i) => ({ ...i, read: true })) ?? prev);
-    setUnread(0);
+    patchHeaderState({ unread: 0 });
     void markAllNotificationsRead();
   }
 

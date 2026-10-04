@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { PenLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,24 +12,46 @@ import type { ReviewEligibility } from "@/lib/reviews/rules";
 type State = { state: ReviewEligibility; existing?: { rating: number; body: string; isAnonymous: boolean } };
 
 /**
- * The product page is cached for everyone, so what this viewer may do (sign in / buy first /
- * write / edit) is fetched after load instead of being rendered on the server.
+ * What this viewer may do (sign in / buy first / write / edit) is fetched after load, and only
+ * once the section scrolls near view: each fetch is a function call, and most visitors never
+ * reach the reviews. Guests (no auth cookie) skip the fetch and see the sign-in button.
  */
-export function ReviewWriteButton({ productId, productName, productSlug }: { productId: string; productName: string; productSlug: string }) {
+export function ReviewWriteButton({
+  productId,
+  productName,
+  productSlug,
+  hasSession,
+}: {
+  productId: string;
+  productName: string;
+  productSlug: string;
+  hasSession: boolean;
+}) {
   const t = useTranslations("shop.reviews");
-  const [me, setMe] = useState<State | null>(null);
+  const [me, setMe] = useState<State | null>(hasSession ? null : { state: "LOGIN" });
+  const placeholder = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (me || !placeholder.current) return;
     let live = true;
-    getMyReviewState(productId)
-      .then((s) => live && setMe(s))
-      .catch(() => live && setMe({ state: "NOT_PURCHASED" }));
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return;
+        observer.disconnect();
+        getMyReviewState(productId)
+          .then((s) => live && setMe(s))
+          .catch(() => live && setMe({ state: "NOT_PURCHASED" }));
+      },
+      { rootMargin: "300px" },
+    );
+    observer.observe(placeholder.current);
     return () => {
       live = false;
+      observer.disconnect();
     };
-  }, [productId]);
+  }, [me, productId]);
 
-  if (!me) return <div className="h-11" aria-hidden />;
+  if (!me) return <div ref={placeholder} className="h-11" aria-hidden />;
 
   if (me.state === "CAN_REVIEW" || me.state === "REVIEWED") {
     const editing = me.state === "REVIEWED" && me.existing;

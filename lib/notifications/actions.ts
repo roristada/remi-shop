@@ -11,6 +11,7 @@ import {
 } from "@/lib/notifications/rules";
 import { idSchema } from "@/lib/validation/product";
 import { syncReviewReminders } from "@/lib/notifications/review-reminders";
+import { countCartItems } from "@/lib/cart/queries";
 
 export type NotificationView = {
   id: string;
@@ -23,17 +24,27 @@ export type NotificationView = {
 
 export type NotificationPage = { items: NotificationView[]; hasMore: boolean };
 
-/** Unread count for the navbar badge; null for guests (the bell is hidden). Due review reminders are created first. */
-export async function getUnreadNotificationCount(): Promise<number | null> {
+/** Header badges. `unread` is null for guests (the bell is hidden). */
+export type HeaderState = { cartCount: number; unread: number | null };
+
+/**
+ * Cart and unread-notification badges in one request, so the header costs a single function call.
+ * Due review reminders are created first so they show in the unread count.
+ */
+export async function getHeaderState(): Promise<HeaderState> {
   const user = await getCurrentUser();
-  if (!user) return null;
+  if (!user) return { cartCount: 0, unread: null };
   try {
     await syncReviewReminders(user.id);
   } catch (error) {
-    // A reminder can wait for the next page view; the badge must still load.
+    // A reminder can wait for the next refresh; the badges must still load.
     console.error("[notifications] review reminders failed", { message: (error as Error).message });
   }
-  return prisma.notification.count({ where: { userId: user.id, readAt: null } });
+  const [cartCount, unread] = await Promise.all([
+    countCartItems(user.id),
+    prisma.notification.count({ where: { userId: user.id, readAt: null } }),
+  ]);
+  return { cartCount, unread };
 }
 
 /**

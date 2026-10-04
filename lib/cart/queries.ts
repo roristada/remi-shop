@@ -15,6 +15,11 @@ import {
 import type { ProductPrice } from "@/lib/pricing/calculate";
 import { canAccessFile } from "@/lib/downloads/rules";
 
+/** Lines in the user's cart, for the header badge. */
+export function countCartItems(userId: string): Promise<number> {
+  return prisma.cartItem.count({ where: { cart: { userId } } });
+}
+
 /** Everything checkout needs to re-price and re-validate a product. Never trust cart contents as-is. */
 export function checkoutProductSelect(now: Date) {
   return {
