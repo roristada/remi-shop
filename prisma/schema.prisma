@@ -9,6 +9,7 @@
 generator client {
   provider = "prisma-client"
   output   = "../lib/generated/prisma"
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {
