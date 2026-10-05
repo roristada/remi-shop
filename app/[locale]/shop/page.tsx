@@ -77,13 +77,13 @@ export default async function ShopPage({ params, searchParams }: PageProps<"/[lo
     }
   }
 
-  const facetFilters = { q: filters.q, sale: filters.sale };
+  const facetFilters = { q: filters.q, sale: filters.sale, soon: filters.soon };
   const [{ items, total, pageCount }, { folders, categories, softwareTags, priceCounts }] = await Promise.all([
     listShopProducts({ ...filters, folderId: folder?.id }, locale, now, userId),
     listShopFacets(facetFilters, now),
   ]);
   const folderName = folder ? localized(locale, folder.nameTH, folder.nameEN) : null;
-  const sidebarHidden = { q: filters.q, sort: filters.sort === "newest" ? undefined : filters.sort, sale: filters.sale ? "1" : undefined, folder: filters.folder };
+  const sidebarHidden = { q: filters.q, sort: filters.sort === "newest" ? undefined : filters.sort, sale: filters.sale ? "1" : undefined, soon: filters.soon ? "1" : undefined, folder: filters.folder };
 
   return (
     <ShopShell
@@ -118,7 +118,7 @@ export default async function ShopPage({ params, searchParams }: PageProps<"/[lo
           <h2 className="sr-only">{t("products")}</h2>
           <ProductGrid
             products={items}
-            filtered={Boolean(filters.q || filters.category.length > 0 || filters.folder || filters.software.length > 0 || filters.price || filters.sale)}
+            filtered={Boolean(filters.q || filters.category.length > 0 || filters.folder || filters.software.length > 0 || filters.price || filters.sale || filters.soon)}
           />
           <ShopPagination
             page={filters.page}

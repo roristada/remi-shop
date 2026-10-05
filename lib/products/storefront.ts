@@ -31,8 +31,13 @@ export type ShopFilters = {
   sort: ShopSort;
   /** Only products with a discount active right now. */
   sale: boolean;
+  /** Only products whose sale window opens later (coming soon). */
+  soon: boolean;
   page: number;
 };
+
+/** Filters the sidebar facet counts fold in — see `facetBaseWhere`. */
+export type FacetFilters = { q?: string; sale: boolean; soon: boolean };
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -84,6 +89,7 @@ export function parseShopFilters(sp: SearchParams): ShopFilters {
     price,
     sort,
     sale: one(sp.sale) === "1",
+    soon: one(sp.soon) === "1",
     page,
   };
 }
@@ -98,13 +104,14 @@ export function shopFilterParams(f: ShopFilters): Record<string, string | string
     price: f.price,
     sort: f.sort === "newest" ? undefined : f.sort,
     sale: f.sale ? "1" : undefined,
+    soon: f.soon ? "1" : undefined,
   };
 }
 
 /** Any filter set means the flat grid; otherwise /shop shows folder sections. */
 export function hasShopFilters(f: ShopFilters): boolean {
   return Boolean(
-    f.q || f.category.length > 0 || f.folder || f.software.length > 0 || f.price || f.sale || f.sort !== "newest" || f.page > 1,
+    f.q || f.category.length > 0 || f.folder || f.software.length > 0 || f.price || f.sale || f.soon || f.sort !== "newest" || f.page > 1,
   );
 }
 
@@ -155,6 +162,14 @@ export function activeDiscountWhere(now: Date): Prisma.ProductWhereInput {
   };
 }
 
+/** Listed, with an opening date still ahead: can be previewed now, bought once the sale opens. */
+export function comingSoonWhere(now: Date): Prisma.ProductWhereInput {
+  return { AND: [listedProductWhere(now), { saleStartAt: { gt: now } }] };
+}
+
+/** Coming-soon order: opening soonest first. */
+export const COMING_SOON_ORDER = [{ saleStartAt: "asc" }, { id: "asc" }] satisfies Prisma.ProductOrderByWithRelationInput[];
+
 export function shopSearchWhere(q: string): Prisma.ProductWhereInput {
   return {
     OR: [
@@ -172,11 +187,12 @@ export function shopSearchWhere(q: string): Prisma.ProductWhereInput {
  * software tag doesn't shrink the category counts and vice versa); this keeps three checkbox
  * groups fast and simple instead of a fully cross-filtered facet engine the catalog size doesn't need yet.
  */
-export function facetBaseWhere(now: Date, filters: { q?: string; sale: boolean }): Prisma.ProductWhereInput {
+export function facetBaseWhere(now: Date, filters: FacetFilters): Prisma.ProductWhereInput {
   const and: Prisma.ProductWhereInput[] = [browsableProductWhere()];
   if (filters.q) and.push(shopSearchWhere(filters.q));
   // "On sale" means buyable at a discount, so closed and ended products drop out.
   if (filters.sale) and.push(listedProductWhere(now), activeDiscountWhere(now));
+  if (filters.soon) and.push(comingSoonWhere(now));
   return { AND: and };
 }
 

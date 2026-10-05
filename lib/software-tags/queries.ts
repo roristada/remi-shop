@@ -1,13 +1,13 @@
 import "server-only";
 import { prisma } from "@/lib/prisma/client";
-import { facetBaseWhere } from "@/lib/products/storefront";
+import { facetBaseWhere, type FacetFilters } from "@/lib/products/storefront";
 
 /**
  * Active tags for the storefront filter sidebar, with a product count. `facetFilters` folds in
  * search/on-sale so counts stay honest under those, independent of the other facet groups —
  * see `facetBaseWhere`.
  */
-export function listActiveSoftwareTags(now: Date = new Date(), facetFilters: { q?: string; sale: boolean } = { sale: false }) {
+export function listActiveSoftwareTags(now: Date = new Date(), facetFilters: FacetFilters = { sale: false, soon: false }) {
   return prisma.softwareTag.findMany({
     where: { isActive: true },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],

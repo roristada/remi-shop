@@ -21,7 +21,10 @@ import { ratingAverage } from "@/lib/reviews/rules";
 import {
   activeDiscountWhere,
   browsableProductWhere,
+  COMING_SOON_ORDER,
+  comingSoonWhere,
   facetBaseWhere,
+  type FacetFilters,
   listedProductWhere,
   PRICE_BUCKETS,
   priceBucketWhere,
@@ -242,7 +245,9 @@ export async function listShopProducts(
   if (filters.price) and.push(priceBucketWhere(filters.price));
   if (filters.q) and.push(shopSearchWhere(filters.q));
   if (filters.sale) and.push(listedProductWhere(now), activeDiscountWhere(now));
-  const orderBy = shopOrderBy(filters.sort, locale);
+  if (filters.soon) and.push(comingSoonWhere(now));
+  // Coming soon reads best by opening date; an explicit price/name sort still wins.
+  const orderBy = filters.soon && filters.sort === "newest" ? COMING_SOON_ORDER : shopOrderBy(filters.sort, locale);
 
   const { total, rows } = await tieredPage(
     (tier) => {
@@ -345,8 +350,8 @@ export async function listLimitedTimeProducts(
  */
 export async function listComingSoonProducts(locale: string, take = 4, now: Date = new Date(), userId: string | null = null) {
   const rows = await prisma.product.findMany({
-    where: { AND: [listedProductWhere(now), { saleStartAt: { gt: now } }] },
-    orderBy: [{ saleStartAt: "asc" }, { id: "asc" }],
+    where: comingSoonWhere(now),
+    orderBy: COMING_SOON_ORDER,
     take,
     select: cardSelect(userId, now),
   });
@@ -429,11 +434,11 @@ export function getActiveAnnouncement(now: Date = new Date()) {
 }
 
 /**
- * Visible categories with a product count. `facetFilters` folds in search/on-sale so the
+ * Visible categories with a product count. `facetFilters` folds in search/on-sale/coming-soon so the
  * sidebar's counts stay honest under those, independent of the other facet groups — see
  * `facetBaseWhere`.
  */
-export function listShopCategories(now: Date = new Date(), facetFilters: { q?: string; sale: boolean } = { sale: false }) {
+export function listShopCategories(now: Date = new Date(), facetFilters: FacetFilters = { sale: false, soon: false }) {
   return prisma.category.findMany({
     where: { status: "ACTIVE" },
     orderBy: [{ sortOrder: "asc" }, { nameTH: "asc" }],
@@ -452,7 +457,7 @@ export function listShopCategories(now: Date = new Date(), facetFilters: { q?: s
 /** Price-bucket counts for the sidebar, under the same independent-facet rule as categories. */
 export async function listPriceBucketCounts(
   now: Date,
-  facetFilters: { q?: string; sale: boolean },
+  facetFilters: FacetFilters,
 ): Promise<{ key: PriceBucketKey; count: number }[]> {
   const base = facetBaseWhere(now, facetFilters);
   const counts = await Promise.all(
@@ -465,9 +470,9 @@ export async function listPriceBucketCounts(
 const SHOP_FACETS_CACHE_SECONDS = 60;
 
 const cachedShopFacets = unstable_cache(
-  async (sale: boolean) => {
+  async (sale: boolean, soon: boolean) => {
     const now = new Date();
-    const facetFilters = { sale };
+    const facetFilters = { sale, soon };
     const [folders, categories, softwareTags, priceCounts] = await Promise.all([
       listShopFolders(),
       listShopCategories(now, facetFilters),
@@ -484,8 +489,8 @@ const cachedShopFacets = unstable_cache(
  * /shop sidebar data: folder chips and the category, software and price counts. Shared across
  * requests except for searches, whose free-text keys would only fill the cache.
  */
-export async function listShopFacets(facetFilters: { q?: string; sale: boolean }, now: Date = new Date()) {
-  if (!facetFilters.q) return cachedShopFacets(facetFilters.sale);
+export async function listShopFacets(facetFilters: FacetFilters, now: Date = new Date()) {
+  if (!facetFilters.q) return cachedShopFacets(facetFilters.sale, facetFilters.soon);
   const [folders, categories, softwareTags, priceCounts] = await Promise.all([
     listShopFolders(),
     listShopCategories(now, facetFilters),

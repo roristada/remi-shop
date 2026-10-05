@@ -67,7 +67,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps<"
         }
       />
       <ShopFilterForm filters={filters} action={path} />
-      <ProductGrid products={items} filtered={Boolean(filters.q || filters.sale)} />
+      <ProductGrid products={items} filtered={Boolean(filters.q || filters.sale || filters.soon)} />
       <ShopPagination page={filters.page} pageCount={pageCount} params={shopFilterParams(filters)} path={path} />
     </div>
   );

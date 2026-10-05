@@ -84,7 +84,13 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
 
       {/* Rows exist only while something qualifies, so the page never shows an empty shelf. */}
       <Shelf id="on-sale" title={t("onSale")} products={onSale} viewAll={{ href: "/shop?sale=1", label: t("viewAll") }} />
-      <Shelf id="coming-soon" title={t("comingSoon")} hint={t("comingSoonHint")} products={comingSoon} />
+      <Shelf
+        id="coming-soon"
+        title={t("comingSoon")}
+        hint={t("comingSoonHint")}
+        products={comingSoon}
+        viewAll={{ href: "/shop?soon=1", label: t("viewAll") }}
+      />
       <Shelf id="trending" title={t("trending")} hint={t("trendingHint", { days: TRENDING_WINDOW_DAYS })} products={trending} />
       <Shelf id="limited-time" title={t("limitedTime")} hint={t("limitedTimeHint")} products={limitedTime} />
       <Shelf
