@@ -2,15 +2,15 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
 import type { ActionResult } from "@/lib/actions/result";
 import type { SignedUpload } from "@/lib/storage/product-storage";
+import { putSignedUpload } from "@/lib/storage/upload-client";
 
 type Request = (input: { fileName: string; size: number }) => Promise<ActionResult<SignedUpload>>;
 type Confirm = (input: { path: string; fileName: string }) => Promise<ActionResult>;
 
 /**
- * Uploads one file's bytes to Storage with a one-time signed upload token. The server still
+ * Uploads one file's bytes to storage with a one-time signed upload target. The server still
  * has to verify and record the object; returns the issued key, or an error message.
  */
 export async function uploadToStorage(
@@ -20,11 +20,8 @@ export async function uploadToStorage(
   const target = await request({ fileName: file.name, size: file.size });
   if (!target.ok) return { ok: false, error: target.error };
 
-  const { bucket, path, token } = target.data;
-  const { error } = await createClient()
-    .storage.from(bucket)
-    .uploadToSignedUrl(path, token, file, { contentType: file.type || "application/octet-stream" });
-  return error ? { ok: false, error: "อัปโหลดไม่สำเร็จ" } : { ok: true, path };
+  const uploaded = await putSignedUpload(target.data, file, file.type || "application/octet-stream");
+  return uploaded ? { ok: true, path: target.data.path } : { ok: false, error: "อัปโหลดไม่สำเร็จ" };
 }
 
 /**

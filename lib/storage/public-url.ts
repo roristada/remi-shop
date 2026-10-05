@@ -13,8 +13,15 @@ export function previewImageSrc(
   return previewImageUrl(path ?? image.imagePath);
 }
 
+/** Whether preview images live in Cloudflare R2 (see lib/storage/r2) instead of Supabase Storage. */
+export function previewsOnR2(): boolean {
+  return publicEnv.NEXT_PUBLIC_PREVIEW_IMAGE_URL !== undefined;
+}
+
 /** Public URL for an object in the public `product-previews` bucket. Never use for private buckets. */
 export function previewImageUrl(path: string): string {
   const encoded = path.split("/").map(encodeURIComponent).join("/");
+  const r2Base = publicEnv.NEXT_PUBLIC_PREVIEW_IMAGE_URL;
+  if (r2Base) return `${r2Base.replace(/\/+$/, "")}/${encoded}`;
   return `${publicEnv.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${BUCKETS.productPreviews}/${encoded}`;
 }

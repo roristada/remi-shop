@@ -15,11 +15,19 @@ const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL
   ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname
   : undefined;
 
+// Product preview images on Cloudflare R2 (see lib/storage/r2), when configured.
+const previewImageUrl = process.env.NEXT_PUBLIC_PREVIEW_IMAGE_URL ? new URL(process.env.NEXT_PUBLIC_PREVIEW_IMAGE_URL) : undefined;
+
 const nextConfig: NextConfig = {
   images: {
-    remotePatterns: supabaseHost
-      ? [{ protocol: "https", hostname: supabaseHost, pathname: "/storage/v1/object/public/**" }]
-      : [],
+    remotePatterns: [
+      ...(supabaseHost
+        ? [{ protocol: "https" as const, hostname: supabaseHost, pathname: "/storage/v1/object/public/**" }]
+        : []),
+      ...(previewImageUrl
+        ? [{ protocol: "https" as const, hostname: previewImageUrl.hostname, pathname: `${previewImageUrl.pathname.replace(/\/+$/, "")}/**` }]
+        : []),
+    ],
   },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

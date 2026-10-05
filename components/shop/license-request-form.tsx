@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { FormMessage } from "@/components/auth/form-fields";
 import { useRouter } from "@/i18n/navigation";
 import { intlLocale } from "@/i18n/localize";
-import { createClient } from "@/lib/supabase/client";
+import { putSignedUpload } from "@/lib/storage/upload-client";
 import { zodFieldErrors } from "@/lib/actions/result";
 import type { FieldErrors } from "@/lib/validation/auth";
 import { formatTHB } from "@/lib/pricing/calculate";
@@ -157,12 +157,8 @@ export function LicenseRequestForm({ productId, offers, defaults, edit }: Props)
         const target = await requestArtworkUpload({ fileName: file.name, size: file.size });
         if (!target.ok) return setFormError(t(`errors.${target.code}`));
 
-        const { bucket, path, token } = target.data;
-        const { error: uploadError } = await createClient()
-          .storage.from(bucket)
-          .uploadToSignedUrl(path, token, file, { contentType: file.type || "image/jpeg" });
-        if (uploadError) return setFormError(t("errors.ERROR"));
-        artwork = { artworkPath: path, artworkFileName: file.name };
+        if (!(await putSignedUpload(target.data, file, file.type || "image/jpeg"))) return setFormError(t("errors.ERROR"));
+        artwork = { artworkPath: target.data.path, artworkFileName: file.name };
       }
 
       const result = edit

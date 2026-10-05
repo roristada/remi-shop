@@ -2,6 +2,8 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { BUCKETS, maxUploadSize, SIGNED_URL_TTL_SECONDS, type BucketName } from "@/lib/storage/buckets";
 import { sanitizeFileName } from "@/lib/storage/paths";
+import { previewsOnR2 } from "@/lib/storage/public-url";
+import { createR2Upload, r2ObjectInfo, r2ReadHead, r2Remove } from "@/lib/storage/r2";
 import {
   checkFileSignature,
   getExtension,
@@ -43,10 +45,29 @@ export function isProductFilePath(path: string, productId: string, versionId: st
   return new RegExp(`^products/${productId}/${versionId}/${UUID}-[A-Za-z0-9._-]+$`).test(path);
 }
 
-export type SignedUpload = { bucket: BucketName; path: string; token: string };
+/**
+ * Where the browser sends the bytes: a Supabase one-time upload token, or (preview images on R2)
+ * a presigned PUT URL with the headers it was signed with.
+ */
+export type SignedUpload =
+  | { bucket: BucketName; path: string; token: string }
+  | { bucket: BucketName; path: string; url: string; headers: Record<string, string> };
 
-/** One-time upload token; the browser uploads directly to Storage (bypasses the 4.5 MB function body limit). */
+/** True when `bucket` is served from R2 rather than Supabase Storage. */
+function onR2(bucket: BucketName): boolean {
+  return bucket === BUCKETS.productPreviews && previewsOnR2();
+}
+
+/** One-time upload target; the browser uploads directly to storage (bypasses the 4.5 MB function body limit). */
 export async function createSignedUpload(bucket: BucketName, path: string): Promise<SignedUpload | null> {
+  if (onR2(bucket)) {
+    try {
+      return { bucket, path, ...(await createR2Upload(path)) };
+    } catch (e) {
+      console.error("[storage] r2 upload url failed", { bucket, path, message: (e as Error).message });
+      return null;
+    }
+  }
   const { data, error } = await createAdminClient().storage.from(bucket).createSignedUploadUrl(path);
   if (error || !data) {
     console.error("[storage] signed upload url failed", { bucket, path, message: error?.message });
@@ -66,7 +87,6 @@ export async function verifyUploadedObject(
   path: string,
   fileName: string,
 ): Promise<{ ok: true; object: VerifiedObject } | { ok: false; error: FileTypeError | "not_found" }> {
-  const storage = createAdminClient().storage.from(bucket);
   const rules =
     bucket === BUCKETS.digitalFiles
       ? DIGITAL_FILE_TYPES
@@ -75,12 +95,13 @@ export async function verifyUploadedObject(
         : IMAGE_FILE_TYPES;
 
   // Both requests at once; the leading bytes are only judged once the size is known to be fine.
-  const [{ data: info, error: infoError }, head] = await Promise.all([storage.info(path), readHead(bucket, path)]);
-  if (infoError || !info) return { ok: false, error: "not_found" };
+  const [info, head] = await Promise.all([objectInfo(bucket, path), readHead(bucket, path)]);
+  if (info === null) return { ok: false, error: "not_found" };
+  const { size } = info;
 
-  const size = info.size ?? 0;
   let error: FileTypeError | null = null;
-  if (size <= 0) error = "empty";
+  if (!info.typeMatches) error = "signature_mismatch";
+  else if (size <= 0) error = "empty";
   else if (size > maxUploadSize(bucket)) error = "too_large";
   else error = head ? checkFileSignature(rules, fileName, head) : "signature_mismatch";
 
@@ -91,7 +112,15 @@ export async function verifyUploadedObject(
   return { ok: true, object: { size } };
 }
 
+/** Size, and (R2 only) whether the stored content type matches the key; Supabase sets it itself. */
+async function objectInfo(bucket: BucketName, path: string): Promise<{ size: number; typeMatches: boolean } | null> {
+  if (onR2(bucket)) return r2ObjectInfo(path).catch(() => null);
+  const { data, error } = await createAdminClient().storage.from(bucket).info(path);
+  return error || !data ? null : { size: data.size ?? 0, typeMatches: true };
+}
+
 async function readHead(bucket: BucketName, path: string): Promise<Uint8Array | null> {
+  if (onR2(bucket)) return r2ReadHead(path, SIGNATURE_BYTES).catch(() => null);
   const { data } = await createAdminClient().storage.from(bucket).createSignedUrl(path, 60);
   if (!data) return null;
   try {
@@ -132,6 +161,11 @@ export async function createSignedDownloadUrl(
 /** Best-effort delete; failures are logged (orphans are harmless in a private bucket). */
 export async function removeObjects(bucket: BucketName, paths: string[]): Promise<void> {
   if (paths.length === 0) return;
+  if (onR2(bucket)) {
+    const failed = await r2Remove(paths);
+    if (failed.length > 0) console.error("[storage] remove failed", { bucket, count: failed.length });
+    return;
+  }
   const storage = createAdminClient().storage.from(bucket);
   // Storage API accepts up to 1000 keys per call.
   for (let i = 0; i < paths.length; i += 1000) {

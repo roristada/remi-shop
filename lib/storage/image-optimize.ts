@@ -2,6 +2,8 @@ import "server-only";
 import sharp from "sharp";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { BUCKETS } from "@/lib/storage/buckets";
+import { previewsOnR2 } from "@/lib/storage/public-url";
+import { r2Download, r2Upload } from "@/lib/storage/r2";
 import { optimizedPath, pickServedPath, toWebp, worthEncoding, type PreviewSize } from "@/lib/storage/webp";
 
 export { previewObjectPaths, type PreviewSize } from "@/lib/storage/webp";
@@ -17,11 +19,8 @@ export async function optimizePreviewImage(
   path: string,
   sizes: PreviewSize[] = ["card", "detail"],
 ): Promise<Partial<Record<PreviewSize, string>> | null> {
-  const storage = createAdminClient().storage.from(BUCKETS.productPreviews);
   try {
-    const { data, error } = await storage.download(path);
-    if (error || !data) throw new Error(error?.message ?? "download failed");
-    const original = Buffer.from(await data.arrayBuffer());
+    const original = await downloadPreview(path);
     const meta = await sharp(original, { animated: true, limitInputPixels: 2_000_000_000 }).metadata();
     const image = { width: meta.width ?? 0, frames: meta.pages ?? 1 };
 
@@ -35,18 +34,27 @@ export async function optimizePreviewImage(
       const body = await toWebp(original, size);
       const served = pickServedPath({ path, bytes: original.length }, { path: target, bytes: body.length });
       if (served === target) {
-        const { error: uploadError } = await storage.upload(target, body, {
-          contentType: "image/webp",
-          cacheControl: "31536000",
-          upsert: true,
-        });
-        if (uploadError) throw new Error(uploadError.message);
+        await uploadPreview(target, body);
       }
       out[size] = served;
     }
     return out;
   } catch (error) {
-    console.error("[storage] image optimize failed", { path, message: (error as Error).message });
-    return null;
+    console.error("[storage] image optimize failed", { path, message: (error as Error).message });    return null;
   }
+}
+
+async function downloadPreview(path: string): Promise<Buffer> {
+  if (previewsOnR2()) return r2Download(path);
+  const { data, error } = await createAdminClient().storage.from(BUCKETS.productPreviews).download(path);
+  if (error || !data) throw new Error(error?.message ?? "download failed");
+  return Buffer.from(await data.arrayBuffer());
+}
+
+async function uploadPreview(path: string, body: Buffer): Promise<void> {
+  if (previewsOnR2()) return r2Upload(path, body, "image/webp");
+  const { error } = await createAdminClient()
+    .storage.from(BUCKETS.productPreviews)
+    .upload(path, body, { contentType: "image/webp", cacheControl: "31536000", upsert: true });
+  if (error) throw new Error(error.message);
 }

@@ -6,7 +6,7 @@ import { ImageUp, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "@/i18n/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { putSignedUpload } from "@/lib/storage/upload-client";
 import { confirmSlipUpload, requestSlipUpload } from "@/lib/payments/customer-actions";
 import { MAX_FILE_SIZE } from "@/lib/storage/buckets";
 
@@ -52,11 +52,8 @@ export function SlipUpload({ orderNumber }: { orderNumber: string }) {
       const target = await requestSlipUpload(orderNumber, { fileName: file.name, size: file.size });
       if (!target.ok) return setError(t(`errors.${target.code}`));
 
-      const { bucket, path, token } = target.data;
-      const { error: uploadError } = await createClient()
-        .storage.from(bucket)
-        .uploadToSignedUrl(path, token, file, { contentType: file.type || "image/jpeg" });
-      if (uploadError) return setError(t("errors.ERROR"));
+      const { path } = target.data;
+      if (!(await putSignedUpload(target.data, file, file.type || "image/jpeg"))) return setError(t("errors.ERROR"));
 
       // The server may verify the slip with the bank here, which takes a few seconds.
       setChecking(true);

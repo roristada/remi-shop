@@ -455,6 +455,8 @@ Permissions:
 
 Can be public or safely served through public/CDN access.
 
+Served from Cloudflare R2 (no egress fees) when `NEXT_PUBLIC_PREVIEW_IMAGE_URL` is set; see `lib/storage/r2.ts` and `scripts/migrate-previews-to-r2.ts`. Same object keys as the Supabase bucket. Private buckets stay in Supabase Storage.
+
 ### digital-files
 
 PRIVATE
