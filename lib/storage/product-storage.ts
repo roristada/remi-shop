@@ -3,7 +3,15 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { BUCKETS, maxUploadSize, SIGNED_URL_TTL_SECONDS, type BucketName } from "@/lib/storage/buckets";
 import { sanitizeFileName } from "@/lib/storage/paths";
 import { previewsOnR2 } from "@/lib/storage/public-url";
-import { createR2Upload, r2ObjectInfo, r2ReadHead, r2Remove } from "@/lib/storage/r2";
+import {
+  createR2DownloadUrl,
+  createR2Upload,
+  filesOnR2,
+  r2ObjectInfo,
+  r2ReadHead,
+  r2Remove,
+  type R2Store,
+} from "@/lib/storage/r2";
 import {
   checkFileSignature,
   getExtension,
@@ -46,23 +54,26 @@ export function isProductFilePath(path: string, productId: string, versionId: st
 }
 
 /**
- * Where the browser sends the bytes: a Supabase one-time upload token, or (preview images on R2)
+ * Where the browser sends the bytes: a Supabase one-time upload token, or (buckets moved to R2)
  * a presigned PUT URL with the headers it was signed with.
  */
 export type SignedUpload =
   | { bucket: BucketName; path: string; token: string }
   | { bucket: BucketName; path: string; url: string; headers: Record<string, string> };
 
-/** True when `bucket` is served from R2 rather than Supabase Storage. */
-function onR2(bucket: BucketName): boolean {
-  return bucket === BUCKETS.productPreviews && previewsOnR2();
+/** The R2 bucket that holds `bucket`'s objects, or null while they are in Supabase Storage. */
+function r2StoreFor(bucket: BucketName): R2Store | null {
+  if (bucket === BUCKETS.productPreviews && previewsOnR2()) return "previews";
+  if (bucket === BUCKETS.digitalFiles && filesOnR2()) return "files";
+  return null;
 }
 
 /** One-time upload target; the browser uploads directly to storage (bypasses the 4.5 MB function body limit). */
 export async function createSignedUpload(bucket: BucketName, path: string): Promise<SignedUpload | null> {
-  if (onR2(bucket)) {
+  const store = r2StoreFor(bucket);
+  if (store) {
     try {
-      return { bucket, path, ...(await createR2Upload(path)) };
+      return { bucket, path, ...(await createR2Upload(store, path)) };
     } catch (e) {
       console.error("[storage] r2 upload url failed", { bucket, path, message: (e as Error).message });
       return null;
@@ -114,13 +125,15 @@ export async function verifyUploadedObject(
 
 /** Size, and (R2 only) whether the stored content type matches the key; Supabase sets it itself. */
 async function objectInfo(bucket: BucketName, path: string): Promise<{ size: number; typeMatches: boolean } | null> {
-  if (onR2(bucket)) return r2ObjectInfo(path).catch(() => null);
+  const store = r2StoreFor(bucket);
+  if (store) return r2ObjectInfo(store, path).catch(() => null);
   const { data, error } = await createAdminClient().storage.from(bucket).info(path);
   return error || !data ? null : { size: data.size ?? 0, typeMatches: true };
 }
 
 async function readHead(bucket: BucketName, path: string): Promise<Uint8Array | null> {
-  if (onR2(bucket)) return r2ReadHead(path, SIGNATURE_BYTES).catch(() => null);
+  const store = r2StoreFor(bucket);
+  if (store) return r2ReadHead(store, path, SIGNATURE_BYTES).catch(() => null);
   const { data } = await createAdminClient().storage.from(bucket).createSignedUrl(path, 60);
   if (!data) return null;
   try {
@@ -150,6 +163,14 @@ export async function createSignedDownloadUrl(
   fileName: string,
   ttlSeconds = SIGNED_URL_TTL_SECONDS,
 ): Promise<string | null> {
+  if (r2StoreFor(bucket) === "files") {
+    try {
+      return await createR2DownloadUrl(path, fileName, ttlSeconds);
+    } catch (e) {
+      console.error("[storage] r2 download url failed", { bucket, message: (e as Error).message });
+      return null;
+    }
+  }
   const { data, error } = await createAdminClient().storage.from(bucket).createSignedUrl(path, ttlSeconds);
   if (error || !data) {
     console.error("[storage] signed download url failed", { bucket, message: error?.message });
@@ -161,8 +182,9 @@ export async function createSignedDownloadUrl(
 /** Best-effort delete; failures are logged (orphans are harmless in a private bucket). */
 export async function removeObjects(bucket: BucketName, paths: string[]): Promise<void> {
   if (paths.length === 0) return;
-  if (onR2(bucket)) {
-    const failed = await r2Remove(paths);
+  const store = r2StoreFor(bucket);
+  if (store) {
+    const failed = await r2Remove(store, paths);
     if (failed.length > 0) console.error("[storage] remove failed", { bucket, count: failed.length });
     return;
   }

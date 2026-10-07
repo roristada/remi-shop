@@ -455,11 +455,13 @@ Permissions:
 
 Can be public or safely served through public/CDN access.
 
-Served from Cloudflare R2 (no egress fees) when `NEXT_PUBLIC_PREVIEW_IMAGE_URL` is set; see `lib/storage/r2.ts` and `scripts/migrate-previews-to-r2.ts`. Same object keys as the Supabase bucket. Private buckets stay in Supabase Storage.
+Served from Cloudflare R2 (no egress fees) when `NEXT_PUBLIC_PREVIEW_IMAGE_URL` is set; see `lib/storage/r2.ts` and `scripts/migrate-storage-to-r2.ts`. Same object keys as the Supabase bucket.
 
 ### digital-files
 
 PRIVATE
+
+Stored in a separate private R2 bucket (no public URL, not bound to the preview Worker) when `R2_FILES_BUCKET` is set; downloads use short-lived presigned GETs issued only after the server-side download checks. Same object keys as the Supabase bucket. Payment slips and license artwork stay in Supabase Storage.
 
 ### payment-slips
 

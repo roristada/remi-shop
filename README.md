@@ -78,4 +78,4 @@ enforce the 5 MB limit. `storagePath` is never sent to the browser.
 
 - `SUPABASE_SERVICE_ROLE_KEY` is server only (`import "server-only"`).
 - All data access goes through the server (Prisma). RLS is on as a second layer of defense.
-- `digital-files` and `payment-slips` are private buckets; downloads go through short-lived signed URLs.
+- `digital-files` and `payment-slips` are private buckets; downloads go through short-lived signed URLs. With `R2_FILES_BUCKET` set, digital files live in a private Cloudflare R2 bucket instead (copy existing ones with `npx tsx scripts/migrate-storage-to-r2.ts files --apply`).

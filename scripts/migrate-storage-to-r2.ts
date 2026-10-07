@@ -1,10 +1,12 @@
 /**
- * Copies every object of the Supabase `product-previews` bucket to Cloudflare R2 under the same
- * key, so the paths stored in the database keep working once NEXT_PUBLIC_PREVIEW_IMAGE_URL is set.
+ * Copies every object of a Supabase bucket to Cloudflare R2 under the same key, so the paths stored
+ * in the database keep working once the app is switched over:
+ *   previews: `product-previews` → R2_BUCKET        (switch: NEXT_PUBLIC_PREVIEW_IMAGE_URL)
+ *   files:    `digital-files`    → R2_FILES_BUCKET  (switch: R2_FILES_BUCKET on the host)
  * Safe to re-run: objects already in R2 are skipped, and nothing in Supabase is changed or deleted.
  * Run it once before switching, and once more right after (copies uploads made in between):
- *   npx tsx scripts/migrate-previews-to-r2.ts           (dry run: counts only)
- *   npx tsx scripts/migrate-previews-to-r2.ts --apply
+ *   npx tsx scripts/migrate-storage-to-r2.ts files           (dry run: counts only)
+ *   npx tsx scripts/migrate-storage-to-r2.ts files --apply
  */
 import { config } from "dotenv";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -14,8 +16,11 @@ import { PrismaClient } from "../lib/generated/prisma/client";
 
 config({ path: ".env.local", quiet: true });
 
-const BUCKET = "product-previews";
-const CACHE_CONTROL = "public, max-age=31536000, immutable";
+// Same cache headers as lib/storage/r2.ts; purchased files must never sit in a shared cache.
+const TARGETS = {
+  previews: { bucket: "product-previews", r2Bucket: "R2_BUCKET", cacheControl: "public, max-age=31536000, immutable" },
+  files: { bucket: "digital-files", r2Bucket: "R2_FILES_BUCKET", cacheControl: "private, no-store" },
+} as const;
 const CONCURRENCY = 6;
 
 function required(name: string): string {
@@ -26,6 +31,9 @@ function required(name: string): string {
 
 async function main() {
   const apply = process.argv.includes("--apply");
+  const target = process.argv[2];
+  if (target !== "previews" && target !== "files") throw new Error("Usage: migrate-storage-to-r2.ts <previews|files> [--apply]");
+  const { bucket: BUCKET, r2Bucket, cacheControl: CACHE_CONTROL } = TARGETS[target];
   const dbUrl = process.env.DIRECT_URL ?? required("DATABASE_URL");
   const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: dbUrl }) });
   const storage = createClient(required("NEXT_PUBLIC_SUPABASE_URL"), required("SUPABASE_SERVICE_ROLE_KEY"), {
@@ -37,13 +45,22 @@ async function main() {
     service: "s3",
     region: "auto",
   });
-  const base = `https://${required("R2_ACCOUNT_ID")}.r2.cloudflarestorage.com/${required("R2_BUCKET")}`;
+  const base = `https://${required("R2_ACCOUNT_ID")}.r2.cloudflarestorage.com/${required(r2Bucket)}`;
   const url = (key: string) => `${base}/${key.split("/").map(encodeURIComponent).join("/")}`;
 
-  const objects = await prisma.$queryRaw<{ name: string; mimetype: string | null }[]>`
-    select name, metadata->>'mimetype' as mimetype
-    from storage.objects where bucket_id = ${BUCKET} and name not like '%.emptyFolderPlaceholder'
-    order by name`;
+  // Files: only objects a file row points at. Leftovers of unsaved uploads are not worth the
+  // Supabase egress of copying them; they stay in Supabase untouched.
+  const objects =
+    target === "files"
+      ? await prisma.$queryRaw<{ name: string; mimetype: string | null }[]>`
+          select o.name, o.metadata->>'mimetype' as mimetype
+          from storage.objects o join product_version_files f on f.storage_path = o.name
+          where o.bucket_id = ${BUCKET}
+          order by o.name`
+      : await prisma.$queryRaw<{ name: string; mimetype: string | null }[]>`
+          select name, metadata->>'mimetype' as mimetype
+          from storage.objects where bucket_id = ${BUCKET} and name not like '%.emptyFolderPlaceholder'
+          order by name`;
   await prisma.$disconnect();
 
   let copied = 0;
@@ -80,7 +97,7 @@ async function main() {
     }
   }
 
-  console.log(`${objects.length} objects in ${BUCKET}${apply ? "" : " (dry run)"}`);
+  console.log(`${objects.length} objects in ${BUCKET} → ${process.env[r2Bucket]}${apply ? "" : " (dry run)"}`);
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
   console.log(`${apply ? "copied" : "to copy"}: ${copied}, already in R2: ${skipped}, failed: ${failed.length}`);
   if (failed.length > 0) process.exitCode = 1;

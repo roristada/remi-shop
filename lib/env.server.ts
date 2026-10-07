@@ -9,11 +9,13 @@ const serverSchema = z.object({
   // Automatic slip check. Both unset = every slip is reviewed by hand.
   SLIPOK_BRANCH_ID: z.string().optional(),
   SLIPOK_API_KEY: z.string().optional(),
-  // Cloudflare R2 for product preview images; needed once NEXT_PUBLIC_PREVIEW_IMAGE_URL is set.
+  // Cloudflare R2: preview images (needed once NEXT_PUBLIC_PREVIEW_IMAGE_URL is set) and, when
+  // R2_FILES_BUCKET is set, the private digital files.
   R2_ACCOUNT_ID: z.string().optional(),
   R2_ACCESS_KEY_ID: z.string().optional(),
   R2_SECRET_ACCESS_KEY: z.string().optional(),
   R2_BUCKET: z.string().optional(),
+  R2_FILES_BUCKET: z.string().optional(),
 });
 
 let cached: z.infer<typeof serverSchema> | undefined;
