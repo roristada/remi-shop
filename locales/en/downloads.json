@@ -6,6 +6,7 @@
   "latest": "Latest",
   "version": "Version {version}",
   "download": "Download",
+  "preparing": "Preparing file…",
   "unlimitedRemaining": "Unlimited downloads",
   "remaining": "{count} left",
   "limitReached": "You've reached the download limit for this file",

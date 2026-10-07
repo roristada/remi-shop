@@ -1,8 +1,9 @@
 import { getTranslations } from "next-intl/server";
-import { Download as DownloadIcon, FileArchive } from "lucide-react";
+import { FileArchive } from "lucide-react";
 import { intlLocale } from "@/i18n/localize";
 import type { DownloadVersion } from "@/lib/downloads/queries";
 import { Badge } from "@/components/ui/badge";
+import { DownloadLink } from "@/components/downloads/download-link";
 
 function formatSize(bytes: number, locale: string) {
   const nf = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
@@ -56,12 +57,11 @@ export async function DownloadVersions({
                       {t("download")}
                     </span>
                   ) : (
-                    <a
+                    <DownloadLink
                       href={`/api/download/${f.id}?locale=${locale}`}
-                      className="flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/80"
-                    >
-                      <DownloadIcon className="size-3.5" aria-hidden /> {t("download")}
-                    </a>
+                      label={t("download")}
+                      pendingLabel={t("preparing")}
+                    />
                   )}
                 </li>
               );

@@ -6,6 +6,7 @@
   "latest": "ล่าสุด",
   "version": "เวอร์ชัน {version}",
   "download": "ดาวน์โหลด",
+  "preparing": "กำลังเตรียมไฟล์…",
   "unlimitedRemaining": "ดาวน์โหลดได้ไม่จำกัด",
   "remaining": "เหลือ {count} ครั้ง",
   "limitReached": "ดาวน์โหลดครบจำนวนที่กำหนดแล้ว",

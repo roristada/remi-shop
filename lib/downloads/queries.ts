@@ -15,33 +15,37 @@ export type DownloadAccess =
  * don't burn through the limit.
  */
 export async function checkDownloadAccess(userId: string, fileId: string, now: Date): Promise<DownloadAccess> {
-  const file = await prisma.productVersionFile.findUnique({
-    where: { id: fileId },
-    select: {
-      storagePath: true,
-      fileName: true,
-      variantId: true,
-      version: { select: { productId: true, product: { select: { downloadLimit: true } } } },
-    },
-  });
+  // One round trip: the three reads don't depend on each other (the DB is far from the functions).
+  // Order lines are matched through the file's product, so they belong to the same product as the file.
+  const [file, ownedLines, history] = await Promise.all([
+    prisma.productVersionFile.findUnique({
+      where: { id: fileId },
+      select: {
+        storagePath: true,
+        fileName: true,
+        variantId: true,
+        version: { select: { productId: true, product: { select: { downloadLimit: true } } } },
+      },
+    }),
+    prisma.orderItem.findMany({
+      where: {
+        product: { versions: { some: { files: { some: { id: fileId } } } } },
+        order: { userId, status: "COMPLETED", kind: "PRODUCT" },
+      },
+      select: { orderId: true, variantId: true },
+      orderBy: { order: { paidAt: "desc" } },
+    }),
+    prisma.download.aggregate({ where: { userId, fileId }, _count: { _all: true }, _max: { downloadedAt: true } }),
+  ]);
   if (!file) return { ok: false, code: "not_found" };
   const productId = file.version.productId;
 
-  const ownedLines = await prisma.orderItem.findMany({
-    where: { productId, order: { userId, status: "COMPLETED", kind: "PRODUCT" } },
-    select: { orderId: true, variantId: true },
-    orderBy: { order: { paidAt: "desc" } },
-  });
   if (!canAccessFile(file.variantId, new Set(ownedLines.map((l) => l.variantId)))) return { ok: false, code: "forbidden" };
   // The download is logged against the order that granted this file.
   const orderItem = ownedLines.find((l) => file.variantId === null || l.variantId === file.variantId) ?? ownedLines[0];
 
-  const [count, last] = await Promise.all([
-    prisma.download.count({ where: { userId, fileId } }),
-    prisma.download.findFirst({ where: { userId, fileId }, orderBy: { downloadedAt: "desc" }, select: { downloadedAt: true } }),
-  ]);
-  const skipLog = isWithinRateLimit(last?.downloadedAt ?? null, now);
-  if (!skipLog && isDownloadLimitReached(file.version.product.downloadLimit, count)) {
+  const skipLog = isWithinRateLimit(history._max.downloadedAt, now);
+  if (!skipLog && isDownloadLimitReached(file.version.product.downloadLimit, history._count._all)) {
     return { ok: false, code: "limit_reached" };
   }
 
