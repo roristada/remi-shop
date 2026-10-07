@@ -25,6 +25,8 @@ import { CountdownTimer } from "@/components/shop/countdown-timer";
 import { OrderProgress } from "@/components/cart/order-progress";
 import { CopyButton } from "@/components/shared/copy-button";
 import { DownloadVersions } from "@/components/downloads/download-versions";
+import { BulkDownloadProvider, BulkSelectCheckbox, type BulkItem } from "@/components/downloads/bulk-download";
+import { bulkDownloadFileIds } from "@/lib/downloads/rules";
 import { cn } from "@/lib/utils";
 import { BackLink } from "@/components/shared/back-link";
 import { getOrderReviewStates } from "@/lib/reviews/queries";
@@ -52,6 +54,7 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/[l
   if (!order) notFound();
 
   const t = await getTranslations("cart");
+  const tDownloads = await getTranslations("downloads");
   const fmt = intlLocale(locale);
   const money = (v: CustomerOrder["total"]) => formatTHB(toHundredths(v), fmt.number);
   const canPay = canUploadSlip(order, now);
@@ -62,6 +65,12 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/[l
   const downloads =
     order.status === "COMPLETED" && order.kind === "PRODUCT" ? await listOrderDownloads(user.id, order.id) : null;
   const hasAnyFiles = downloads ? [...downloads.values()].some((d) => d.versions.length > 0) : false;
+  const bulkFiles = new Map(
+    order.items.map((i) => {
+      const files = downloads?.get(lineKey(i.product.id, i.variantId));
+      return [i.id, files ? bulkDownloadFileIds(files.versions, files.downloadLimit) : []] as const;
+    }),
+  );
   // Verified-purchase reviews: only paid product orders, for 30 days after approval.
   const reviewStates =
     order.status === "COMPLETED" && order.kind === "PRODUCT"
@@ -149,61 +158,71 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/[l
           {order.licenseRequest ? (
             <LicenseSummary license={order.licenseRequest} locale={locale} t={t} />
           ) : (
-            <ul className="divide-y rounded-3xl border">
-              {order.items.map((item) => {
-                const itemDiscount = toHundredths(item.discount);
-                const name = localized(locale, item.productNameTHSnapshot, item.productNameENSnapshot);
-                const image = item.product.images[0];
-                const files = downloads?.get(lineKey(item.product.id, item.variantId));
-                const variantName =
-                  item.variantNameTHSnapshot && item.variantNameENSnapshot
-                    ? localized(locale, item.variantNameTHSnapshot, item.variantNameENSnapshot)
-                    : null;
-                return (
-                  <li key={item.id} className="space-y-3 px-4 py-3.5 sm:px-5">
-                    <div className="flex items-center gap-3">
-                      <div className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-secondary/60">
-                        {image && (
-                          <PreviewImage
-                            src={previewImageSrc(image, "card")}
-                            alt={localized(locale, image.altTextTH, image.altTextEN) || name}
-                            fill
-                            sizes="56px"
-                            className="object-cover"
-                          />
-                        )}
+            <BulkDownloadProvider
+              items={[...bulkFiles].map(([id, fileIds]): BulkItem => ({ id, fileIds }))}
+              locale={locale}
+            >
+              <ul className="divide-y rounded-3xl border">
+                {order.items.map((item) => {
+                  const itemDiscount = toHundredths(item.discount);
+                  const name = localized(locale, item.productNameTHSnapshot, item.productNameENSnapshot);
+                  const image = item.product.images[0];
+                  const files = downloads?.get(lineKey(item.product.id, item.variantId));
+                  const variantName =
+                    item.variantNameTHSnapshot && item.variantNameENSnapshot
+                      ? localized(locale, item.variantNameTHSnapshot, item.variantNameENSnapshot)
+                      : null;
+                  return (
+                    <li key={item.id} className="space-y-3 px-4 py-3.5 sm:px-5">
+                      <div className="flex items-center gap-3">
+                        <BulkSelectCheckbox
+                          id={item.id}
+                          label={tDownloads("bulk.selectProduct", { name })}
+                          disabled={(bulkFiles.get(item.id) ?? []).length === 0}
+                        />
+                        <div className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-secondary/60">
+                          {image && (
+                            <PreviewImage
+                              src={previewImageSrc(image, "card")}
+                              alt={localized(locale, image.altTextTH, image.altTextEN) || name}
+                              fill
+                              sizes="56px"
+                              className="object-cover"
+                            />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <Link href={`/product/${item.product.slug}`} className="font-semibold hover:underline">
+                            {name}
+                          </Link>
+                          {variantName && <p className="text-sm text-muted-foreground">{variantName}</p>}
+                          {item.productVersionSnapshot && (
+                            <p className="text-xs text-muted-foreground">
+                              {t("order.version", { version: item.productVersionSnapshot })}
+                            </p>
+                          )}
+                        </div>
+                        <p className="shrink-0 text-right tabular-nums">
+                          <span className="font-semibold">{money(item.finalPrice)}</span>
+                          {itemDiscount > 0 && (
+                            <s className="block text-xs text-muted-foreground">{money(item.unitPrice)}</s>
+                          )}
+                        </p>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <Link href={`/product/${item.product.slug}`} className="font-semibold hover:underline">
-                          {name}
-                        </Link>
-                        {variantName && <p className="text-sm text-muted-foreground">{variantName}</p>}
-                        {item.productVersionSnapshot && (
-                          <p className="text-xs text-muted-foreground">
-                            {t("order.version", { version: item.productVersionSnapshot })}
-                          </p>
-                        )}
-                      </div>
-                      <p className="shrink-0 text-right tabular-nums">
-                        <span className="font-semibold">{money(item.finalPrice)}</span>
-                        {itemDiscount > 0 && (
-                          <s className="block text-xs text-muted-foreground">{money(item.unitPrice)}</s>
-                        )}
-                      </p>
-                    </div>
-                    {reviewStates && (
-                      <OrderReviewButton item={reviewItems.find((r) => r.productId === item.product.id)!} />
-                    )}
-                    {downloads &&
-                      (files && files.versions.length > 0 ? (
-                        <DownloadVersions versions={files.versions} downloadLimit={files.downloadLimit} locale={locale} />
-                      ) : (
-                        <p className="text-sm text-muted-foreground">{t("order.itemNoFiles")}</p>
-                      ))}
-                  </li>
-                );
-              })}
-            </ul>
+                      {reviewStates && (
+                        <OrderReviewButton item={reviewItems.find((r) => r.productId === item.product.id)!} />
+                      )}
+                      {downloads &&
+                        (files && files.versions.length > 0 ? (
+                          <DownloadVersions versions={files.versions} downloadLimit={files.downloadLimit} locale={locale} />
+                        ) : (
+                          <p className="text-sm text-muted-foreground">{t("order.itemNoFiles")}</p>
+                        ))}
+                    </li>
+                  );
+                })}
+              </ul>
+            </BulkDownloadProvider>
           )}
           <dl className="space-y-1.5 px-1 text-sm">
             {discount > 0 && (

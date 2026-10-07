@@ -20,3 +20,16 @@ export function canAccessFile(fileVariantId: string | null, ownedVariants: Reado
   if (ownedVariants.size === 0) return false;
   return fileVariantId === null || ownedVariants.has(fileVariantId);
 }
+
+/**
+ * Files "download all" fetches for one owned line or product: the latest version's files that
+ * still have downloads left. Convenience only; the download route re-authorizes each file.
+ */
+export function bulkDownloadFileIds(
+  versions: { isLatest: boolean; files: { id: string; downloadCount: number }[] }[],
+  downloadLimit: number | null,
+): string[] {
+  const version = versions.find((v) => v.isLatest) ?? versions[0];
+  if (!version) return [];
+  return version.files.filter((f) => !isDownloadLimitReached(downloadLimit, f.downloadCount)).map((f) => f.id);
+}

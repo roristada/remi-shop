@@ -15,5 +15,15 @@
     "forbidden": "You don't have permission to download this file",
     "limit_reached": "You've reached the download limit for this file",
     "error": "Something went wrong. Please try again"
+  },
+  "bulk": {
+    "selectAll": "Select all",
+    "selectProduct": "Select {name}",
+    "downloadAll": "Download all",
+    "downloadSelected": "Download selected ({count})",
+    "progress": "Downloading {done}/{total}…",
+    "done": "Started {count, plural, one {# download} other {# downloads}}",
+    "failed": "{count, plural, one {# file} other {# files}} failed. Please download them one by one",
+    "hint": "Downloads each file of the latest version separately. If your browser asks, allow multiple downloads"
   }
 }

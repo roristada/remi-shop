@@ -11,6 +11,8 @@ import { PageHeading } from "@/components/shop/page-heading";
 import { ShopPagination } from "@/components/shop/shop-pagination";
 import { FormMessage } from "@/components/auth/form-fields";
 import { DownloadVersions } from "@/components/downloads/download-versions";
+import { BulkDownloadProvider, BulkSelectCheckbox, type BulkItem } from "@/components/downloads/bulk-download";
+import { bulkDownloadFileIds } from "@/lib/downloads/rules";
 
 const ERROR_CODES = ["not_found", "forbidden", "limit_reached", "error"] as const;
 
@@ -45,24 +47,47 @@ export default async function DownloadsPage({ params, searchParams }: PageProps<
           <p className="max-w-sm text-sm text-muted-foreground">{t("emptyHint")}</p>
         </div>
       ) : (
-        <ul className="space-y-4">
-          {items.map((p) => (
-            <OwnedProductCard key={p.productId} product={p} locale={locale} />
-          ))}
-        </ul>
+        <BulkDownloadProvider
+          items={items.map((p): BulkItem => ({ id: p.productId, fileIds: bulkDownloadFileIds(p.versions, p.downloadLimit) }))}
+          locale={locale}
+        >
+          <ul className="space-y-4">
+            {items.map((p) => (
+              <OwnedProductCard
+                key={p.productId}
+                product={p}
+                locale={locale}
+                selectLabel={t("bulk.selectProduct", { name: localized(locale, p.nameTH, p.nameEN) })}
+              />
+            ))}
+          </ul>
+        </BulkDownloadProvider>
       )}
       <ShopPagination page={page} pageCount={pageCount} params={{}} path="/downloads" />
     </div>
   );
 }
 
-function OwnedProductCard({ product: p, locale }: { product: OwnedProduct; locale: string }) {
+function OwnedProductCard({
+  product: p,
+  locale,
+  selectLabel,
+}: {
+  product: OwnedProduct;
+  locale: string;
+  selectLabel: string;
+}) {
   const name = localized(locale, p.nameTH, p.nameEN);
   const categoryName = localized(locale, p.categoryNameTH, p.categoryNameEN);
 
   return (
     <li className="space-y-4 rounded-3xl border p-4 sm:p-5">
       <div className="flex items-center gap-3">
+        <BulkSelectCheckbox
+          id={p.productId}
+          label={selectLabel}
+          disabled={bulkDownloadFileIds(p.versions, p.downloadLimit).length === 0}
+        />
         <div className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-secondary/60">
           {p.image ? (
             <PreviewImage
