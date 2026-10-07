@@ -1,6 +1,7 @@
 import { useLocale, useTranslations } from "next-intl";
 import { FileArchive } from "lucide-react";
 import { intlLocale } from "@/i18n/localize";
+import { ShowMoreList } from "@/components/shared/show-more-list";
 
 /** `variantName` is set for a file only buyers of that variant get. */
 export type FileListItem = { id: string; fileName: string; fileSize: number; variantName?: string | null };
@@ -21,7 +22,7 @@ export function FileList({ files }: { files: FileListItem[] }) {
       <h3 className="text-sm">
         {t("files")} <span className="font-normal text-muted-foreground">({t("fileCount", { count: files.length })})</span>
       </h3>
-      <ul className="divide-y rounded-xl border">
+      <ShowMoreList className="divide-y rounded-xl border">
         {files.map((f) => (
           <li key={f.id} className="flex items-center gap-3 px-3 py-2.5 text-sm">
             <FileArchive className="size-4 shrink-0 text-muted-foreground" aria-hidden />
@@ -34,7 +35,7 @@ export function FileList({ files }: { files: FileListItem[] }) {
             <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{formatSize(f.fileSize, locale)}</span>
           </li>
         ))}
-      </ul>
+      </ShowMoreList>
     </div>
   );
 }

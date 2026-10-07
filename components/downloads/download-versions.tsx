@@ -4,6 +4,7 @@ import { intlLocale } from "@/i18n/localize";
 import type { DownloadVersion } from "@/lib/downloads/queries";
 import { Badge } from "@/components/ui/badge";
 import { DownloadLink } from "@/components/downloads/download-link";
+import { ShowMoreList } from "@/components/shared/show-more-list";
 
 function formatSize(bytes: number, locale: string) {
   const nf = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
@@ -36,7 +37,7 @@ export async function DownloadVersions({
             {t("version", { version: v.versionNumber })}
             {v.isLatest && <Badge variant="secondary">{t("latest")}</Badge>}
           </p>
-          <ul className="divide-y divide-foreground/10">
+          <ShowMoreList className="divide-y divide-foreground/10">
             {v.files.map((f) => {
               const remaining = downloadLimit === null ? null : Math.max(0, downloadLimit - f.downloadCount);
               const blocked = remaining === 0;
@@ -66,7 +67,7 @@ export async function DownloadVersions({
                 </li>
               );
             })}
-          </ul>
+          </ShowMoreList>
         </div>
       ))}
     </div>

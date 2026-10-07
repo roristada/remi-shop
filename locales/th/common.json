@@ -44,5 +44,9 @@
     "backHome": "กลับหน้าแรก",
     "backToAccount": "บัญชีของฉัน",
     "continueShopping": "เลือกซื้อต่อ"
+  },
+  "list": {
+    "showMore": "เพิ่มเติม (+{count})",
+    "showLess": "แสดงน้อยลง"
   }
 }

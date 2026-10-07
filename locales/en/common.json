@@ -44,5 +44,9 @@
     "backHome": "Back to home",
     "backToAccount": "My account",
     "continueShopping": "Keep shopping"
+  },
+  "list": {
+    "showMore": "Show {count} more",
+    "showLess": "Show less"
   }
 }
