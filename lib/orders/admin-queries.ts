@@ -16,6 +16,10 @@ function orderWhere(f: AdminOrderFilters): Prisma.OrderWhereInput {
           OR: [
             { orderNumber: { contains: f.q, mode: "insensitive" } },
             { user: { email: { contains: f.q, mode: "insensitive" } } },
+            { items: { some: { productNameTHSnapshot: { contains: f.q, mode: "insensitive" } } } },
+            { items: { some: { productNameENSnapshot: { contains: f.q, mode: "insensitive" } } } },
+            { licenseRequest: { productNameTHSnapshot: { contains: f.q, mode: "insensitive" } } },
+            { licenseRequest: { productNameENSnapshot: { contains: f.q, mode: "insensitive" } } },
           ],
         }
       : {}),
@@ -44,6 +48,41 @@ const ORDER_ROW_SELECT = {
 
 export type AdminOrderRow = Prisma.OrderGetPayload<{ select: typeof ORDER_ROW_SELECT }>;
 
+const THUMB_SELECT = {
+  orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
+  take: 1,
+  select: { imagePath: true, cardPath: true },
+} satisfies Prisma.Product$imagesArgs;
+
+/** The list row plus what the order summary popup shows; the CSV export keeps the lean select. */
+const ORDER_LIST_SELECT = {
+  ...ORDER_ROW_SELECT,
+  subtotal: true,
+  discount: true,
+  items: {
+    orderBy: { id: "asc" },
+    select: {
+      id: true,
+      productNameTHSnapshot: true,
+      variantNameTHSnapshot: true,
+      productVersionSnapshot: true,
+      unitPrice: true,
+      discount: true,
+      finalPrice: true,
+      product: { select: { images: THUMB_SELECT } },
+    },
+  },
+  licenseRequest: {
+    select: {
+      productNameTHSnapshot: true,
+      product: { select: { images: THUMB_SELECT } },
+      items: { orderBy: { id: "asc" }, select: { id: true, nameTHSnapshot: true, price: true } },
+    },
+  },
+} satisfies Prisma.OrderSelect;
+
+export type AdminOrderListRow = Prisma.OrderGetPayload<{ select: typeof ORDER_LIST_SELECT }>;
+
 export async function listAdminOrders(f: AdminOrderFilters) {
   const where = orderWhere(f);
   const [total, rows] = await prisma.$transaction([
@@ -53,7 +92,7 @@ export async function listAdminOrders(f: AdminOrderFilters) {
       orderBy: { createdAt: "desc" },
       skip: (f.page - 1) * ADMIN_ORDERS_PAGE_SIZE,
       take: ADMIN_ORDERS_PAGE_SIZE,
-      select: ORDER_ROW_SELECT,
+      select: ORDER_LIST_SELECT,
     }),
   ]);
   return { rows, total, pageCount: Math.max(1, Math.ceil(total / ADMIN_ORDERS_PAGE_SIZE)) };

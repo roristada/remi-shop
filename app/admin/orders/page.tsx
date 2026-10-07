@@ -3,17 +3,66 @@ import { Download, Search } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/guards";
 import { formatBangkokDateTime } from "@/lib/datetime";
 import { formatTHB, toHundredths } from "@/lib/pricing/calculate";
-import { listAdminOrders, orderLines, ORDER_EXPORT_LIMIT } from "@/lib/orders/admin-queries";
+import { listAdminOrders, orderLines, ORDER_EXPORT_LIMIT, type AdminOrderListRow } from "@/lib/orders/admin-queries";
 import { adminOrderParams, ORDER_STATUSES, ORDER_STATUS_LABEL_TH, parseAdminOrderFilters } from "@/lib/orders/export";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { previewImageSrc } from "@/lib/storage/public-url";
 import { Pagination } from "@/components/shared/pagination";
 import { SelectInput } from "@/components/admin/form-controls";
 import { ORDER_STATUS_STYLES } from "@/components/cart/order-status-badge";
 import { cn } from "@/lib/utils";
-import { OrderNote } from "@/components/admin/order-note";
+import { OrderSummaryRow, OrderSummaryTrigger, type OrderSummary } from "@/components/admin/order-summary-dialog";
+
+function money(v: AdminOrderListRow["total"]): string {
+  return formatTHB(toHundredths(v));
+}
+
+/** Everything the summary popup shows, formatted here so the client gets plain strings. */
+function toSummary(o: AdminOrderListRow): OrderSummary {
+  const license = o.licenseRequest;
+  const licenseImage = license?.product.images[0];
+  const discount = toHundredths(o.discount);
+  return {
+    orderId: o.id,
+    orderNumber: o.orderNumber,
+    createdAt: formatBangkokDateTime(o.createdAt),
+    paidAt: o.paidAt ? formatBangkokDateTime(o.paidAt) : null,
+    statusLabel: ORDER_STATUS_LABEL_TH[o.status],
+    statusClassName: ORDER_STATUS_STYLES[o.status],
+    isLicense: o.kind === "LICENSE",
+    buyerName: o.user.displayName ?? "—",
+    buyerEmail: o.user.email,
+    lines: license
+      ? license.items.map((i) => ({
+          id: i.id,
+          name: license.productNameTHSnapshot,
+          detail: `License: ${i.nameTHSnapshot}`,
+          version: null,
+          price: money(i.price),
+          originalPrice: null,
+          imageSrc: licenseImage ? previewImageSrc(licenseImage, "card") : null,
+        }))
+      : o.items.map((i) => {
+          const image = i.product.images[0];
+          return {
+            id: i.id,
+            name: i.productNameTHSnapshot,
+            detail: i.variantNameTHSnapshot,
+            version: i.productVersionSnapshot,
+            price: money(i.finalPrice),
+            originalPrice: toHundredths(i.discount) > 0 ? money(i.unitPrice) : null,
+            imageSrc: image ? previewImageSrc(image, "card") : null,
+          };
+        }),
+    subtotal: money(o.subtotal),
+    discount: discount > 0 ? money(o.discount) : null,
+    total: money(o.total),
+    note: o.adminNote?.body ?? null,
+  };
+}
 
 export default async function AdminOrdersPage({ searchParams }: PageProps<"/admin/orders">) {
   await requireAdmin();
@@ -47,7 +96,7 @@ export default async function AdminOrdersPage({ searchParams }: PageProps<"/admi
         <label className="relative min-w-48 flex-1">
           <span className="sr-only">ค้นหา</span>
           <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-          <Input name="q" defaultValue={params.q} placeholder="เลขที่คำสั่งซื้อหรืออีเมล" className="h-10 rounded-xl pl-9" />
+          <Input name="q" defaultValue={params.q} placeholder="เลขที่คำสั่งซื้อ อีเมล หรือชื่อสินค้า" className="h-10 rounded-xl pl-9" />
         </label>
         {/* "all" is a sentinel: it fails validation, i.e. "no filter". */}
         <SelectInput
@@ -90,17 +139,16 @@ export default async function AdminOrdersPage({ searchParams }: PageProps<"/admi
                 <TableHead className="w-56">ผู้ซื้อ</TableHead>
                 <TableHead className="hidden md:table-cell">สินค้า</TableHead>
                 <TableHead className="w-28 pr-6 text-right">ยอดรวม</TableHead>
-                <TableHead className="w-32">สถานะ</TableHead>
-                <TableHead className="w-56 pr-4">หมายเหตุภายใน</TableHead>
+                <TableHead className="w-32 pr-4">สถานะ</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.map((o) => {
                 const lines = orderLines(o);
                 return (
-                  <TableRow key={o.id} className="hover:bg-muted/40">
+                  <OrderSummaryRow key={o.id} summary={toSummary(o)}>
                     <TableCell className="pl-4 whitespace-nowrap">
-                      <p className="font-medium tabular-nums">{o.orderNumber}</p>
+                      <OrderSummaryTrigger>{o.orderNumber}</OrderSummaryTrigger>
                       <p className="text-xs text-muted-foreground">{formatBangkokDateTime(o.createdAt)}</p>
                     </TableCell>
                     <TableCell className="max-w-56">
@@ -116,18 +164,17 @@ export default async function AdminOrdersPage({ searchParams }: PageProps<"/admi
                           {lines[0]?.name ?? "—"}
                         </span>
                       </p>
-                      {lines.length > 1 && <p className="text-xs text-muted-foreground">และอีก {lines.length - 1} รายการ</p>}
+                      {lines.length > 1 && (
+                        <p className="text-xs text-muted-foreground">และอีก {lines.length - 1} รายการ · คลิกเพื่อดูทั้งหมด</p>
+                      )}
                     </TableCell>
                     <TableCell className="pr-6 text-right font-medium whitespace-nowrap tabular-nums">
-                      {formatTHB(toHundredths(o.total))}
+                      {money(o.total)}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="pr-4">
                       <Badge className={cn("whitespace-nowrap", ORDER_STATUS_STYLES[o.status])}>{ORDER_STATUS_LABEL_TH[o.status]}</Badge>
                     </TableCell>
-                    <TableCell className="w-56 max-w-56 pr-4 align-top">
-                      <OrderNote orderId={o.id} note={o.adminNote?.body ?? null} />
-                    </TableCell>
-                  </TableRow>
+                  </OrderSummaryRow>
                 );
               })}
             </TableBody>
