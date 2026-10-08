@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "@/i18n/navigation";
 import { routing, type Locale } from "@/i18n/routing";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { usePointerMenuFocus } from "./use-pointer-menu-focus";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,6 +24,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
+  const menuFocus = usePointerMenuFocus();
 
   function onChange(next: string) {
     startTransition(() => {
@@ -45,7 +47,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
           <Languages />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" {...menuFocus}>
         <DropdownMenuRadioGroup value={locale} onValueChange={onChange}>
           {routing.locales.map((l) => (
             <DropdownMenuRadioItem key={l} value={l}>

@@ -5,6 +5,7 @@ import { Link, getPathname } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LanguageSwitcher } from "./language-switcher";
+import { ThemeToggle } from "./theme-toggle";
 import { MobileNav } from "./mobile-nav";
 import { HeaderCartButton } from "@/components/cart/header-cart-button";
 import { NotificationBell } from "@/components/notifications/notification-bell";
@@ -61,8 +62,9 @@ export async function SiteHeader() {
               <Search />
             </Link>
           </Button>
-          {/* On phones the language choice lives in the menu sheet, so the logo keeps one line. */}
+          {/* On phones the language and theme choices live in the menu sheet, so the logo keeps one line. */}
           <LanguageSwitcher className="hidden sm:inline-flex" />
+          <ThemeToggle className="hidden sm:inline-flex" />
           <Button asChild variant="ghost" size="icon-xl" className="rounded-full">
             <Link href="/account" aria-label={t("header.account")}>
               <User />

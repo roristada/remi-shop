@@ -11,6 +11,7 @@
   --font-heading: var(--font-mitr), var(--font-anuphan), ui-sans-serif, system-ui, sans-serif;
   --font-script: var(--font-charmonman), cursive;
   --color-brand-strong: var(--brand-strong);
+  --color-brand-strong-foreground: var(--brand-strong-foreground);
   --color-logo-pink: var(--logo-pink);
   --color-success: var(--success);
   --color-warning: var(--warning);
@@ -52,7 +53,8 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* Design system — master plan §2 / §49. Light theme only in V1. */
+/* Design system — master plan §2 / §49. Light theme; the storefront also has `.dark` below
+   (admin has its own root layout and stays light). */
 :root {
   --background: #fefeff;
   --foreground: #333333;
@@ -75,6 +77,8 @@
   --warning: #a15c00;
   /* Pink dark enough for text/links on white (AA) */
   --brand-strong: #b0426b;
+  /* Text on a brand-strong fill (discount badge, counters, current step). */
+  --brand-strong-foreground: #ffffff;
   /* Bunny-mark pink. ~3.4–3.7:1 contrast: fine for the logo and large (>=24px) display
      text, never for buttons, links or body text — brand-strong keeps that job. */
   --logo-pink: #ec3a92;
@@ -95,6 +99,47 @@
   --sidebar-accent-foreground: #333333;
   --sidebar-border: #ebebef;
   --sidebar-ring: #eaa2c0;
+  --shadow-color: 51 51 51;
+}
+
+/* Storefront dark theme: soft plum-graphite (lifted, not near-black), cards a clear step lighter than the page, so the pastel
+   product art reads as the color. Every pairing below keeps WCAG AA for its text role. */
+.dark {
+  color-scheme: dark;
+  --background: #221f27;
+  --foreground: #ece9ef;
+  --card: #2f2b36;
+  --card-foreground: #ece9ef;
+  --popover: #35313c;
+  --popover-foreground: #ece9ef;
+  /* Sakura stays the button fill; its dark label keeps the light theme's look. */
+  --primary: #f0b6cc;
+  --primary-foreground: #2a2230;
+  --secondary: #2b3e46;
+  --secondary-foreground: #e3f2f6;
+  --muted: #332f3a;
+  --muted-foreground: #b5afbb;
+  --accent: #4a3240;
+  --accent-foreground: #f7dde8;
+  --destructive: #f07171;
+  --success: #6fcf7c;
+  --warning: #e8a948;
+  /* Lifted cherry-ink: readable as text/links on the dark surfaces. */
+  --brand-strong: #f08fb5;
+  --brand-strong-foreground: #2a1420;
+  --logo-pink: #f472b0;
+  --border: #3f3a46;
+  --input: #4a4452;
+  --ring: #f08fb5;
+  --sidebar: #2a2630;
+  --sidebar-foreground: #ece9ef;
+  --sidebar-primary: #f0b6cc;
+  --sidebar-primary-foreground: #2a2230;
+  --sidebar-accent: #4a3240;
+  --sidebar-accent-foreground: #f7dde8;
+  --sidebar-border: #3f3a46;
+  --sidebar-ring: #f08fb5;
+  --shadow-color: 0 0 0;
 }
 
 @layer base {
@@ -161,7 +206,7 @@
 
 @layer utilities {
   .shadow-soft {
-    box-shadow: 0 1px 2px rgb(51 51 51 / 0.04), 0 8px 24px -12px rgb(51 51 51 / 0.12);
+    box-shadow: 0 1px 2px rgb(var(--shadow-color) / 0.04), 0 8px 24px -12px rgb(var(--shadow-color) / 0.12);
   }
 }
 

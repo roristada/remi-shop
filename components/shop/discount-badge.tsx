@@ -7,5 +7,5 @@ import { cn } from "@/lib/utils";
 export function DiscountBadge({ percent, className }: { percent: number; className?: string }) {
   const t = useTranslations("shop.badge");
   const value = new Intl.NumberFormat(intlLocale(useLocale()).number, { maximumFractionDigits: 2 }).format(percent / 100);
-  return <Badge className={cn("bg-brand-strong text-white", className)}>{t("discount", { percent: value })}</Badge>;
+  return <Badge className={cn("bg-brand-strong text-brand-strong-foreground", className)}>{t("discount", { percent: value })}</Badge>;
 }

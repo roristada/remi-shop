@@ -92,7 +92,7 @@ export function HeaderCartButton({ hasSession }: { hasSession: boolean }) {
           {count > 0 && (
             <span
               aria-hidden
-              className="absolute top-1 right-1 grid h-4.5 min-w-4.5 place-items-center rounded-full bg-brand-strong px-1 text-[0.6875rem] leading-none font-semibold text-white tabular-nums"
+              className="absolute top-1 right-1 grid h-4.5 min-w-4.5 place-items-center rounded-full bg-brand-strong px-1 text-[0.6875rem] leading-none font-semibold text-brand-strong-foreground tabular-nums"
             >
               {count > 99 ? "99+" : count}
             </span>

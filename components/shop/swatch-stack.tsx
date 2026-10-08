@@ -11,9 +11,9 @@ const SLOTS = [
 
 // Painted placeholders when there are fewer than three products with images.
 const PLACEHOLDERS = [
-  "bg-[radial-gradient(120%_90%_at_20%_10%,#f5bfd4,transparent_60%),radial-gradient(90%_80%_at_90%_90%,#def1f6,transparent_60%)] bg-card",
-  "bg-[linear-gradient(135deg,#def1f6_0%,#fefeff_55%,#f5bfd4_100%)]",
-  "bg-[repeating-linear-gradient(115deg,#fcebf2_0_10px,#fefeff_10px_22px)]",
+  "bg-[radial-gradient(120%_90%_at_20%_10%,var(--primary),transparent_60%),radial-gradient(90%_80%_at_90%_90%,var(--secondary),transparent_60%)] bg-card",
+  "bg-[linear-gradient(135deg,var(--secondary)_0%,var(--card)_55%,var(--primary)_100%)]",
+  "bg-[repeating-linear-gradient(115deg,var(--accent)_0_10px,var(--card)_10px_22px)]",
 ] as const;
 
 // Real previews fill the front (middle) slot first, then the sides.
@@ -26,7 +26,7 @@ export function SwatchStack({ products, caption }: { products: ProductCardData[]
     return acc;
   }, []);
   return (
-    <div className="relative aspect-[5/4] w-full rounded-[2rem] bg-muted/70 ring-1 ring-black/5">
+    <div className="relative aspect-[5/4] w-full rounded-[2rem] bg-muted/70 ring-1 ring-foreground/5">
       {/* The one Charmonman line the whole page gets (DESIGN.md § The One Script Line Rule) — a
           hand-written aside pinned to the art itself, never a kicker sitting above the h1. */}
       {caption && (
@@ -40,7 +40,7 @@ export function SwatchStack({ products, caption }: { products: ProductCardData[]
       )}
       {SLOTS.map((slot, i) => {
         const p = bySlot[i];
-        const tile = `swatch-in absolute aspect-[4/5] w-[42%] overflow-hidden rounded-2xl border-4 border-background shadow-[0_18px_40px_-18px_rgb(51_51_51/0.35)] ${slot}`;
+        const tile = `swatch-in absolute aspect-[4/5] w-[42%] overflow-hidden rounded-2xl border-4 border-background shadow-[0_18px_40px_-18px_rgb(var(--shadow-color)/0.35)] ${slot}`;
         const delay = { animationDelay: `${120 + i * 90}ms` };
         if (!p?.image) return <div key={i} aria-hidden className={`${tile} ${PLACEHOLDERS[i]}`} style={delay} />;
         return (

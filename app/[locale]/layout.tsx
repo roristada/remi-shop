@@ -7,6 +7,7 @@ import { fontVariables } from "@/app/fonts";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { Toaster } from "@/components/ui/sonner";
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "../globals.css";
 
 export function generateStaticParams() {
@@ -31,7 +32,11 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
   const t = await getTranslations("common.header");
 
   return (
-    <html lang={locale} className={`${fontVariables} h-full antialiased`}>
+    // The theme script sets the `dark` class before React hydrates, hence suppressHydrationWarning.
+    <html lang={locale} className={`${fontVariables} h-full antialiased`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="flex min-h-full flex-col">
         <NextIntlClientProvider>
           <a

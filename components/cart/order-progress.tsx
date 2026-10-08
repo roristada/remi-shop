@@ -55,7 +55,7 @@ export async function OrderProgress({
                 className={cn(
                   "grid size-6 shrink-0 place-items-center rounded-full text-xs font-semibold tabular-nums",
                   done && "bg-foreground text-background",
-                  active && "bg-brand-strong text-white",
+                  active && "bg-brand-strong text-brand-strong-foreground",
                   !done && !active && "bg-muted text-muted-foreground",
                 )}
               >

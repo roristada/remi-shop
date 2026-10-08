@@ -48,5 +48,11 @@
   "list": {
     "showMore": "เพิ่มเติม (+{count})",
     "showLess": "แสดงน้อยลง"
+  },
+  "theme": {
+    "label": "ธีม",
+    "light": "สว่าง",
+    "dark": "มืด",
+    "system": "ตามระบบ"
   }
 }

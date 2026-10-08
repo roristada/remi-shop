@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { NAV_LINKS } from "./nav-links";
 import { LOCALE_LABELS } from "./language-switcher";
+import { ThemeChoices } from "./theme-toggle";
 
 export function MobileNav() {
   const t = useTranslations("common");
@@ -58,6 +59,9 @@ export function MobileNav() {
             </Link>
           ))}
         </nav>
+        <div className="mt-4 border-t px-7 pt-4">
+          <ThemeChoices />
+        </div>
       </SheetContent>
     </Sheet>
   );

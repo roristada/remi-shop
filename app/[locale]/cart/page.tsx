@@ -40,7 +40,7 @@ function CartItem({ line, locale, t }: { line: CartLineView; locale: string; t: 
     <li className="grid grid-cols-[auto_minmax(0,1fr)] gap-4 p-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:gap-5 sm:p-5">
       <Link
         href={`/product/${line.slug}`}
-        className="relative size-20 shrink-0 overflow-hidden rounded-2xl bg-secondary/60 ring-1 ring-black/5 ring-inset sm:size-28"
+        className="relative size-20 shrink-0 overflow-hidden rounded-2xl bg-secondary/60 ring-1 ring-foreground/5 ring-inset sm:size-28"
         tabIndex={-1}
         aria-hidden
       >
@@ -143,7 +143,7 @@ export default async function CartPage({ params }: PageProps<"/[locale]/cart">) 
       <PageHeading title={t("cart.title")} subtitle={t("cart.itemCount", { count: lines.length })} />
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_23rem]">
-        <section aria-label={t("cart.itemsHeading")} className="overflow-hidden rounded-3xl bg-card shadow-soft ring-1 ring-black/5">
+        <section aria-label={t("cart.itemsHeading")} className="overflow-hidden rounded-3xl bg-card shadow-soft ring-1 ring-foreground/5">
           <ul className="divide-y">
             {lines.map((line) => (
               <CartItem key={lineKey(line.productId, line.variantId)} line={line} locale={locale} t={t} />
@@ -151,7 +151,7 @@ export default async function CartPage({ params }: PageProps<"/[locale]/cart">) 
           </ul>
         </section>
 
-        <aside aria-labelledby="summary-heading" className="space-y-5 rounded-3xl bg-card p-5 shadow-soft ring-1 ring-black/5 sm:p-6 lg:sticky lg:top-24">
+        <aside aria-labelledby="summary-heading" className="space-y-5 rounded-3xl bg-card p-5 shadow-soft ring-1 ring-foreground/5 sm:p-6 lg:sticky lg:top-24">
           <h2 id="summary-heading" className="text-lg">
             {t("cart.summary")}
           </h2>
