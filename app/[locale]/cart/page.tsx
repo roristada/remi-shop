@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { PreviewImage } from "@/components/shared/preview-image";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { Download, FileArchive, ImageOff, Layers, ShoppingBag } from "lucide-react";
+import { Download, FileArchive, ImageOff, ShoppingBag } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { intlLocale } from "@/i18n/localize";
 import { requireUser } from "@/lib/auth/guards";
@@ -64,11 +64,6 @@ function CartItem({ line, locale, t }: { line: CartLineView; locale: string; t: 
 
         {/* What the buyer actually receives: file metadata only, never a download link. */}
         <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          {line.version && (
-            <li className="inline-flex items-center gap-1.5">
-              <Layers className="size-3.5" aria-hidden /> {t("cart.version", { version: `v${line.version.number}` })}
-            </li>
-          )}
           <li className="inline-flex items-center gap-1.5">
             <FileArchive className="size-3.5" aria-hidden />
             {line.version && line.version.fileCount > 0
@@ -76,10 +71,12 @@ function CartItem({ line, locale, t }: { line: CartLineView; locale: string; t: 
               : t("cart.noFiles")}
             {line.fileFormat && <span>· {line.fileFormat}</span>}
           </li>
-          <li className="inline-flex items-center gap-1.5">
-            <Download className="size-3.5" aria-hidden />
-            {line.downloadLimit === null ? t("cart.downloadsUnlimited") : t("cart.downloadsLimited", { count: line.downloadLimit })}
-          </li>
+          {line.version && line.version.fileCount > 0 && (
+            <li className="inline-flex items-center gap-1.5">
+              <Download className="size-3.5" aria-hidden />
+              {line.downloadLimit === null ? t("cart.downloadsUnlimited") : t("cart.downloadsLimited", { count: line.downloadLimit })}
+            </li>
+          )}
         </ul>
 
         {!line.problem && price.isDiscounted && (
@@ -135,7 +132,10 @@ export default async function CartPage({ params }: PageProps<"/[locale]/cart">) 
     );
   }
 
-  const steps = [t("cart.step1", { minutes: expiryMinutes }), t("cart.step2"), t("cart.step3")];
+  // Lines without a file yet are emailed by the store, so the last step must not promise a download.
+  const withFiles = lines.filter((l) => l.version && l.version.fileCount > 0).length;
+  const step3 = withFiles === lines.length ? "cart.step3" : withFiles === 0 ? "cart.step3Email" : "cart.step3Mixed";
+  const steps = [t("cart.step1", { minutes: expiryMinutes }), t("cart.step2"), t(step3)];
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 py-8 sm:py-12">

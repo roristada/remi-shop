@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, type ReactNode } from "react";
-import { ImageOff } from "lucide-react";
+import { ImageOff, Mail } from "lucide-react";
 import { PreviewImage } from "@/components/shared/preview-image";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -24,7 +24,8 @@ export type OrderSummary = {
     id: string;
     name: string;
     detail: string | null;
-    version: string | null;
+    /** No file yet: the store sends this line by email. */
+    emailDelivery: boolean;
     price: string;
     originalPrice: string | null;
     imageSrc: string | null;
@@ -121,9 +122,12 @@ function SummaryContent({ summary: s }: { summary: OrderSummary }) {
                 <p className="truncate font-medium" title={l.name}>
                   {l.name}
                 </p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {[l.detail, l.version && `เวอร์ชัน ${l.version}`].filter(Boolean).join(" · ")}
-                </p>
+                {l.detail && <p className="truncate text-xs text-muted-foreground">{l.detail}</p>}
+                {l.emailDelivery && (
+                  <p className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs">
+                    <Mail className="size-3" aria-hidden /> ส่งทางอีเมล
+                  </p>
+                )}
               </div>
               <p className="shrink-0 text-right tabular-nums">
                 <span className="font-medium">{l.price}</span>

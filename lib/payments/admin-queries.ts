@@ -47,7 +47,6 @@ export async function listPaymentsForReview(tab: PaymentTab, page: number) {
                 id: true,
                 productNameTHSnapshot: true,
                 variantNameTHSnapshot: true,
-                productVersionSnapshot: true,
                 finalPrice: true,
               },
             },

@@ -136,7 +136,7 @@ export function VariantManager({ variants }: { variants: ManagedVariant[] }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-2xl text-sm text-muted-foreground">
           ถ้ามีตัวเลือก ลูกค้าต้องเลือกแบบก่อนซื้อ แต่ละแบบมีราคา ส่วนลด สต็อก และรูปของตัวเอง ช่วงเวลาขายและ License ใช้ของสินค้า
-          · ไฟล์ของแต่ละแบบตั้งได้ที่แท็บเวอร์ชันและไฟล์
+          · ไฟล์ของแต่ละแบบตั้งได้ที่แท็บไฟล์
         </p>
         <VariantDialog
           title="เพิ่มตัวเลือก"

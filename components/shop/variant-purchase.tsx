@@ -24,13 +24,14 @@ type Props = {
   saleEndAt: string | null;
   /** Option id → picture URL. */
   images: Record<string, string>;
+  emailDelivery?: boolean;
 };
 
 /**
  * Pick one variant, then add it. Each variant is its own cart line, so buying two means adding
  * them one at a time. Choosing only changes what is shown; the server re-checks on add.
  */
-export function VariantPurchase({ productId, productSlug, options, serverNow, saleEndAt, images }: Props) {
+export function VariantPurchase({ productId, productSlug, options, serverNow, saleEndAt, images, emailDelivery = false }: Props) {
   const t = useTranslations("shop.product");
   const tBadge = useTranslations("shop.badge");
   const number = intlLocale(useLocale()).number;
@@ -112,6 +113,7 @@ export function VariantPurchase({ productId, productSlug, options, serverNow, sa
         variantId={selected.variantId}
         productSlug={productSlug}
         initialState={selected.state}
+        emailDelivery={emailDelivery}
       />
     </div>
   );

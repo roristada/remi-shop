@@ -289,7 +289,7 @@ function MoreMenu({
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
         title="ลบสินค้าถาวร?"
-        description="ข้อมูล รูปภาพ เวอร์ชัน และไฟล์ทั้งหมดจะถูกลบ และกู้คืนไม่ได้"
+        description="ข้อมูล รูปภาพ และไฟล์ทั้งหมดจะถูกลบ และกู้คืนไม่ได้"
         confirmLabel="ลบถาวร"
         destructive
         onConfirm={() => runWithToast(() => deleteProduct(productId))}

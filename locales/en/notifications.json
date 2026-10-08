@@ -10,7 +10,7 @@
   "unread": "Unread",
   "reason": "Reason: {reason}",
   "types": {
-    "PRODUCT_UPDATED": "{product} has a new version v{version}, ready to download",
+    "PRODUCT_UPDATED": "{product} has new files, ready to download",
     "PAYMENT_APPROVED": "Payment for order {orderNumber} is confirmed",
     "PAYMENT_REJECTED": "The slip for order {orderNumber} was not approved",
     "LICENSE_APPROVED": "Your license request for {product} is approved. Pay on My Licenses",
@@ -18,6 +18,6 @@
     "ADMIN_SLIP_SUBMITTED": "New slip to review: order {orderNumber}",
     "ADMIN_LICENSE_REQUESTED": "New license request: {product}",
     "REVIEW_REMINDER": "You bought {product} — leave a quick star rating (no text needed)",
-    "PRODUCT_FILES_UPDATED": "{product} v{version} has updated files, ready to download"
+    "PRODUCT_FILES_UPDATED": "{product} has updated files, ready to download"
   }
 }

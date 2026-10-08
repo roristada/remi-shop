@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Download, Search } from "lucide-react";
+import { Download, Mail, Search } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/guards";
 import { formatBangkokDateTime } from "@/lib/datetime";
 import { formatTHB, toHundredths } from "@/lib/pricing/calculate";
@@ -14,7 +14,13 @@ import { Pagination } from "@/components/shared/pagination";
 import { SelectInput } from "@/components/admin/form-controls";
 import { ORDER_STATUS_STYLES } from "@/components/cart/order-status-badge";
 import { cn } from "@/lib/utils";
+import { lineHasFiles } from "@/lib/downloads/rules";
 import { OrderSummaryRow, OrderSummaryTrigger, type OrderSummary } from "@/components/admin/order-summary-dialog";
+
+/** Product lines with no file yet: the store sends those by email. */
+function emailLineIds(o: AdminOrderListRow): Set<string> {
+  return new Set(o.items.filter((i) => !lineHasFiles(i.product.versions[0]?.files ?? [], i.variantId)).map((i) => i.id));
+}
 
 function money(v: AdminOrderListRow["total"]): string {
   return formatTHB(toHundredths(v));
@@ -25,6 +31,7 @@ function toSummary(o: AdminOrderListRow): OrderSummary {
   const license = o.licenseRequest;
   const licenseImage = license?.product.images[0];
   const discount = toHundredths(o.discount);
+  const emailed = emailLineIds(o);
   return {
     orderId: o.id,
     orderNumber: o.orderNumber,
@@ -40,7 +47,7 @@ function toSummary(o: AdminOrderListRow): OrderSummary {
           id: i.id,
           name: license.productNameTHSnapshot,
           detail: `License: ${i.nameTHSnapshot}`,
-          version: null,
+          emailDelivery: false,
           price: money(i.price),
           originalPrice: null,
           imageSrc: licenseImage ? previewImageSrc(licenseImage, "card") : null,
@@ -51,7 +58,7 @@ function toSummary(o: AdminOrderListRow): OrderSummary {
             id: i.id,
             name: i.productNameTHSnapshot,
             detail: i.variantNameTHSnapshot,
-            version: i.productVersionSnapshot,
+            emailDelivery: emailed.has(i.id),
             price: money(i.finalPrice),
             originalPrice: toHundredths(i.discount) > 0 ? money(i.unitPrice) : null,
             imageSrc: image ? previewImageSrc(image, "card") : null,
@@ -73,7 +80,7 @@ export default async function AdminOrdersPage({ searchParams }: PageProps<"/admi
   const exportQuery = new URLSearchParams(
     Object.entries(params).filter((e): e is [string, string] => Boolean(e[1])),
   ).toString();
-  const filtered = Boolean(filters.status || filters.q || filters.from || filters.to);
+  const filtered = Boolean(filters.status || filters.q || filters.from || filters.to || filters.delivery);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -106,6 +113,17 @@ export default async function AdminOrdersPage({ searchParams }: PageProps<"/admi
           defaultValue={filters.status ?? "all"}
           options={[{ value: "all", label: "ทุกสถานะ" }, ...ORDER_STATUSES.map((s) => ({ value: s, label: ORDER_STATUS_LABEL_TH[s] }))]}
           wrapperClassName="w-40 space-y-0"
+        />
+        <SelectInput
+          label="การส่งไฟล์"
+          hideLabel
+          name="delivery"
+          defaultValue={filters.delivery ?? "all"}
+          options={[
+            { value: "all", label: "ทุกการส่งไฟล์" },
+            { value: "email", label: "ต้องส่งไฟล์ทางอีเมล" },
+          ]}
+          wrapperClassName="w-48 space-y-0"
         />
         <label className="flex flex-col gap-1 text-xs text-muted-foreground">
           ตั้งแต่วันที่
@@ -145,11 +163,18 @@ export default async function AdminOrdersPage({ searchParams }: PageProps<"/admi
             <TableBody>
               {rows.map((o) => {
                 const lines = orderLines(o);
+                const emailCount = emailLineIds(o).size;
                 return (
                   <OrderSummaryRow key={o.id} summary={toSummary(o)}>
                     <TableCell className="pl-4 whitespace-nowrap">
                       <OrderSummaryTrigger>{o.orderNumber}</OrderSummaryTrigger>
                       <p className="text-xs text-muted-foreground">{formatBangkokDateTime(o.createdAt)}</p>
+                      {/* Shown on every screen size: the products column is hidden on phones. */}
+                      {emailCount > 0 && (
+                        <Badge className="mt-1 bg-secondary text-secondary-foreground">
+                          <Mail aria-hidden /> ส่งทางอีเมล {emailCount === lines.length ? "ทั้งหมด" : `${emailCount} รายการ`}
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="max-w-56">
                       <p className="truncate">{o.user.displayName ?? "—"}</p>

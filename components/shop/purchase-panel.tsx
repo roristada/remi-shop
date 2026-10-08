@@ -1,5 +1,5 @@
 import { useTranslations } from "next-intl";
-import { Download, RefreshCw, ShoppingBag } from "lucide-react";
+import { Download, Mail, RefreshCw, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddToCartButton } from "@/components/cart/add-to-cart-button";
 import type { PurchaseOption } from "@/lib/cart/queries";
@@ -22,10 +22,12 @@ type Props = {
   options: PurchaseOption[];
   /** Option id → picture URL, for options that have one. */
   variantImages?: Record<string, string>;
+  /** The latest version has no file yet, so the store emails it instead of an instant download. */
+  emailDelivery?: boolean;
 };
 
 /** Price, sale state and the buy action. Every value here is computed server-side. */
-export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now, product, options, variantImages = {} }: Props) {
+export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now, product, options, variantImages = {}, emailDelivery = false }: Props) {
   const t = useTranslations("shop.product");
   const hasVariants = options.length !== 1 || options[0].variantId !== null;
   const single = hasVariants ? null : options[0];
@@ -86,9 +88,10 @@ export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now, prod
           serverNow={serverNow}
           saleEndAt={saleEndAt ? saleEndAt.toISOString() : null}
           images={variantImages}
+          emailDelivery={emailDelivery}
         />
       ) : purchasable && single && !soldOut ? (
-        <AddToCartButton productId={product.id} productSlug={product.slug} initialState={single.state} />
+        <AddToCartButton productId={product.id} productSlug={product.slug} initialState={single.state} emailDelivery={emailDelivery} />
       ) : (
         <Button size="lg" className="h-12 w-full rounded-full text-base" disabled>
           <ShoppingBag aria-hidden /> {t("addToCart")}
@@ -97,7 +100,15 @@ export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now, prod
 
       <ul className="space-y-1.5 border-t border-foreground/10 pt-4 text-sm text-foreground/70">
         <li className="flex items-center gap-2">
-          <Download className="size-4 shrink-0" aria-hidden /> {t("instantDownload")}
+          {emailDelivery ? (
+            <>
+              <Mail className="size-4 shrink-0" aria-hidden /> {t("emailDelivery")}
+            </>
+          ) : (
+            <>
+              <Download className="size-4 shrink-0" aria-hidden /> {t("instantDownload")}
+            </>
+          )}
         </li>
         <li className="flex items-center gap-2">
           <RefreshCw className="size-4 shrink-0" aria-hidden /> {t("lifetimeUpdates")}

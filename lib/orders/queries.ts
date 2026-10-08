@@ -34,7 +34,6 @@ export async function getOrderForUser(userId: string, orderNumber: string, now: 
           id: true,
           productNameTHSnapshot: true,
           productNameENSnapshot: true,
-          productVersionSnapshot: true,
           variantId: true,
           variantNameTHSnapshot: true,
           variantNameENSnapshot: true,
@@ -50,6 +49,8 @@ export async function getOrderForUser(userId: string, orderNumber: string, now: 
                 take: 1,
                 select: { imagePath: true, cardPath: true, altTextTH: true, altTextEN: true },
               },
+              // Whether the line has a file to download yet; without one the store emails it.
+              versions: { where: { isLatest: true }, take: 1, select: { files: { select: { variantId: true } } } },
             },
           },
         },

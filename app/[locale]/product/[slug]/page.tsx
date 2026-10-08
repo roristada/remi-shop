@@ -26,7 +26,6 @@ import { ProductGallery } from "@/components/shop/product-gallery";
 import { PurchasePanel } from "@/components/shop/purchase-panel";
 import { SelectedVariantProvider, VariantFileList } from "@/components/shop/selected-variant";
 import { defaultVariantId } from "@/lib/cart/selection";
-import { VersionHistory } from "@/components/shop/version-history";
 import { ProductGrid } from "@/components/shop/product-grid";
 import { LicenseOfferPanel } from "@/components/shop/license-offer";
 import { getLicenseOffers } from "@/lib/licenses/queries";
@@ -148,7 +147,6 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
     { label: t("supportedVersion"), value: product.supportedVersion },
     { label: t("fileFormat"), value: product.fileFormat },
     { label: t("license"), value: product.license },
-    { label: t("currentVersion"), value: latest ? `v${latest.versionNumber}` : null },
     {
       label: t("downloadLimit"),
       value: product.downloadLimit === null ? t("unlimited") : t("times", { count: product.downloadLimit }),
@@ -241,6 +239,7 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
               product={{ id: product.id, slug: product.slug }}
               options={purchaseOptions}
               variantImages={Object.fromEntries(Object.entries(variantImages).map(([k, v]) => [k, v.url]))}
+              emailDelivery={!latest || latest.files.length === 0}
             />
 
             {details.length > 0 && (
@@ -294,15 +293,6 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
             </div>
           )}
         </section>
-
-        {versions.length > 0 && (
-          <section aria-labelledby="versions-heading" className="space-y-4">
-            <h2 id="versions-heading" className="text-xl">
-              {t("versions")}
-            </h2>
-            <VersionHistory versions={versions} />
-          </section>
-        )}
       </div>
 
       <Suspense fallback={<Skeleton className="h-48 rounded-2xl" />}>

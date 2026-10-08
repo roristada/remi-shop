@@ -22,6 +22,14 @@ export function canAccessFile(fileVariantId: string | null, ownedVariants: Reado
 }
 
 /**
+ * Whether a line (product, or one variant of it) has a file in the latest version. Without one the
+ * store delivers it by email. Mirrors lineWithoutFilesWhere in lib/products/delivery.ts.
+ */
+export function lineHasFiles(latestFiles: readonly { variantId: string | null }[], variantId: string | null): boolean {
+  return latestFiles.some((f) => canAccessFile(f.variantId, new Set([variantId])));
+}
+
+/**
  * Files "download all" fetches for one owned line or product: the latest version's files that
  * still have downloads left. Convenience only; the download route re-authorizes each file.
  */

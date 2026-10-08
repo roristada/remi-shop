@@ -8,6 +8,7 @@ import { calculateProductPrice, formatTHB } from "@/lib/pricing/calculate";
 import { formatBangkokDateTime } from "@/lib/datetime";
 import { previewImageSrc } from "@/lib/storage/public-url";
 import { idSchema } from "@/lib/validation/product";
+import { lineHasFiles } from "@/lib/downloads/rules";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ProductList, type AdminProductRow, type ProductListView } from "@/components/admin/product-list";
@@ -27,6 +28,15 @@ const VIEWS: { value: ProductListView; label: string; icon: typeof List }[] = [
   { value: "grid", label: "การ์ด", icon: LayoutGrid },
 ];
 
+/** File count, and whether any buyable line gets its file by email (same rule as the shop). */
+function fileLabel(files: { variantId: string | null }[], activeVariants: { id: string }[]): string {
+  const lines = activeVariants.length > 0 ? activeVariants.map((v) => v.id) : [null];
+  const emailed = lines.filter((id) => !lineHasFiles(files, id)).length;
+  if (files.length === 0) return "ยังไม่มีไฟล์ · ส่งทางอีเมล";
+  if (emailed === 0) return `${files.length} ไฟล์`;
+  return `${files.length} ไฟล์ · ${emailed} ตัวเลือกส่งทางอีเมล`;
+}
+
 function one(v: string | string[] | undefined) {
   return typeof v === "string" ? v : undefined;
 }
@@ -44,9 +54,10 @@ export default async function AdminProductsPage({ searchParams }: PageProps<"/ad
   const sort = parseAdminProductSort(one(sp.sort));
   const folderParam = one(sp.folder);
   const folder = folderParam === "none" || idSchema.safeParse(folderParam).success ? folderParam : undefined;
+  const delivery = one(sp.delivery) === "email" ? "email" : undefined;
 
   const [{ items, total, pageCount }, categories, folderCounts] = await Promise.all([
-    listAdminProducts({ q, categoryId, publishStatus: status, folder, sort, page }),
+    listAdminProducts({ q, categoryId, publishStatus: status, folder, delivery, sort, page }),
     listCategoryOptions(),
     listFolderCounts(),
   ]);
@@ -56,6 +67,7 @@ export default async function AdminProductsPage({ searchParams }: PageProps<"/ad
     category: categoryId,
     status,
     folder,
+    delivery,
     sort: sort === "updated" ? undefined : sort,
     view: view === "grid" ? view : undefined,
   };
@@ -69,7 +81,7 @@ export default async function AdminProductsPage({ searchParams }: PageProps<"/ad
       slug: p.slug,
       nameTH: p.nameTH,
       nameEN: p.nameEN,
-      versionNumber: p.versions[0]?.versionNumber ?? null,
+      fileLabel: fileLabel(p.versions[0]?.files ?? [], p.variants),
       categoryName: p.category.nameTH,
       folderId: p.folder?.id ?? null,
       folderName: p.folder?.nameTH ?? null,
@@ -193,6 +205,17 @@ export default async function AdminProductsPage({ searchParams }: PageProps<"/ad
             wrapperClassName="w-36 space-y-0"
           />
           <SelectInput
+            label="ไฟล์"
+            hideLabel
+            name="delivery"
+            defaultValue={delivery ?? "all"}
+            options={[
+              { value: "all", label: "ทุกแบบไฟล์" },
+              { value: "email", label: "ยังไม่มีไฟล์ (ส่งทางอีเมล)" },
+            ]}
+            wrapperClassName="w-52 space-y-0"
+          />
+          <SelectInput
             label="เรียงตาม"
             hideLabel
             name="sort"
@@ -224,7 +247,7 @@ export default async function AdminProductsPage({ searchParams }: PageProps<"/ad
           <div className="rounded-2xl border border-dashed bg-card p-12 text-center">
             <p className="font-medium">ไม่พบสินค้า</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              {q || categoryId || status ? "ลองเปลี่ยนตัวกรอง" : "เริ่มจากเพิ่มสินค้าชิ้นแรก"}
+              {q || categoryId || status || delivery ? "ลองเปลี่ยนตัวกรอง" : "เริ่มจากเพิ่มสินค้าชิ้นแรก"}
             </p>
           </div>
         ) : (

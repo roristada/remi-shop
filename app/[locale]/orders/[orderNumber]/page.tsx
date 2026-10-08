@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { PreviewImage } from "@/components/shared/preview-image";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { Clock3, Download, ExternalLink, Images, List, Star } from "lucide-react";
+import { Clock3, Download, ExternalLink, Images, List, Mail, Star } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { intlLocale, localized } from "@/i18n/localize";
 import { requireUser } from "@/lib/auth/guards";
@@ -26,7 +26,7 @@ import { OrderProgress } from "@/components/cart/order-progress";
 import { CopyButton } from "@/components/shared/copy-button";
 import { DownloadVersions } from "@/components/downloads/download-versions";
 import { BulkDownloadProvider, BulkSelectCheckbox, type BulkItem } from "@/components/downloads/bulk-download";
-import { bulkDownloadFileIds } from "@/lib/downloads/rules";
+import { bulkDownloadFileIds, lineHasFiles } from "@/lib/downloads/rules";
 import { cn } from "@/lib/utils";
 import { BackLink } from "@/components/shared/back-link";
 import { getOrderReviewStates } from "@/lib/reviews/queries";
@@ -64,7 +64,16 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/[l
   // Files are listed only once payment is approved; each link is re-authorized by /api/download.
   const downloads =
     order.status === "COMPLETED" && order.kind === "PRODUCT" ? await listOrderDownloads(user.id, order.id) : null;
-  const hasAnyFiles = downloads ? [...downloads.values()].some((d) => d.versions.length > 0) : false;
+  // Lines without a file yet are delivered by email; after approval the buyer's own download list decides.
+  const itemHasFiles = new Map(
+    order.items.map((i) => [
+      i.id,
+      downloads
+        ? (downloads.get(lineKey(i.product.id, i.variantId))?.versions.length ?? 0) > 0
+        : lineHasFiles(i.product.versions[0]?.files ?? [], i.variantId),
+    ]),
+  );
+  const delivery = fileDelivery([...itemHasFiles.values()]);
   const bulkFiles = new Map(
     order.items.map((i) => {
       const files = downloads?.get(lineKey(i.product.id, i.variantId));
@@ -144,8 +153,8 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/[l
           </span>
         </a>
       )}
-      <OrderProgress status={order.status} isLicense={order.kind === "LICENSE"} />
-      <StatusNotice order={order} t={t} hasFiles={hasAnyFiles} />
+      <OrderProgress status={order.status} isLicense={order.kind === "LICENSE"} emailOnly={delivery === "email"} />
+      <StatusNotice order={order} t={t} delivery={delivery} />
 
       <div className={showPanel ? "grid gap-8 lg:grid-cols-[minmax(0,1fr)_24rem]" : "grid gap-8"}>
         <section aria-labelledby="items-heading" className="space-y-4">
@@ -196,9 +205,9 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/[l
                             {name}
                           </Link>
                           {variantName && <p className="text-sm text-muted-foreground">{variantName}</p>}
-                          {item.productVersionSnapshot && (
-                            <p className="text-xs text-muted-foreground">
-                              {t("order.version", { version: item.productVersionSnapshot })}
+                          {!itemHasFiles.get(item.id) && (
+                            <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-xs">
+                              <Mail className="size-3.5" aria-hidden /> {t("order.itemNoFiles")}
                             </p>
                           )}
                         </div>
@@ -212,12 +221,9 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/[l
                       {reviewStates && (
                         <OrderReviewButton item={reviewItems.find((r) => r.productId === item.product.id)!} />
                       )}
-                      {downloads &&
-                        (files && files.versions.length > 0 ? (
-                          <DownloadVersions versions={files.versions} downloadLimit={files.downloadLimit} locale={locale} />
-                        ) : (
-                          <p className="text-sm text-muted-foreground">{t("order.itemNoFiles")}</p>
-                        ))}
+                      {downloads && files && files.versions.length > 0 && (
+                        <DownloadVersions versions={files.versions} downloadLimit={files.downloadLimit} locale={locale} />
+                      )}
                     </li>
                   );
                 })}
@@ -245,7 +251,7 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/[l
         </section>
 
         {canPay && <PaymentPanel order={order} locale={locale} now={now} />}
-        {order.status === "WAITING_REVIEW" && <ReviewPanel order={order} locale={locale} />}
+        {order.status === "WAITING_REVIEW" && <ReviewPanel order={order} locale={locale} delivery={delivery} />}
         {rejectedProduct && <RejectedPanel order={order} />}
       </div>
     </div>
@@ -253,6 +259,14 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/[l
 }
 
 type T = Awaited<ReturnType<typeof getTranslations<"cart">>>;
+
+/** How an order's files reach the buyer: all downloadable, all by email, or some of each. */
+type Delivery = "download" | "email" | "mixed";
+
+function fileDelivery(hasFiles: boolean[]): Delivery {
+  if (hasFiles.every(Boolean)) return "download";
+  return hasFiles.some(Boolean) ? "mixed" : "email";
+}
 
 /** List ⇄ gallery (pictures only) for the order's products. */
 function ViewSwitch({ path, gallery, t }: { path: string; gallery: boolean; t: T }) {
@@ -306,7 +320,7 @@ function LicenseSummary({
   );
 }
 
-function StatusNotice({ order, t, hasFiles }: { order: CustomerOrder; t: T; hasFiles: boolean }) {
+function StatusNotice({ order, t, delivery }: { order: CustomerOrder; t: T; delivery: Delivery }) {
   let text: string | null = null;
   if (order.status === "CANCELLED") {
     // Auto-cancelled at the unpaid deadline (never had a slip), as opposed to cancelled by the customer.
@@ -315,7 +329,8 @@ function StatusNotice({ order, t, hasFiles }: { order: CustomerOrder; t: T; hasF
   } else if (order.status === "COMPLETED") {
     if (order.kind === "LICENSE") text = t("order.licenseCompletedNotice");
     // No file to download yet: the store delivers it by email.
-    else text = hasFiles ? t("order.completedNotice") : t("order.noFilesNotice");
+    else if (delivery === "download") text = t("order.completedNotice");
+    else text = delivery === "mixed" ? t("order.completedMixedNotice") : t("order.noFilesNotice");
   }
   if (!text) return null;
   return (
@@ -509,7 +524,7 @@ function PayField({
 }
 
 /** Slip under review: show what was sent; nothing to do until the store decides. */
-async function ReviewPanel({ order, locale }: { order: CustomerOrder; locale: string }) {
+async function ReviewPanel({ order, locale, delivery }: { order: CustomerOrder; locale: string; delivery: Delivery }) {
   const t = await getTranslations("cart.slip");
   const slip = order.payments[0];
   const urls = slip ? await createSignedViewUrls(BUCKETS.paymentSlips, [slip.slipPath]) : new Map<string, string>();
@@ -524,7 +539,13 @@ async function ReviewPanel({ order, locale }: { order: CustomerOrder; locale: st
             {t("reviewTitle")}
           </h2>
           <p className="text-sm text-foreground/70">
-            {order.kind === "LICENSE" ? t("reviewBodyLicense") : t("reviewBody")}
+            {order.kind === "LICENSE"
+              ? t("reviewBodyLicense")
+              : delivery === "email"
+                ? t("reviewBodyEmail")
+                : delivery === "mixed"
+                  ? t("reviewBodyMixed")
+                  : t("reviewBody")}
           </p>
           {slip && (
             <p className="text-xs text-foreground/70">

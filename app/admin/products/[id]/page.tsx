@@ -19,7 +19,7 @@ import { ProductStatusBadge } from "@/components/admin/product-status-badge";
 import { ScheduleSummary } from "@/components/admin/schedule-summary";
 import { ProductEditor } from "@/components/admin/product-editor";
 import { ImageManager } from "@/components/admin/image-manager";
-import { VersionManager } from "@/components/admin/version-manager";
+import { ProductFilesManager } from "@/components/admin/product-files-manager";
 import { VariantManager, type ManagedVariant } from "@/components/admin/variant-manager";
 import { FormSection } from "@/components/admin/form-controls";
 import { LicensePricingEditor } from "@/components/admin/license-pricing-editor";
@@ -107,6 +107,8 @@ export default async function EditProductPage({ params }: PageProps<"/admin/prod
   const status = getProductStatus(product, now);
   const price = calculateProductPrice(product, now);
   const variants = product.variants.map((v) => toManagedVariant(v, now));
+  // Versions are no longer managed: the latest one is just where the product's files are kept.
+  const fileVersion = product.versions.find((v) => v.isLatest) ?? product.versions[0];
 
   return (
     <ProductEditor
@@ -151,27 +153,18 @@ export default async function EditProductPage({ params }: PageProps<"/admin/prod
         { value: "variants", label: `ตัวเลือก (${product.variants.length})`, content: <VariantManager variants={variants} /> },
         {
           value: "versions",
-          label: `เวอร์ชันและไฟล์ (${product.versions.length})`,
+          label: `ไฟล์ (${fileVersion?.files.length ?? 0})`,
           content: (
-            <VersionManager
+            <ProductFilesManager
               buyerCount={buyerCount}
-              versions={product.versions.map((v) => ({
-                id: v.id,
-                versionNumber: v.versionNumber,
-                releaseDate: toBangkokDateTimeLocal(v.releaseDate),
-                releaseDateLabel: formatBangkokDateTime(v.releaseDate),
-                notifiedAtLabel: v.notifiedAt ? formatBangkokDateTime(v.notifiedAt) : null,
-                releaseNotesTH: v.releaseNotesTH ?? "",
-                releaseNotesEN: v.releaseNotesEN ?? "",
-                isLatest: v.isLatest,
-                // storagePath is intentionally not sent to the browser.
-                files: v.files.map((f) => ({
-                  id: f.id,
-                  fileName: f.fileName,
-                  fileSize: f.fileSize,
-                  fileType: f.fileType,
-                  variantId: f.variantId,
-                })),
+              versionId={fileVersion?.id ?? null}
+              // storagePath is intentionally not sent to the browser.
+              files={(fileVersion?.files ?? []).map((f) => ({
+                id: f.id,
+                fileName: f.fileName,
+                fileSize: f.fileSize,
+                fileType: f.fileType,
+                variantId: f.variantId,
               }))}
             />
           ),

@@ -25,6 +25,8 @@ export type AdminOrderFilters = {
   /** Inclusive bounds of the Bangkok calendar days picked in the form. */
   from?: Date;
   to?: Date;
+  /** "email": product orders with a line that has no file yet, so the store emails it. */
+  delivery?: "email";
   page: number;
 };
 
@@ -44,13 +46,14 @@ export function parseAdminOrderFilters(sp: SearchParams): AdminOrderFilters {
   const status = ORDER_STATUSES.find((s) => s === one(sp.status));
   const q = one(sp.q)?.trim().slice(0, 100) || undefined;
   const page = Math.max(1, Math.min(10_000, Number.parseInt(one(sp.page) ?? "1", 10) || 1));
-  return { status, q, from: bangkokDay(one(sp.from), "start"), to: bangkokDay(one(sp.to), "end"), page };
+  const delivery = one(sp.delivery) === "email" ? "email" : undefined;
+  return { status, q, from: bangkokDay(one(sp.from), "start"), to: bangkokDay(one(sp.to), "end"), delivery, page };
 }
 
 /** Filters as query params (for pagination and the export link). */
 export function adminOrderParams(sp: SearchParams): Record<string, string | undefined> {
   const keep = (k: string) => one(sp[k]) || undefined;
-  return { status: keep("status"), q: keep("q"), from: keep("from"), to: keep("to") };
+  return { status: keep("status"), q: keep("q"), from: keep("from"), to: keep("to"), delivery: keep("delivery") };
 }
 
 const FORMULA_START = /^[=+\-@\t\r]/;

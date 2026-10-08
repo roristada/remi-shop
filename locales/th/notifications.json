@@ -10,7 +10,7 @@
   "unread": "ยังไม่อ่าน",
   "reason": "เหตุผล: {reason}",
   "types": {
-    "PRODUCT_UPDATED": "{product} มีเวอร์ชันใหม่ v{version} ดาวน์โหลดได้แล้ว",
+    "PRODUCT_UPDATED": "{product} มีไฟล์ใหม่ ดาวน์โหลดได้แล้ว",
     "PAYMENT_APPROVED": "ยืนยันการชำระเงินคำสั่งซื้อ {orderNumber} แล้ว",
     "PAYMENT_REJECTED": "สลิปของคำสั่งซื้อ {orderNumber} ไม่ผ่านการตรวจสอบ",
     "LICENSE_APPROVED": "คำขอ License ของ {product} ได้รับอนุมัติแล้ว ชำระเงินได้ที่หน้า License ของฉัน",
@@ -18,6 +18,6 @@
     "ADMIN_SLIP_SUBMITTED": "มีสลิปใหม่รอตรวจ: คำสั่งซื้อ {orderNumber}",
     "ADMIN_LICENSE_REQUESTED": "มีคำขอ License ใหม่: {product}",
     "REVIEW_REMINDER": "ซื้อ {product} ไปแล้ว ให้คะแนนสั้น ๆ ได้เลย (ไม่ต้องเขียนข้อความก็ได้)",
-    "PRODUCT_FILES_UPDATED": "{product} อัปเดตไฟล์ของ v{version} แล้ว ดาวน์โหลดได้เลย"
+    "PRODUCT_FILES_UPDATED": "{product} อัปเดตไฟล์แล้ว ดาวน์โหลดได้เลย"
   }
 }

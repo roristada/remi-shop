@@ -3,8 +3,6 @@
   "resultCount": "{count, plural, one {# item} other {# items}}",
   "empty": "No files to download yet",
   "emptyHint": "Buy a product and wait for the admin to confirm payment — files will appear here",
-  "latest": "Latest",
-  "version": "Version {version}",
   "download": "Download",
   "preparing": "Preparing file…",
   "unlimitedRemaining": "Unlimited downloads",
@@ -24,6 +22,6 @@
     "progress": "Downloading {done}/{total}…",
     "done": "Started {count, plural, one {# download} other {# downloads}}",
     "failed": "{count, plural, one {# file} other {# files}} failed. Please download them one by one",
-    "hint": "Downloads each file of the latest version separately. If your browser asks, allow multiple downloads"
+    "hint": "Downloads each file separately. If your browser asks, allow multiple downloads"
   }
 }

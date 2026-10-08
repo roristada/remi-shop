@@ -2,7 +2,6 @@ import { getTranslations } from "next-intl/server";
 import { FileArchive } from "lucide-react";
 import { intlLocale } from "@/i18n/localize";
 import type { DownloadVersion } from "@/lib/downloads/queries";
-import { Badge } from "@/components/ui/badge";
 import { DownloadLink } from "@/components/downloads/download-link";
 import { ShowMoreList } from "@/components/shared/show-more-list";
 
@@ -14,7 +13,7 @@ function formatSize(bytes: number, locale: string) {
 }
 
 /**
- * Owned files grouped by version, each with its remaining quota and a download link. The link
+ * Owned files in one list, each with its remaining quota and a download link. The link
  * points at /api/download, which re-authorizes every click and hands back a short-lived URL.
  */
 export async function DownloadVersions({
@@ -29,47 +28,36 @@ export async function DownloadVersions({
   const t = await getTranslations("downloads");
   const fmt = intlLocale(locale).number;
 
+  // Versions are not shown to buyers any more; every owned file (newest version first) is one list.
+  const files = versions.flatMap((v) => v.files);
+
   return (
-    <div className="space-y-3">
-      {versions.map((v) => (
-        <div key={v.id} className="space-y-1.5">
-          <p className="flex items-center gap-2 text-sm font-medium">
-            {t("version", { version: v.versionNumber })}
-            {v.isLatest && <Badge variant="secondary">{t("latest")}</Badge>}
-          </p>
-          <ShowMoreList className="divide-y divide-foreground/10">
-            {v.files.map((f) => {
-              const remaining = downloadLimit === null ? null : Math.max(0, downloadLimit - f.downloadCount);
-              const blocked = remaining === 0;
-              return (
-                <li key={f.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
-                  <FileArchive className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-                  <span className="min-w-0 flex-1 truncate" title={f.fileName}>
-                    {f.fileName}
-                  </span>
-                  <span className="hidden shrink-0 text-xs text-muted-foreground tabular-nums sm:inline">
-                    {formatSize(f.fileSize, fmt)}
-                  </span>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {downloadLimit === null ? t("unlimitedRemaining") : t("remaining", { count: remaining ?? 0 })}
-                  </span>
-                  {blocked ? (
-                    <span className="shrink-0 rounded-full bg-muted px-3 py-1.5 text-xs text-muted-foreground">
-                      {t("download")}
-                    </span>
-                  ) : (
-                    <DownloadLink
-                      href={`/api/download/${f.id}?locale=${locale}`}
-                      label={t("download")}
-                      pendingLabel={t("preparing")}
-                    />
-                  )}
-                </li>
-              );
-            })}
-          </ShowMoreList>
-        </div>
-      ))}
-    </div>
+    <ShowMoreList className="divide-y divide-foreground/10">
+      {files.map((f) => {
+        const remaining = downloadLimit === null ? null : Math.max(0, downloadLimit - f.downloadCount);
+        const blocked = remaining === 0;
+        return (
+          <li key={f.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+            <FileArchive className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+            <span className="min-w-0 flex-1 truncate" title={f.fileName}>
+              {f.fileName}
+            </span>
+            <span className="hidden shrink-0 text-xs text-muted-foreground tabular-nums sm:inline">
+              {formatSize(f.fileSize, fmt)}
+            </span>
+            <span className="shrink-0 text-xs text-muted-foreground">
+              {downloadLimit === null ? t("unlimitedRemaining") : t("remaining", { count: remaining ?? 0 })}
+            </span>
+            {blocked ? (
+              <span className="shrink-0 rounded-full bg-muted px-3 py-1.5 text-xs text-muted-foreground">
+                {t("download")}
+              </span>
+            ) : (
+              <DownloadLink href={`/api/download/${f.id}?locale=${locale}`} label={t("download")} pendingLabel={t("preparing")} />
+            )}
+          </li>
+        );
+      })}
+    </ShowMoreList>
   );
 }

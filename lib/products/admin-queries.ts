@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma/client";
 import type { Prisma, PublishStatus } from "@/lib/generated/prisma/client";
 import { stockTakingOrderWhere } from "@/lib/products/stock";
 import { adminProductOrderBy, type AdminProductSort } from "@/lib/products/admin-sort";
+import { productNeedsEmailWhere } from "@/lib/products/delivery";
 
 export const ADMIN_PAGE_SIZE = 20;
 
@@ -12,15 +13,19 @@ export type AdminProductFilters = {
   publishStatus?: PublishStatus;
   /** A folder id, or "none" for products in no folder. */
   folder?: string;
+  /** "email": products with a line that has no file yet (the store emails it). */
+  delivery?: "email";
   sort: AdminProductSort;
   page: number;
 };
 
-export async function listAdminProducts({ q, categoryId, publishStatus, folder, sort, page }: AdminProductFilters) {
+export async function listAdminProducts({ q, categoryId, publishStatus, folder, delivery, sort, page }: AdminProductFilters) {
   const where: Prisma.ProductWhereInput = {
     ...(categoryId ? { categoryId } : {}),
     ...(folder ? { folderId: folder === "none" ? null : folder } : {}),
     ...(publishStatus ? { publishStatus } : {}),
+    // Both this and the search use OR, so this one is nested under AND.
+    ...(delivery === "email" ? { AND: [productNeedsEmailWhere()] } : {}),
     ...(q
       ? {
           OR: [
@@ -55,7 +60,8 @@ export async function listAdminProducts({ q, categoryId, publishStatus, folder, 
         category: { select: { nameTH: true } },
         folder: { select: { id: true, nameTH: true } },
         images: { where: { isPrimary: true }, select: { imagePath: true, cardPath: true, altTextTH: true }, take: 1 },
-        versions: { where: { isLatest: true }, select: { versionNumber: true }, take: 1 },
+        versions: { where: { isLatest: true }, select: { files: { select: { variantId: true } } }, take: 1 },
+        variants: { where: { isActive: true }, select: { id: true } },
         stockLimit: true,
         _count: { select: { orderItems: true, variants: true } },
       },

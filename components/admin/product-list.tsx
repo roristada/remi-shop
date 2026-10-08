@@ -34,7 +34,8 @@ export type AdminProductRow = {
   slug: string;
   nameTH: string;
   nameEN: string;
-  versionNumber: string | null;
+  /** e.g. "3 ไฟล์" or "ยังไม่มีไฟล์ · ส่งทางอีเมล". */
+  fileLabel: string;
   categoryName: string;
   folderId: string | null;
   folderName: string | null;
@@ -181,9 +182,9 @@ function ProductRow({ row, folders, checked, onCheckedChange }: ItemProps) {
           {row.nameTH}
         </Link>
         <p className="truncate text-xs text-muted-foreground">
-          {/* English name only when it adds something; the version is always shown. */}
+          {/* English name only when it adds something; the file count is always shown. */}
           {row.nameEN && row.nameEN !== row.nameTH && `${row.nameEN} · `}
-          {row.versionNumber ? `v${row.versionNumber}` : "ยังไม่มีเวอร์ชัน"}
+          {row.fileLabel}
         </p>
         {row.folderName && (
           <p className="mt-0.5 inline-flex max-w-full items-center gap-1 text-xs text-muted-foreground">
@@ -251,7 +252,7 @@ function ProductCard({ row, folders, checked, onCheckedChange }: ItemProps) {
           </Link>
           <p className="truncate text-xs text-muted-foreground">
             {row.categoryName}
-            {row.versionNumber ? ` · v${row.versionNumber}` : " · ยังไม่มีเวอร์ชัน"}
+            {` · ${row.fileLabel}`}
             {row.folderName && ` · ${row.folderName}`}
           </p>
           <p className="mt-1 text-sm tabular-nums">
@@ -352,7 +353,7 @@ function QuickActions({ row }: { row: AdminProductRow }) {
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
         title={`ลบ ${row.nameTH} ถาวร?`}
-        description="ข้อมูล รูปภาพ เวอร์ชัน และไฟล์ทั้งหมดจะถูกลบ และกู้คืนไม่ได้"
+        description="ข้อมูล รูปภาพ และไฟล์ทั้งหมดจะถูกลบ และกู้คืนไม่ได้"
         confirmLabel="ลบถาวร"
         destructive
         onConfirm={() => runWithToast(() => deleteProduct(row.id))}

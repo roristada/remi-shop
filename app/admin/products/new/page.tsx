@@ -6,7 +6,7 @@ import { ProductForm } from "@/components/admin/product-form";
 import { ProductEditor } from "@/components/admin/product-editor";
 import { ImageManager } from "@/components/admin/image-manager";
 import { VariantManager } from "@/components/admin/variant-manager";
-import { VersionManager } from "@/components/admin/version-manager";
+import { ProductFilesManager } from "@/components/admin/product-files-manager";
 import { LicensePricingEditor } from "@/components/admin/license-pricing-editor";
 import { FormSection } from "@/components/admin/form-controls";
 
@@ -47,7 +47,7 @@ export default async function NewProductPage({ searchParams }: PageProps<"/admin
           ),
         },
         { value: "variants", label: "ตัวเลือก", content: <VariantManager variants={[]} /> },
-        { value: "versions", label: "เวอร์ชันและไฟล์", content: <VersionManager versions={[]} buyerCount={0} /> },
+        { value: "versions", label: "ไฟล์", content: <ProductFilesManager versionId={null} files={[]} buyerCount={0} /> },
         {
           value: "license",
           label: "License",

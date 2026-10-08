@@ -16,12 +16,14 @@ type Props = {
   variantId?: string | null;
   productSlug: string;
   initialState: PurchaseState;
+  /** No file yet: an owner gets it by email, not from the downloads page. */
+  emailDelivery?: boolean;
 };
 
 const BUTTON = "h-12 w-full rounded-full text-base";
 
 /** Buy action for a purchasable product. The server re-checks everything on click. */
-export function AddToCartButton({ productId, variantId = null, productSlug, initialState }: Props) {
+export function AddToCartButton({ productId, variantId = null, productSlug, initialState, emailDelivery = false }: Props) {
   const t = useTranslations("cart");
   const locale = useLocale();
   const router = useRouter();
@@ -33,7 +35,7 @@ export function AddToCartButton({ productId, variantId = null, productSlug, init
       <div className="space-y-2 rounded-2xl bg-background p-4 text-sm" role="status">
         <p className="font-medium">{state === "owned" ? t("add.owned") : t("add.inOrder")}</p>
         {state === "owned" ? (
-          <p className="text-foreground/70">{t("add.ownedHint")}</p>
+          <p className="text-foreground/70">{emailDelivery ? t("add.ownedEmailHint") : t("add.ownedHint")}</p>
         ) : (
           <Link href="/orders" className="font-medium text-brand-strong underline-offset-4 hover:underline">
             {t("add.viewOrders")}

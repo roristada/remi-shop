@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma/client";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import type { AdminOrderFilters } from "@/lib/orders/export";
+import { lineWithoutFilesWhere } from "@/lib/products/delivery";
 
 export const ADMIN_ORDERS_PAGE_SIZE = 20;
 /** Hard cap for one CSV download; narrow the date range for more. */
@@ -10,6 +11,7 @@ export const ORDER_EXPORT_LIMIT = 5000;
 function orderWhere(f: AdminOrderFilters): Prisma.OrderWhereInput {
   return {
     ...(f.status ? { status: f.status } : {}),
+    ...(f.delivery === "email" ? { kind: "PRODUCT" as const, AND: [{ items: { some: lineWithoutFilesWhere() } }] } : {}),
     ...(f.from || f.to ? { createdAt: { ...(f.from ? { gte: f.from } : {}), ...(f.to ? { lte: f.to } : {}) } } : {}),
     ...(f.q
       ? {
@@ -65,11 +67,17 @@ const ORDER_LIST_SELECT = {
       id: true,
       productNameTHSnapshot: true,
       variantNameTHSnapshot: true,
-      productVersionSnapshot: true,
       unitPrice: true,
       discount: true,
       finalPrice: true,
-      product: { select: { images: THUMB_SELECT } },
+      variantId: true,
+      product: {
+        select: {
+          images: THUMB_SELECT,
+          // Whether the line has a file yet; without one the store emails it.
+          versions: { where: { isLatest: true }, take: 1, select: { files: { select: { variantId: true } } } },
+        },
+      },
     },
   },
   licenseRequest: {
