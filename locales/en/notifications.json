@@ -18,6 +18,7 @@
     "ADMIN_SLIP_SUBMITTED": "New slip to review: order {orderNumber}",
     "ADMIN_LICENSE_REQUESTED": "New license request: {product}",
     "REVIEW_REMINDER": "You bought {product} — leave a quick star rating (no text needed)",
+    "PRODUCT_AVAILABLE": "{product} is now on sale. Order it now",
     "PRODUCT_FILES_UPDATED": "{product} has updated files, ready to download"
   }
 }

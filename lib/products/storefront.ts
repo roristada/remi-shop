@@ -3,7 +3,7 @@ import type { ProductStatus } from "@/lib/products/status";
 import { SLUG_PATTERN } from "@/lib/validation/product";
 
 export const SHOP_PAGE_SIZE = 12;
-export const SHOP_SORTS = ["newest", "price-asc", "price-desc", "name"] as const;
+export const SHOP_SORTS = ["newest", "best-selling", "price-asc", "price-desc", "name"] as const;
 export type ShopSort = (typeof SHOP_SORTS)[number];
 
 /** Fixed THB buckets on the base list price (matches how price sorting already works). */
@@ -210,6 +210,9 @@ export function shopOrderBy(sort: ShopSort, locale: string): Prisma.ProductOrder
       return [locale === "en" ? { nameEN: "asc" } : { nameTH: "asc" }, { id: "asc" }];
     case "newest":
       return [{ publishedAt: { sort: "desc", nulls: "last" } }, { id: "desc" }];
+    // Most units sold first (Product.soldCount); equal sales fall back to newest.
+    case "best-selling":
+      return [{ soldCount: "desc" }, { publishedAt: { sort: "desc", nulls: "last" } }, { id: "desc" }];
   }
 }
 

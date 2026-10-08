@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
+import { BulkEditMenu, type BulkEditOptions } from "@/components/admin/bulk-edit";
 import { runWithToast, SelectInput } from "@/components/admin/form-controls";
 import { ProductStatusBadge } from "@/components/admin/product-status-badge";
 import { bulkSetPublishStatus, deleteProduct, duplicateProduct, setPublishStatus } from "@/lib/products/admin-actions";
@@ -36,6 +37,8 @@ export type AdminProductRow = {
   nameEN: string;
   /** e.g. "3 ไฟล์" or "ยังไม่มีไฟล์ · ส่งทางอีเมล". */
   fileLabel: string;
+  /** Customers still waiting for "now on sale". */
+  waitlistCount: number;
   categoryName: string;
   folderId: string | null;
   folderName: string | null;
@@ -79,7 +82,17 @@ function useOpenOnClick(id: string) {
   };
 }
 
-export function ProductList({ rows, view, folders }: { rows: AdminProductRow[]; view: ProductListView; folders: FolderOption[] }) {
+export function ProductList({
+  rows,
+  view,
+  folders,
+  editOptions,
+}: {
+  rows: AdminProductRow[];
+  view: ProductListView;
+  folders: FolderOption[];
+  editOptions: BulkEditOptions;
+}) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   // Drop ids that left the page (filter/pagination/delete) without an effect.
   const visibleSelected = rows.filter((r) => selected.has(r.id)).map((r) => r.id);
@@ -105,6 +118,7 @@ export function ProductList({ rows, view, folders }: { rows: AdminProductRow[]; 
           onToggleAll={toggleAll}
           onClear={() => setSelected(new Set())}
           folders={folders}
+          editOptions={editOptions}
         />
       )}
       {view === "grid" ? (
@@ -185,6 +199,7 @@ function ProductRow({ row, folders, checked, onCheckedChange }: ItemProps) {
           {/* English name only when it adds something; the file count is always shown. */}
           {row.nameEN && row.nameEN !== row.nameTH && `${row.nameEN} · `}
           {row.fileLabel}
+          {row.waitlistCount > 0 && ` · รอแจ้งเตือน ${row.waitlistCount.toLocaleString("th-TH")} คน`}
         </p>
         {row.folderName && (
           <p className="mt-0.5 inline-flex max-w-full items-center gap-1 text-xs text-muted-foreground">
@@ -253,6 +268,7 @@ function ProductCard({ row, folders, checked, onCheckedChange }: ItemProps) {
           <p className="truncate text-xs text-muted-foreground">
             {row.categoryName}
             {` · ${row.fileLabel}`}
+            {row.waitlistCount > 0 && ` · รอแจ้งเตือน ${row.waitlistCount.toLocaleString("th-TH")} คน`}
             {row.folderName && ` · ${row.folderName}`}
           </p>
           <p className="mt-1 text-sm tabular-nums">
@@ -447,12 +463,14 @@ function BulkBar({
   onToggleAll,
   onClear,
   folders,
+  editOptions,
 }: {
   selectedIds: string[];
   allSelected: boolean;
   onToggleAll: (on: boolean) => void;
   onClear: () => void;
   folders: FolderOption[];
+  editOptions: BulkEditOptions;
 }) {
   const router = useRouter();
   const [statusPending, startTransition] = useTransition();
@@ -479,11 +497,12 @@ function BulkBar({
           checked={allSelected ? true : count > 0 ? "indeterminate" : false}
           onCheckedChange={(v) => onToggleAll(v === true)}
         />
-        <span aria-live="polite">{count > 0 ? `เลือกแล้ว ${count} รายการ` : "เลือกหลายรายการเพื่อเปลี่ยนสถานะหรือย้ายโฟลเดอร์พร้อมกัน"}</span>
+        <span aria-live="polite">{count > 0 ? `เลือกแล้ว ${count} รายการ` : "เลือกหลายรายการเพื่อแก้ไข เปลี่ยนสถานะ หรือย้ายโฟลเดอร์พร้อมกัน"}</span>
       </label>
       {count > 0 && (
         <div className="ml-auto flex flex-wrap items-center gap-1.5">
           {pending && <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="กำลังบันทึก" />}
+          <BulkEditMenu selectedIds={selectedIds} options={editOptions} disabled={pending} onDone={onClear} />
           {PUBLISH_OPTIONS.map(({ value, label, icon: Icon }) => (
             <Button key={value} size="sm" variant="outline" className="rounded-full" disabled={pending} onClick={() => apply(value)}>
               <Icon aria-hidden /> {label}

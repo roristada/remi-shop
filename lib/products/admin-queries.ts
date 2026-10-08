@@ -63,7 +63,7 @@ export async function listAdminProducts({ q, categoryId, publishStatus, folder, 
         versions: { where: { isLatest: true }, select: { files: { select: { variantId: true } } }, take: 1 },
         variants: { where: { isActive: true }, select: { id: true } },
         stockLimit: true,
-        _count: { select: { orderItems: true, variants: true } },
+        _count: { select: { orderItems: true, variants: true, waitlist: { where: { notifiedAt: null } } } },
       },
     }),
   ]);

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { FolderCog, FolderOpen, Inbox, LayoutGrid, Layers, List, MonitorCog, Plus, Search } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/guards";
 import { listAdminProducts, listCategoryOptions, listFolderCounts } from "@/lib/products/admin-queries";
+import { listSoftwareTagOptions } from "@/lib/software-tags/queries";
 import { ADMIN_PRODUCT_SORTS, parseAdminProductSort } from "@/lib/products/admin-sort";
 import { getProductStatus } from "@/lib/products/status";
 import { calculateProductPrice, formatTHB } from "@/lib/pricing/calculate";
@@ -56,10 +57,11 @@ export default async function AdminProductsPage({ searchParams }: PageProps<"/ad
   const folder = folderParam === "none" || idSchema.safeParse(folderParam).success ? folderParam : undefined;
   const delivery = one(sp.delivery) === "email" ? "email" : undefined;
 
-  const [{ items, total, pageCount }, categories, folderCounts] = await Promise.all([
+  const [{ items, total, pageCount }, categories, folderCounts, softwareTags] = await Promise.all([
     listAdminProducts({ q, categoryId, publishStatus: status, folder, delivery, sort, page }),
     listCategoryOptions(),
     listFolderCounts(),
+    listSoftwareTagOptions(),
   ]);
   const now = new Date();
   const params = {
@@ -82,6 +84,7 @@ export default async function AdminProductsPage({ searchParams }: PageProps<"/ad
       nameTH: p.nameTH,
       nameEN: p.nameEN,
       fileLabel: fileLabel(p.versions[0]?.files ?? [], p.variants),
+      waitlistCount: p._count.waitlist,
       categoryName: p.category.nameTH,
       folderId: p.folder?.id ?? null,
       folderName: p.folder?.nameTH ?? null,
@@ -251,7 +254,7 @@ export default async function AdminProductsPage({ searchParams }: PageProps<"/ad
             </p>
           </div>
         ) : (
-          <ProductList rows={rows} view={view} folders={folderOptions} />
+          <ProductList rows={rows} view={view} folders={folderOptions} editOptions={{ categories, softwareTags }} />
         )}
 
         <Pagination page={page} pageCount={pageCount} params={params} basePath="/admin/products" />

@@ -194,3 +194,52 @@ export const variantSchema = z
   });
 
 export type VariantInput = z.infer<typeof variantSchema>;
+
+// ───────────────────────────── Bulk edit ─────────────────────────────
+
+/** Fields the product list can change on many products at once. */
+export const BULK_EDIT_FIELDS = ["description", "stock", "price", "discount", "category", "software", "salePeriod"] as const;
+export type BulkEditField = (typeof BULK_EDIT_FIELDS)[number];
+
+/** A language left empty is not changed; "append" adds the text after what each product has. */
+const bulkDescriptionSchema = z
+  .object({
+    mode: z.enum(["replace", "append"]),
+    descriptionTH: z.string().trim().max(20000, "ยาวเกินไป"),
+    descriptionEN: z.string().trim().max(20000, "ยาวเกินไป"),
+  })
+  .refine((d) => d.descriptionTH !== "" || d.descriptionEN !== "", {
+    path: ["descriptionTH"],
+    message: "กรอกรายละเอียดอย่างน้อยหนึ่งภาษา",
+  });
+
+/** Empty percent = remove the discount (and its dates). */
+const bulkDiscountSchema = z
+  .object({ discountPercent: optionalPercent, discountStartAt: optionalDateTime, discountEndAt: optionalDateTime })
+  .superRefine((d, ctx) => {
+    if (d.discountPercent === null) return;
+    if (!d.discountStartAt) ctx.addIssue({ code: "custom", path: ["discountStartAt"], message: "กรุณาระบุวันเริ่มส่วนลด" });
+    if (!d.discountEndAt) ctx.addIssue({ code: "custom", path: ["discountEndAt"], message: "กรุณาระบุวันสิ้นสุดส่วนลด" });
+    if (d.discountStartAt && d.discountEndAt && d.discountEndAt <= d.discountStartAt) {
+      ctx.addIssue({ code: "custom", path: ["discountEndAt"], message: "วันสิ้นสุดต้องอยู่หลังวันเริ่มส่วนลด" });
+    }
+  });
+
+/** Empty bound = open-ended, same as the product form. */
+const bulkSalePeriodSchema = z
+  .object({ saleStartAt: optionalDateTime, saleEndAt: optionalDateTime })
+  .refine((d) => !(d.saleStartAt && d.saleEndAt && d.saleEndAt <= d.saleStartAt), {
+    path: ["saleEndAt"],
+    message: "วันสิ้นสุดต้องอยู่หลังวันเริ่มขาย",
+  });
+
+export const bulkEditSchemas = {
+  description: bulkDescriptionSchema,
+  stock: z.object({ stockLimit }),
+  price: z.object({ price: money }),
+  discount: bulkDiscountSchema,
+  category: z.object({ categoryId: z.uuid("กรุณาเลือกหมวดหมู่") }),
+  /** "add" keeps each product's programs and adds these; "replace" sets exactly these. */
+  software: z.object({ mode: z.enum(["add", "replace"]), softwareTagIds: z.array(z.uuid()).max(50) }),
+  salePeriod: bulkSalePeriodSchema,
+} satisfies Record<BulkEditField, z.ZodType>;

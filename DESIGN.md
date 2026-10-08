@@ -118,7 +118,7 @@ Remi Shop reads like a clean board where an artist pins swatches of their brushe
 
 The mood is cute and gentle but still premium: pastel pink and powder blue on near-white paper, generous whitespace and friendly rounded Thai type. Cute comes from softness, roundness and small moments (a swatch fanning in, a check mark after copying, the cat mark), never from clutter, stickers or loud color. Thai is the primary language, so every decision is checked against Thai text first: tone marks, line height and word length.
 
-The store is a boutique, single-seller shop, not a dense multi-vendor marketplace: no banner walls, no seller badges, no shouting discount stamps stacked on top of each other. It is allowed exactly one deliberate "hero" moment per page (the home hero panel, the sale/announcement slot) — a bounded, tasteful use of tinted background, not a habit. Not generic corporate SaaS, and not a dark or neon gamer look. V1 is light theme only.
+The store is a boutique, single-seller shop, not a dense multi-vendor marketplace: no banner walls, no seller badges, no shouting discount stamps stacked on top of each other. It is allowed exactly one deliberate "hero" moment per page (the home hero panel, the sale/announcement slot) — a bounded, tasteful use of tinted background, not a habit. Not generic corporate SaaS, and not a dark or neon gamer look. Light is the default; the storefront also offers a quiet dark theme (owner request, 2026-10-09): warm plum-graphite surfaces, never pure black or neon, with the same tokens re-tuned for AA (`.dark` in `app/globals.css`). Visitors pick light / dark / system from the header (phones: the menu sheet); the choice is kept in their browser. Admin stays light.
 
 **Honesty is part of the identity, not a QA checklist.** Every number on the page must be real: no invented review counts or star averages, no discount badge without a real discount behind it, no "instant download" language (payment is always human-verified before download). A page that has to fake a number to look finished is not finished.
 
@@ -219,7 +219,7 @@ Soft, rounded and quietly confident.
 - **Category tabs** (recommended-products rail): the same chip vocabulary, horizontally scrollable on phones, never wrapping into a grid.
 
 ### Cards / Containers
-- **Product tile:** framed. One paper-white card (radius 1.5rem, `shadow-soft`, hairline ring, 8px inner padding) holds the square image well (rounded, powder-sky while loading) and, below it, category, software, name, rating and price, so each product reads as one unit on the page gradient (owner request; the earlier frameless tile made neighbouring products blur together). The whole card is one stretched link; hover lifts the shadow slightly.
+- **Product tile:** framed. One paper-white card (radius 1.5rem, `shadow-soft`, hairline ring, 8px inner padding) holds the square image well (rounded, powder-sky while loading) and, below it, category (supported software stays on the product page), name, then price with sold count and compact rating, so each product reads as one unit on the page gradient (owner request; the earlier frameless tile made neighbouring products blur together). The whole card is one stretched link; hover lifts the shadow slightly.
 - **Panels** (purchase, payment, cart summary, filters, hero): powder-sky at about 45–60%, 31px radius, 24–32px padding, no border.
 - **Never nest cards:** inside a panel, group rows with a paper `dl` and dividers, not another card.
 
@@ -242,7 +242,8 @@ Four short, true capabilities as icon + one line (e.g. real-time Thai support, p
 ### Rating (honest by construction)
 - **Shape:** five small star glyphs, filled in cherry-ink up to the rounded average, the rest as a fog/hairline outline — never gold, keeping the mark on-brand instead of reaching for the generic marketplace star color.
 - **Data:** the component always takes `{ average, count }`; `count === 0` renders an outline-only row plus "ยังไม่มีรีวิว" / "No reviews yet" in pencil-gray, never a hidden component and never a guessed number.
-- **Placement:** under the product name on cards and the product detail price block, once the review system ships; until then this exact empty state is what renders everywhere a rating would go.
+- **Placement:** the full five-star row sits in the product detail price block (with the empty state above).
+- **Cards (compact):** on product cards the rating is one cherry-ink star, the average to one decimal and the review count in parentheses (`★ 4.8 (12)`), on the price line next to the real sold count (`ขายแล้ว 233`). With no reviews (or no sales) that part is simply left out on the card, since the product page carries the full empty state.
 
 ### Banner / Announcement Slot
 One bounded slot on the home page (never more): an admin-authored `Announcement` when one is live, falling back to a plain rotation of real product preview images when none is. A discount percentage may only appear when a real, currently-active product discount backs it.
@@ -271,7 +272,7 @@ An illustrated pastel cat mark: white fur with pink inner ears, round glasses, a
 - **Don't** show a rating number, review count, discount badge or "N sold" claim that isn't computed from real data.
 - **Don't** claim "instant download" anywhere; the store is always "download after payment is confirmed."
 - **Don't** drift into generic corporate SaaS: gray boxes, sharp corners, icon-card grids.
-- **Don't** ship dark or neon "gamer" styling; V1 is light theme only.
+- **Don't** ship neon "gamer" styling or pure-black surfaces; the dark theme stays soft and uses theme tokens only (no hardcoded colors), except the PromptPay QR, which always sits on white so banking apps can scan it.
 - **Don't** nest cards or add colored side borders to cards and alerts.
 - **Don't** signal status by color alone; every badge carries its text label.
 - **Don't** use logo-pink for anything smaller than a large display line; it fails body-text contrast by design.

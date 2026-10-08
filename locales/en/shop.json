@@ -22,6 +22,7 @@
     "sortPriceAsc": "Price: low to high",
     "sortPriceDesc": "Price: high to low",
     "sortName": "Name (A–Z)",
+    "sortBestSelling": "Best selling",
     "onSale": "On sale only",
     "comingSoon": "Coming soon only",
     "apply": "Search",
@@ -112,7 +113,8 @@
     "fromPrice": "From",
     "variantFiles": "Files for {name}",
     "sharedFiles": "Files for every option",
-    "fullSize": "Full size"
+    "fullSize": "Full size",
+    "sold": "{count, number} sold"
   },
   "views": {
     "label": "View",
@@ -191,7 +193,8 @@
   },
   "rating": {
     "count": "{count, plural, one {# review} other {# reviews}}",
-    "none": "No reviews yet"
+    "none": "No reviews yet",
+    "compactLabel": "Rated {average} out of 5 ({count, plural, one {# review} other {# reviews}})"
   },
   "wishlist": {
     "title": "Wishlist",
@@ -260,5 +263,19 @@
       "short": "Deal ends {date}, {time}",
       "in": "Discount ends in"
     }
+  },
+  "waitlist": {
+    "join": "Notify me when it's on sale",
+    "joinedLabel": "You'll be notified",
+    "hint": "We'll notify you on the site when it goes on sale.",
+    "joinedHint": "Tap again to cancel the notification.",
+    "joined": "We'll let you know when it goes on sale",
+    "left": "Notification cancelled",
+    "notScheduled": "This product is no longer waiting to open.",
+    "error": "Something went wrong. Please try again.",
+    "count": "{count, plural, one {# person is} other {# people are}} waiting for this"
+  },
+  "card": {
+    "sold": "{count, number} sold"
   }
 }

@@ -18,6 +18,7 @@
     "ADMIN_SLIP_SUBMITTED": "มีสลิปใหม่รอตรวจ: คำสั่งซื้อ {orderNumber}",
     "ADMIN_LICENSE_REQUESTED": "มีคำขอ License ใหม่: {product}",
     "REVIEW_REMINDER": "ซื้อ {product} ไปแล้ว ให้คะแนนสั้น ๆ ได้เลย (ไม่ต้องเขียนข้อความก็ได้)",
+    "PRODUCT_AVAILABLE": "{product} เปิดขายแล้ว สั่งซื้อได้เลย",
     "PRODUCT_FILES_UPDATED": "{product} อัปเดตไฟล์แล้ว ดาวน์โหลดได้เลย"
   }
 }

@@ -7,7 +7,7 @@ export class StaleReview extends Error {}
 
 /**
  * Approves a slip under review inside the caller's transaction: Payment → APPROVED, Order → COMPLETED
- * (download access comes from the completed order). Both updates are conditional, so a double click,
+ * (download access comes from the completed order), and the order's products' sold counts go up. Both updates are conditional, so a double click,
  * two admins, or the automatic check racing an admin cannot approve twice or approve a rejected slip.
  * `reviewerId` is null for an automatic approval.
  */
@@ -31,5 +31,11 @@ export async function approvePaymentTx(
     data: { status: "COMPLETED", paymentStatus: "APPROVED", paidAt: now },
   });
   if (updated.count !== 1 || order.count !== 1) throw new StaleReview();
+  // One per order line, like the cards' "sold" label. Raw SQL so a sale does not bump updatedAt.
+  // LICENSE orders have no lines, so nothing changes for them.
+  await tx.$executeRaw`
+    UPDATE "products" AS p SET "sold_count" = p."sold_count" + s.n
+    FROM (SELECT "product_id", COUNT(*)::int AS n FROM "order_items" WHERE "order_id" = ${payment.orderId}::uuid GROUP BY "product_id") AS s
+    WHERE p."id" = s."product_id"`;
   await notifyUser(tx, payment.order.userId, "PAYMENT_APPROVED", { orderNumber: payment.order.orderNumber });
 }

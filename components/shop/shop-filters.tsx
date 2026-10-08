@@ -53,7 +53,7 @@ export function ShopFilterForm({ filters, action, hiddenFields, clearHref = acti
           defaultValue={filters.q}
           placeholder={t("searchPlaceholder")}
           maxLength={100}
-          className="h-10 rounded-xl border-transparent bg-background pl-9"
+          className="h-10 rounded-xl border-input bg-background pl-9"
         />
       </label>
       <SelectInput
@@ -63,14 +63,15 @@ export function ShopFilterForm({ filters, action, hiddenFields, clearHref = acti
         defaultValue={filters.sort}
         options={[
           { value: "newest", label: t("sortNewest") },
+          { value: "best-selling", label: t("sortBestSelling") },
           { value: "price-asc", label: t("sortPriceAsc") },
           { value: "price-desc", label: t("sortPriceDesc") },
           { value: "name", label: t("sortName") },
         ]}
         wrapperClassName="min-w-40 flex-1 space-y-0"
-        className="border-transparent bg-background"
+        className="border-input bg-background"
       />
-      <label className="flex h-10 cursor-pointer items-center gap-2 rounded-xl bg-background px-3 text-sm">
+      <label className="flex h-10 cursor-pointer items-center gap-2 rounded-xl border border-input bg-background px-3 text-sm">
         <input
           type="checkbox"
           name="sale"
@@ -80,7 +81,7 @@ export function ShopFilterForm({ filters, action, hiddenFields, clearHref = acti
         />
         {t("onSale")}
       </label>
-      <label className="flex h-10 cursor-pointer items-center gap-2 rounded-xl bg-background px-3 text-sm">
+      <label className="flex h-10 cursor-pointer items-center gap-2 rounded-xl border border-input bg-background px-3 text-sm">
         <input
           type="checkbox"
           name="soon"

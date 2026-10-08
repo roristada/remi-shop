@@ -19,6 +19,7 @@ import { ProductStatusBadge } from "@/components/admin/product-status-badge";
 import { ScheduleSummary } from "@/components/admin/schedule-summary";
 import { ProductEditor } from "@/components/admin/product-editor";
 import { ImageManager } from "@/components/admin/image-manager";
+import { countWaitlist } from "@/lib/waitlist/queries";
 import { ProductFilesManager } from "@/components/admin/product-files-manager";
 import { VariantManager, type ManagedVariant } from "@/components/admin/variant-manager";
 import { FormSection } from "@/components/admin/form-controls";
@@ -92,7 +93,7 @@ export default async function EditProductPage({ params }: PageProps<"/admin/prod
   if (!idSchema.safeParse(id).success) notFound();
 
   const now = new Date();
-  const [product, categories, folders, buyerCount, orderCount, licensePricing, softwareTags, stockTaken] = await Promise.all([
+  const [product, categories, folders, buyerCount, orderCount, licensePricing, softwareTags, stockTaken, waitlistCount] = await Promise.all([
     getAdminProduct(id),
     listCategoryOptions(),
     listFolderOptions(),
@@ -101,6 +102,7 @@ export default async function EditProductPage({ params }: PageProps<"/admin/prod
     getProductLicensePricing(id),
     listSoftwareTagOptions(),
     countStockTaken(id, now),
+    countWaitlist(id),
   ]);
   if (!product) notFound();
 
@@ -126,6 +128,8 @@ export default async function EditProductPage({ params }: PageProps<"/admin/prod
             {product.category.nameTH} · {formatTHB(price.finalPrice)}
             {price.isDiscounted && ` (ลด ${price.discountPercent / 100}% ถึง ${formatBangkokDateTime(price.discountEndsAt)})`}
             {" · "}ผู้ซื้อ {buyerCount.toLocaleString("th-TH")} คน
+            {/* Customers still waiting for "now on sale"; shown whenever someone is, so a moved date stays visible. */}
+            {waitlistCount > 0 && ` · รอแจ้งเตือนเปิดขาย ${waitlistCount.toLocaleString("th-TH")} คน`}
           </p>
         </div>
       }

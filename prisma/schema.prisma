@@ -7,8 +7,8 @@
 // timestamps = timestamptz (stored UTC, displayed Asia/Bangkok).
 
 generator client {
-  provider = "prisma-client"
-  output   = "../lib/generated/prisma"
+  provider        = "prisma-client"
+  output          = "../lib/generated/prisma"
   previewFeatures = ["relationJoins"]
 }
 
@@ -96,6 +96,7 @@ enum NotificationType {
   ADMIN_SLIP_SUBMITTED
   ADMIN_LICENSE_REQUESTED
   REVIEW_REMINDER
+  PRODUCT_AVAILABLE
 }
 
 // ───────────────────────────── Users ─────────────────────────────
@@ -119,6 +120,7 @@ model Profile {
   reviewedLicenses LicenseRequest[] @relation("LicenseReviewer")
   reviews          Review[]
   notifications    Notification[]
+  waitlist         WaitlistEntry[]
 
   @@map("profiles")
 }
@@ -198,6 +200,9 @@ model Product {
   /// Denormalized from visible reviews (kept in step inside the review transactions).
   ratingCount Int @default(0) @map("rating_count")
   ratingSum   Int @default(0) @map("rating_sum")
+  /// Units sold: lines of completed product orders. Denormalized for the "best selling" sort; kept in
+  /// step inside approvePaymentTx, the only way an order becomes COMPLETED.
+  soldCount   Int @default(0) @map("sold_count")
 
   /// null = unlimited downloads
   downloadLimit Int? @map("download_limit")
@@ -221,6 +226,7 @@ model Product {
   images          ProductImage[]
   versions        ProductVersion[]
   wishlist        Wishlist[]
+  waitlist        WaitlistEntry[]
   cartItems       CartItem[]
   orderItems      OrderItem[]
   downloads       Download[]
@@ -382,6 +388,22 @@ model Wishlist {
   @@id([userId, productId])
   @@index([productId])
   @@map("wishlists")
+}
+
+/// "Notify me when it goes on sale" for a scheduled product. One row per customer and product.
+model WaitlistEntry {
+  userId     String    @map("user_id") @db.Uuid
+  productId  String    @map("product_id") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// Set once the in-site "now on sale" notification is created; null = still waiting.
+  notifiedAt DateTime? @map("notified_at") @db.Timestamptz(6)
+
+  user    Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([userId, productId])
+  @@index([productId])
+  @@map("waitlist_entries")
 }
 
 model Cart {

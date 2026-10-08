@@ -59,10 +59,7 @@ function cardSelect(userId: string | null, now: Date) {
     saleEndAt: true,
     ratingCount: true,
     ratingSum: true,
-    softwareTags: {
-      select: { softwareTag: { select: { name: true } } },
-      orderBy: { softwareTag: { sortOrder: "asc" } },
-    },
+    soldCount: true,
     category: { select: { slug: true, nameTH: true, nameEN: true } },
     images: {
       orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
@@ -93,12 +90,13 @@ export type ProductCardData = {
   slug: string;
   name: string;
   categoryName: string;
-  softwareTags: string[];
   image: { url: string; alt: string } | null;
   price: ProductPrice;
   status: ProductStatus;
   wishlisted: boolean;
   rating: { average: number; count: number };
+  /** Units sold: lines of completed product orders (all variants), all time (Product.soldCount). */
+  soldCount: number;
   /** null = unlimited (no stock shown). Always null for a product with variants. */
   stock: StockInfo;
   /** Price is the cheapest active variant's ("from"). */
@@ -209,7 +207,6 @@ function toCard(row: CardRow, locale: string, now: Date): ProductCardData {
     slug: row.slug,
     name,
     categoryName: localized(locale, row.category.nameTH, row.category.nameEN),
-    softwareTags: row.softwareTags.map((t) => t.softwareTag.name),
     image: image
       ? { url: previewImageSrc(image, "card"), alt: localized(locale, image.altTextTH, image.altTextEN) || name }
       : null,
@@ -219,6 +216,7 @@ function toCard(row: CardRow, locale: string, now: Date): ProductCardData {
     serverNow: now.toISOString(),
     wishlisted: row.wishlist.length > 0,
     rating: { average: ratingAverage(row.ratingSum, row.ratingCount), count: row.ratingCount },
+    soldCount: row.soldCount,
   };
 }
 
@@ -623,6 +621,7 @@ function queryShopProduct(slug: string, includeHidden: boolean) {
       updatedAt: true,
       ratingCount: true,
       ratingSum: true,
+      soldCount: true,
       categoryId: true,
       category: { select: { slug: true, nameTH: true, nameEN: true, status: true } },
       images: {

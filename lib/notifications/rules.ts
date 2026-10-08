@@ -12,6 +12,8 @@ export type NotificationParams = {
   /** REVIEW_REMINDER: which purchase and which reminder (days after approval), for de-duplication. */
   productId?: string;
   stage?: string;
+  /** PRODUCT_AVAILABLE: where the notification leads. */
+  productSlug?: string;
   /** PRODUCT_UPDATED: "files" when files of an existing version changed rather than a new version. */
   update?: string;
 };
@@ -24,6 +26,7 @@ const PARAM_KEYS = [
   "reason",
   "productId",
   "stage",
+  "productSlug",
   "update",
 ] as const;
 
@@ -58,6 +61,10 @@ export function notificationTarget(
       return params.orderNumber
         ? { path: `/orders/${encodeURIComponent(params.orderNumber)}`, localized: true }
         : { path: "/orders", localized: true };
+    case "PRODUCT_AVAILABLE":
+      return params.productSlug
+        ? { path: `/product/${encodeURIComponent(params.productSlug)}`, localized: true }
+        : { path: "/shop", localized: true };
     case "LICENSE_APPROVED":
     case "LICENSE_REJECTED":
       return { path: "/account/licenses", localized: true };

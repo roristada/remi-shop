@@ -66,6 +66,14 @@ test("shopOrderBy sorts by the locale's name", () => {
   assert.deepEqual(shopOrderBy("name", "th")[0], { nameTH: "asc" });
 });
 
+test("shopOrderBy best-selling: most sold first, newest breaks ties", () => {
+  assert.deepEqual(shopOrderBy("best-selling", "th").slice(0, 2), [
+    { soldCount: "desc" },
+    { publishedAt: { sort: "desc", nulls: "last" } },
+  ]);
+  assert.equal(parseShopFilters({ sort: "best-selling" }).sort, "best-selling");
+});
+
 test("schemaAvailability", () => {
   assert.equal(schemaAvailability("ACTIVE"), "https://schema.org/InStock");
   assert.equal(schemaAvailability("ACTIVE", true), "https://schema.org/SoldOut");

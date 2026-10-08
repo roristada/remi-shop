@@ -19,6 +19,7 @@ type Props = {
   serverNow: string;
   /** "sm" = compact chip for product cards. */
   size?: "md" | "sm";
+  className?: string;
 };
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -33,7 +34,7 @@ function hms(ms: number) {
  * Bangkok day, then "เปิดขายใน 20:06:17" ticking down. Display only — when it reaches zero the
  * page refreshes and the server decides the real price and state.
  */
-export function DeadlineNotice({ kind, at, serverNow, size = "md" }: Props) {
+export function DeadlineNotice({ kind, at, serverNow, size = "md", className }: Props) {
   const t = useTranslations("shop.deadline");
   const dateLocale = intlLocale(useLocale()).date;
   const router = useRouter();
@@ -76,6 +77,7 @@ export function DeadlineNotice({ kind, at, serverNow, size = "md" }: Props) {
         "inline-flex max-w-full items-center rounded-full",
         mode === "countdown" ? "bg-accent" : "bg-secondary",
         sm ? "min-h-7 gap-1.5 px-2.5 py-1 text-xs whitespace-nowrap" : "min-h-9 gap-2 px-3 py-1.5 text-sm",
+        className,
       )}
       title={sm ? full : undefined}
     >

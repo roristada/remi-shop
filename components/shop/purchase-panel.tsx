@@ -9,6 +9,7 @@ import { ProductPrice } from "./product-price";
 import { DiscountBadge } from "./discount-badge";
 import { DeadlineNotice } from "./deadline-notice";
 import { VariantPurchase } from "./variant-purchase";
+import { WaitlistButton } from "./waitlist-button";
 import { pickDeadline } from "@/lib/products/deadline";
 
 type Props = {
@@ -24,10 +25,14 @@ type Props = {
   variantImages?: Record<string, string>;
   /** The latest version has no file yet, so the store emails it instead of an instant download. */
   emailDelivery?: boolean;
+  /** Signed-in customer is on this product's waitlist (only meaningful while SCHEDULED). */
+  waitlisted?: boolean;
+  /** Customers waiting for this product, including this one. */
+  waitlistCount?: number;
 };
 
 /** Price, sale state and the buy action. Every value here is computed server-side. */
-export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now, product, options, variantImages = {}, emailDelivery = false }: Props) {
+export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now, product, options, variantImages = {}, emailDelivery = false, waitlisted = false, waitlistCount = 0 }: Props) {
   const t = useTranslations("shop.product");
   const hasVariants = options.length !== 1 || options[0].variantId !== null;
   const single = hasVariants ? null : options[0];
@@ -90,6 +95,8 @@ export function PurchasePanel({ price, status, saleStartAt, saleEndAt, now, prod
           images={variantImages}
           emailDelivery={emailDelivery}
         />
+      ) : status === "SCHEDULED" ? (
+        <WaitlistButton productId={product.id} productSlug={product.slug} initialJoined={waitlisted} initialCount={waitlistCount} />
       ) : purchasable && single && !soldOut ? (
         <AddToCartButton productId={product.id} productSlug={product.slug} initialState={single.state} emailDelivery={emailDelivery} />
       ) : (

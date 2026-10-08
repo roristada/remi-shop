@@ -11,6 +11,7 @@ import {
 } from "@/lib/notifications/rules";
 import { idSchema } from "@/lib/validation/product";
 import { syncReviewReminders } from "@/lib/notifications/review-reminders";
+import { syncWaitlistNotifications } from "@/lib/notifications/waitlist";
 import { countCartItems } from "@/lib/cart/queries";
 
 export type NotificationView = {
@@ -29,16 +30,18 @@ export type HeaderState = { cartCount: number; unread: number | null };
 
 /**
  * Cart and unread-notification badges in one request, so the header costs a single function call.
- * Due review reminders are created first so they show in the unread count.
+ * Due review reminders and "now on sale" notices are created first so they show in the unread count.
  */
 export async function getHeaderState(): Promise<HeaderState> {
   const user = await getCurrentUser();
   if (!user) return { cartCount: 0, unread: null };
-  try {
-    await syncReviewReminders(user.id);
-  } catch (error) {
-    // A reminder can wait for the next refresh; the badges must still load.
-    console.error("[notifications] review reminders failed", { message: (error as Error).message });
+  // Either can wait for the next refresh; the badges must still load.
+  const [reminders, waitlist] = await Promise.allSettled([syncReviewReminders(user.id), syncWaitlistNotifications(user.id)]);
+  if (reminders.status === "rejected") {
+    console.error("[notifications] review reminders failed", { message: (reminders.reason as Error).message });
+  }
+  if (waitlist.status === "rejected") {
+    console.error("[notifications] waitlist notices failed", { message: (waitlist.reason as Error).message });
   }
   const [cartCount, unread] = await Promise.all([
     countCartItems(user.id),

@@ -34,6 +34,7 @@ import { ReviewSection } from "@/components/reviews/review-section";
 import { ratingAverage } from "@/lib/reviews/rules";
 import { WishlistButton } from "@/components/shop/wishlist-button";
 import { isWishlisted } from "@/lib/wishlist/queries";
+import { countWaitlist, isOnWaitlist } from "@/lib/waitlist/queries";
 import { richTextToPlain } from "@/lib/rich-text";
 import { sanitizeRichText } from "@/lib/rich-text-sanitize";
 
@@ -125,12 +126,15 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
   }));
 
   const userId = user?.id ?? null;
-  const [licenseOffers, purchaseOptions, variantImagePaths, wishlisted] = await Promise.all([
+  const [licenseOffers, purchaseOptions, variantImagePaths, wishlisted, waitlisted, waitlistCount] = await Promise.all([
     // A license can be requested only while the product is on sale.
     status === "ACTIVE" ? getLicenseOffers(product.id) : Promise.resolve([]),
     getPurchaseOptions(userId, product.id, locale, now),
     listVariantImages(product.id),
     userId ? isWishlisted(userId, product.id) : false,
+    userId && status === "SCHEDULED" ? isOnWaitlist(userId, product.id) : false,
+    // Real count shown to everyone while the product waits to open (social proof).
+    status === "SCHEDULED" ? countWaitlist(product.id) : 0,
   ]);
   const variantImages = Object.fromEntries(
     purchaseOptions.flatMap((o) => {
@@ -211,11 +215,15 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
         </ol>
       </nav>
 
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-10">
+      {/* Desktop: gallery and description share the left column, so a tall buy column leaves no gap under
+          the pictures; the description row takes the leftover height. Phones keep gallery → buy → description. */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:grid-rows-[auto_1fr] lg:gap-x-10 lg:gap-y-16">
         <SelectedVariantProvider initialId={initialVariantId}>
-          <ProductGallery images={images} variantImages={variantImages} />
+          <div className="lg:col-start-1 lg:row-start-1">
+            <ProductGallery images={images} variantImages={variantImages} />
+          </div>
 
-          <div className="space-y-5">
+          <div className="space-y-5 lg:col-start-2 lg:row-span-2 lg:row-start-1">
             <div className="space-y-2">
               <Link
                 href={`/category/${product.category.slug}`}
@@ -227,7 +235,15 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
                 <h1 className="font-sans text-2xl leading-snug font-semibold text-balance sm:text-[2rem]">{name}</h1>
                 <WishlistButton productId={product.id} productSlug={product.slug} initialWishlisted={wishlisted} />
               </div>
-              <StarRating average={ratingAverage(product.ratingSum, product.ratingCount)} count={product.ratingCount} />
+              {/* Real units sold (Product.soldCount); the catalog cache can trail a fresh sale by a few minutes. */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <StarRating average={ratingAverage(product.ratingSum, product.ratingCount)} count={product.ratingCount} />
+                {product.soldCount > 0 && (
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    · {t("sold", { count: product.soldCount })}
+                  </span>
+                )}
+              </div>
             </div>
 
             <PurchasePanel
@@ -240,6 +256,8 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
               options={purchaseOptions}
               variantImages={Object.fromEntries(Object.entries(variantImages).map(([k, v]) => [k, v.url]))}
               emailDelivery={!latest || latest.files.length === 0}
+              waitlisted={waitlisted}
+              waitlistCount={waitlistCount}
             />
 
             {details.length > 0 && (
@@ -272,28 +290,27 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
 
             {licenseOffers.length > 0 && <LicenseOfferPanel offers={licenseOffers} productSlug={product.slug} />}
           </div>
+
+            <section aria-labelledby="description-heading" className="space-y-3 self-start lg:col-start-1 lg:row-start-2">
+              <h2 id="description-heading" className="text-xl">
+                {t("description")}
+              </h2>
+              {description ? (
+                // Sanitized here as well as on save: only editor formatting and safe links survive.
+                <div className="rich-text text-base leading-relaxed" dangerouslySetInnerHTML={{ __html: sanitizeRichText(description) }} />
+              ) : (
+                <p className="text-muted-foreground">{t("noDescription")}</p>
+              )}
+              {requirements && (
+                <div className="space-y-1 pt-2">
+                  <h3>{t("requirements")}</h3>
+                  <p className="text-sm whitespace-pre-line text-muted-foreground">{requirements}</p>
+                </div>
+              )}
+            </section>
         </SelectedVariantProvider>
       </div>
 
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
-        <section aria-labelledby="description-heading" className="space-y-3">
-          <h2 id="description-heading" className="text-xl">
-            {t("description")}
-          </h2>
-          {description ? (
-            // Sanitized here as well as on save: only editor formatting and safe links survive.
-            <div className="rich-text text-base leading-relaxed" dangerouslySetInnerHTML={{ __html: sanitizeRichText(description) }} />
-          ) : (
-            <p className="text-muted-foreground">{t("noDescription")}</p>
-          )}
-          {requirements && (
-            <div className="space-y-1 pt-2">
-              <h3>{t("requirements")}</h3>
-              <p className="text-sm whitespace-pre-line text-muted-foreground">{requirements}</p>
-            </div>
-          )}
-        </section>
-      </div>
 
       <Suspense fallback={<Skeleton className="h-48 rounded-2xl" />}>
         <ReviewSection productId={product.id} productName={name} productSlug={product.slug} />
