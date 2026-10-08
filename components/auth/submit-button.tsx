@@ -9,12 +9,13 @@ export function SubmitButton({
   pending,
   children,
   className,
+  disabled,
   ...props
 }: ComponentProps<typeof Button> & { pending: boolean }) {
   return (
     <Button
       type="submit"
-      disabled={pending}
+      disabled={pending || disabled}
       aria-busy={pending}
       className={cn("h-11 w-full rounded-full text-sm font-semibold", className)}
       {...props}

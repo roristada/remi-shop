@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { MailCheck } from "lucide-react";
 import { Link } from "@/i18n/navigation";
@@ -8,12 +8,20 @@ import { resendVerification } from "@/lib/auth/actions";
 import { initialFormState } from "@/lib/auth/form-state";
 import { FormMessage, TextField } from "./form-fields";
 import { SubmitButton } from "./submit-button";
+import { useCooldown } from "./use-cooldown";
 
 /** "Check your inbox" message with a resend form. Email is prefilled when known. */
 export function VerifyEmailPanel({ email }: { email?: string }) {
   const t = useTranslations("auth");
   const locale = useLocale();
   const [state, action, pending] = useActionState(resendVerification, initialFormState);
+  // A confirmation email was just sent when we arrive here from sign-up with a known email.
+  const cooldown = useCooldown(undefined, Boolean(email));
+  const { start } = cooldown;
+
+  useEffect(() => {
+    if (state.status === "success" || state.error === "rate_limited") start();
+  }, [state, start]);
 
   return (
     <div className="space-y-5 text-center">
@@ -44,8 +52,8 @@ export function VerifyEmailPanel({ email }: { email?: string }) {
             error={state.fieldErrors?.email}
           />
         )}
-        <SubmitButton pending={pending} variant="secondary">
-          {t("verify.resend")}
+        <SubmitButton pending={pending} disabled={cooldown.remaining > 0} variant="secondary">
+          {cooldown.remaining > 0 ? t("resendIn", { seconds: cooldown.remaining }) : t("verify.resend")}
         </SubmitButton>
       </form>
 
