@@ -4,6 +4,7 @@ import { idSchema } from "@/lib/validation/product";
 import { checkDownloadAccess, recordDownload } from "@/lib/downloads/queries";
 import { createSignedDownloadUrl } from "@/lib/storage/product-storage";
 import { BUCKETS } from "@/lib/storage/buckets";
+import { clientMeta, logSecurityEvent } from "@/lib/security/log";
 
 type Locale = "th" | "en";
 
@@ -41,7 +42,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const now = new Date();
   const access = await checkDownloadAccess(user.id, fileId, now);
-  if (!access.ok) return fail(access.code === "not_found" ? 404 : 403, access.code);
+  if (!access.ok) {
+    logSecurityEvent("download denied", { code: access.code, userId: user.id, fileId, ...clientMeta(request.headers) });
+    return fail(access.code === "not_found" ? 404 : 403, access.code);
+  }
 
   const url = await createSignedDownloadUrl(BUCKETS.digitalFiles, access.storagePath, access.fileName);
   if (!url) {

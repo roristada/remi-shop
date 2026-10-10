@@ -1,11 +1,13 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma/client";
 import { requireUser } from "@/lib/auth/guards";
 import { authErrorKey } from "@/lib/auth/errors";
+import { clientMeta, logSecurityEvent } from "@/lib/security/log";
 import { safeNextPath, siteUrl, toLocale } from "@/lib/auth/redirect";
 import type { FormState } from "@/lib/auth/form-state";
 import {
@@ -39,7 +41,11 @@ export async function login(_prev: FormState, formData: FormData): Promise<FormS
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
-  if (error) return { status: "error", error: authErrorKey(error), email: parsed.data.email };
+  if (error) {
+    // No email in the log — the masked IP is enough to spot credential stuffing.
+    logSecurityEvent("login failed", { code: error.code ?? error.status, ...clientMeta(await headers()) });
+    return { status: "error", error: authErrorKey(error), email: parsed.data.email };
+  }
 
   redirect(safeNextPath(field(formData, "next"), `/${locale}/account`));
 }

@@ -2,11 +2,16 @@ import { NextResponse, type NextRequest } from "next/server";
 import createIntlMiddleware from "next-intl/middleware";
 import { routing } from "@/i18n/routing";
 import { updateSession } from "@/lib/supabase/proxy";
+import { clientMeta, isProbePath, logSecurityEvent } from "@/lib/security/log";
 
 const handleI18n = createIntlMiddleware(routing);
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (isProbePath(pathname)) {
+    logSecurityEvent("probe path", { path: pathname.slice(0, 200), method: request.method, ...clientMeta(request.headers) });
+  }
 
   // Admin is not localized; /th/admin/... and /en/admin/... are common typos.
   const localizedAdmin = /^\/(?:th|en)(\/admin(?:\/.*)?)$/.exec(pathname);

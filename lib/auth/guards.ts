@@ -1,9 +1,10 @@
 import "server-only";
 import { cache } from "react";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma/client";
+import { clientMeta, logSecurityEvent } from "@/lib/security/log";
 
 /** Verified auth user for this request (validated against Supabase Auth), or null. */
 export const getCurrentUser = cache(async () => {
@@ -41,6 +42,10 @@ export async function requireUser(loginPath = "/th/login") {
  */
 export async function requireAdmin() {
   const profile = await getCurrentProfile();
-  if (!profile || profile.role !== "ADMIN") notFound();
+  if (!profile || profile.role !== "ADMIN") {
+    // Anonymous hits are routine (bots, stale tabs); a signed-in non-admin is worth noting.
+    if (profile) logSecurityEvent("admin access denied", { userId: profile.id, ...clientMeta(await headers()) });
+    notFound();
+  }
   return profile;
 }
