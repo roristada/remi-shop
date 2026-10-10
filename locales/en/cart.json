@@ -17,7 +17,8 @@
     "ownedEmailHint": "Files are emailed within 7 business days.",
     "inOrder": "This product is in an order awaiting payment",
     "viewOrders": "View orders",
-    "loginHint": "Sign in to add products to your cart."
+    "loginHint": "Sign in to add products to your cart.",
+    "withAddons": "Plus {count, plural, one {# add-on} other {# add-ons}}"
   },
   "errors": {
     "LOGIN_REQUIRED": "Please sign in first.",
@@ -43,6 +44,7 @@
     "discount": "Discount",
     "total": "Total",
     "checkout": "Place order and pay",
+    "checkoutFree": "Get it free",
     "checkoutHint": "Pay with a PromptPay QR, then attach your slip on the order page.",
     "problem": {
       "UNAVAILABLE": "No longer on sale",
@@ -62,7 +64,12 @@
     "step3": "Download once the store confirms it",
     "step3Email": "The store emails your files within 7 business days",
     "step3Mixed": "Download once the store confirms it; items without files yet are emailed within 7 business days",
-    "itemsHeading": "Items"
+    "freeStep1": "No payment needed — the order completes right away",
+    "freeStep2": "Download your files straight away on the Downloads page",
+    "freeStep2Email": "The store emails your files within 7 business days",
+    "freeStep2Mixed": "Download right away; items without files yet are emailed within 7 business days",
+    "itemsHeading": "Items",
+    "addonOf": "Add-on for {name} · removed if you remove that product"
   },
   "status": {
     "PENDING_PAYMENT": "Awaiting payment",
@@ -136,10 +143,6 @@
       "NOTHING_TO_ORDER": "The products in this order cannot be bought right now (off sale, or you already own them)",
       "ERROR": "Something went wrong. Please try again"
     },
-    "gallery": "Gallery",
-    "galleryBack": "Back to the order",
-    "viewList": "List",
-    "viewLabel": "View",
     "toReview": "{count, plural, one {# item} other {# items}} waiting for your review",
     "toReviewHint": "Rate until {date} — just tap the stars, no text needed"
   },

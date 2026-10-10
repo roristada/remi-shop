@@ -111,6 +111,8 @@ export type CartLineView = CheckoutLine & {
   version: { number: string; fileCount: number; totalBytes: number } | null;
   /** null = unlimited downloads per file. */
   downloadLimit: number | null;
+  /** Name of the product this line was added with as an add-on (while that product is in the cart). */
+  addonOf: string | null;
 };
 
 /** What the buy button on a product page should offer this visitor for one line. */
@@ -212,6 +214,7 @@ export async function getCartView(userId: string, locale: string, now: Date = ne
         },
       },
       variant: { select: checkoutVariantSelect(now) },
+      addedWithProductId: true,
     },
   });
 
@@ -220,7 +223,8 @@ export async function getCartView(userId: string, locale: string, now: Date = ne
     items.map((i) => i.product.id),
     now,
   );
-  const lines: CartLineView[] = items.map(({ product, variant }) => {
+  const mainNames = new Map(items.map((i) => [i.product.id, localized(locale, i.product.nameTH, i.product.nameEN)]));
+  const lines: CartLineView[] = items.map(({ product, variant, addedWithProductId }) => {
     const name = localized(locale, product.nameTH, product.nameEN);
     const image = product.images[0];
     return {
@@ -233,6 +237,7 @@ export async function getCartView(userId: string, locale: string, now: Date = ne
       fileFormat: product.fileFormat,
       version: latestVersionFor(product.versions[0], variant?.id ?? null),
       downloadLimit: product.downloadLimit,
+      addonOf: addedWithProductId ? (mainNames.get(addedWithProductId) ?? null) : null,
       image: image
         ? { url: previewImageSrc(image, "card"), alt: localized(locale, image.altTextTH, image.altTextEN) || name }
         : null,

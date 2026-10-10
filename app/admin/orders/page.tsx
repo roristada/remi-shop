@@ -68,6 +68,10 @@ function toSummary(o: AdminOrderListRow): OrderSummary {
     discount: discount > 0 ? money(o.discount) : null,
     total: money(o.total),
     note: o.adminNote?.body ?? null,
+    filesEmail:
+      o.kind === "PRODUCT" && o.status === "COMPLETED" && emailed.size > 0
+        ? { sentAt: o.filesEmailedAt ? formatBangkokDateTime(o.filesEmailedAt) : null }
+        : undefined,
   };
 }
 
@@ -121,7 +125,9 @@ export default async function AdminOrdersPage({ searchParams }: PageProps<"/admi
           defaultValue={filters.delivery ?? "all"}
           options={[
             { value: "all", label: "ทุกการส่งไฟล์" },
-            { value: "email", label: "ต้องส่งไฟล์ทางอีเมล" },
+            { value: "email", label: "มีไฟล์ส่งทางอีเมล" },
+            { value: "emailPending", label: "รอส่งไฟล์ทางอีเมล" },
+            { value: "emailSent", label: "ส่งไฟล์ทางอีเมลแล้ว" },
           ]}
           wrapperClassName="w-48 space-y-0"
         />
@@ -171,8 +177,23 @@ export default async function AdminOrdersPage({ searchParams }: PageProps<"/admi
                       <p className="text-xs text-muted-foreground">{formatBangkokDateTime(o.createdAt)}</p>
                       {/* Shown on every screen size: the products column is hidden on phones. */}
                       {emailCount > 0 && (
-                        <Badge className="mt-1 bg-secondary text-secondary-foreground">
-                          <Mail aria-hidden /> ส่งทางอีเมล {emailCount === lines.length ? "ทั้งหมด" : `${emailCount} รายการ`}
+                        <Badge
+                          className={cn(
+                            "mt-1",
+                            // Delivery status, separate from payment: only paid orders still owe the email.
+                            o.status === "COMPLETED"
+                              ? o.filesEmailedAt
+                                ? "bg-success/10 text-success"
+                                : "bg-warning/15 text-warning"
+                              : "bg-secondary text-secondary-foreground",
+                          )}
+                        >
+                          <Mail aria-hidden />
+                          {o.status === "COMPLETED"
+                            ? o.filesEmailedAt
+                              ? "ส่งไฟล์ทางอีเมลแล้ว"
+                              : "รอส่งไฟล์ทางอีเมล"
+                            : `ส่งทางอีเมล ${emailCount === lines.length ? "ทั้งหมด" : `${emailCount} รายการ`}`}
                         </Badge>
                       )}
                     </TableCell>

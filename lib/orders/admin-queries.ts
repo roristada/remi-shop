@@ -11,7 +11,9 @@ export const ORDER_EXPORT_LIMIT = 5000;
 function orderWhere(f: AdminOrderFilters): Prisma.OrderWhereInput {
   return {
     ...(f.status ? { status: f.status } : {}),
-    ...(f.delivery === "email" ? { kind: "PRODUCT" as const, AND: [{ items: { some: lineWithoutFilesWhere() } }] } : {}),
+    ...(f.delivery ? { kind: "PRODUCT" as const, AND: [{ items: { some: lineWithoutFilesWhere() } }] } : {}),
+    ...(f.delivery === "emailPending" ? { status: "COMPLETED" as const, filesEmailedAt: null } : {}),
+    ...(f.delivery === "emailSent" ? { filesEmailedAt: { not: null } } : {}),
     ...(f.from || f.to ? { createdAt: { ...(f.from ? { gte: f.from } : {}), ...(f.to ? { lte: f.to } : {}) } } : {}),
     ...(f.q
       ? {
@@ -36,9 +38,10 @@ const ORDER_ROW_SELECT = {
   total: true,
   createdAt: true,
   paidAt: true,
+  filesEmailedAt: true,
   user: { select: { email: true, displayName: true } },
   adminNote: { select: { body: true } },
-  items: { orderBy: { id: "asc" }, select: { productNameTHSnapshot: true, variantNameTHSnapshot: true, finalPrice: true } },
+  items: { orderBy: { id: "asc" }, select: { productNameTHSnapshot: true, variantNameTHSnapshot: true, finalPrice: true, cost: true } },
   // LICENSE orders have no items; the request's usage types are what was paid for.
   licenseRequest: {
     select: {
@@ -70,6 +73,7 @@ const ORDER_LIST_SELECT = {
       unitPrice: true,
       discount: true,
       finalPrice: true,
+      cost: true,
       variantId: true,
       product: {
         select: {
@@ -117,7 +121,8 @@ export async function listOrdersForExport(f: AdminOrderFilters) {
 }
 
 /** What an order is for, one line per product (or per license usage type). */
-export function orderLines(o: AdminOrderRow): { name: string; price: Prisma.Decimal }[] {
+/** `cost`: recorded cost of a product line (null = not recorded yet); license lines have none (undefined). */
+export function orderLines(o: AdminOrderRow): { name: string; price: Prisma.Decimal; cost?: Prisma.Decimal | null }[] {
   if (o.licenseRequest) {
     const product = o.licenseRequest.productNameTHSnapshot;
     return o.licenseRequest.items.map((i) => ({ name: `${product} — License: ${i.nameTHSnapshot}`, price: i.price }));
@@ -125,5 +130,6 @@ export function orderLines(o: AdminOrderRow): { name: string; price: Prisma.Deci
   return o.items.map((i) => ({
     name: i.variantNameTHSnapshot ? `${i.productNameTHSnapshot} (${i.variantNameTHSnapshot})` : i.productNameTHSnapshot,
     price: i.finalPrice,
+    cost: i.cost,
   }));
 }

@@ -19,6 +19,8 @@
     "ADMIN_LICENSE_REQUESTED": "New license request: {product}",
     "REVIEW_REMINDER": "You bought {product} — leave a quick star rating (no text needed)",
     "PRODUCT_AVAILABLE": "{product} is now on sale. Order it now",
-    "PRODUCT_FILES_UPDATED": "{product} has updated files, ready to download"
+    "PRODUCT_FILES_UPDATED": "{product} has updated files, ready to download",
+    "LICENSE_CHANGES_REQUESTED": "The store needs more details or proposed a new price for your license request for {product}",
+    "ADMIN_LICENSE_RESPONDED": "Customer replied on a license request: {product}"
   }
 }

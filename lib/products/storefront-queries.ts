@@ -416,22 +416,6 @@ export async function listRelatedProducts(
 }
 
 /**
- * The one home-page banner slot: the highest-priority live announcement, or null when none is
- * running. Never render a discount here unless it is this real row's own content.
- */
-export function getActiveAnnouncement(now: Date = new Date()) {
-  return prisma.announcement.findFirst({
-    where: {
-      isActive: true,
-      OR: [{ startAt: null }, { startAt: { lte: now } }],
-      AND: [{ OR: [{ endAt: null }, { endAt: { gt: now } }] }],
-    },
-    orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
-    select: { titleTH: true, titleEN: true, descriptionTH: true, descriptionEN: true, imagePath: true, link: true },
-  });
-}
-
-/**
  * Visible categories with a product count. `facetFilters` folds in search/on-sale/coming-soon so the
  * sidebar's counts stay honest under those, independent of the other facet groups — see
  * `facetBaseWhere`.

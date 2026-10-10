@@ -18,7 +18,7 @@ type Props = {
 
 /**
  * Plain GET form: works without JavaScript and keeps filters in the URL. File type, software and
- * price live in `ShopSidebarFilters` instead — this bar only carries search/sort/on-sale/coming-soon.
+ * price live in `ShopSidebarFilters` instead — this bar only carries search/sort/on-sale (plus coming-soon when arriving from the homepage).
  */
 export function ShopFilterForm({ filters, action, hiddenFields, clearHref = action }: Props) {
   const t = useTranslations("shop.filters");
@@ -81,16 +81,8 @@ export function ShopFilterForm({ filters, action, hiddenFields, clearHref = acti
         />
         {t("onSale")}
       </label>
-      <label className="flex h-10 cursor-pointer items-center gap-2 rounded-xl border border-input bg-background px-3 text-sm">
-        <input
-          type="checkbox"
-          name="soon"
-          value="1"
-          defaultChecked={filters.soon}
-          className="size-4 accent-brand-strong"
-        />
-        {t("comingSoon")}
-      </label>
+      {/* No checkbox (client request): reachable only from the homepage "coming soon" view-all link. */}
+      {filters.soon && <input type="hidden" name="soon" value="1" />}
       <Button type="submit" className="h-10 rounded-xl px-5">
         {t("apply")}
       </Button>

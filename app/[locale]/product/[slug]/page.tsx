@@ -28,6 +28,8 @@ import { SelectedVariantProvider, VariantFileList } from "@/components/shop/sele
 import { defaultVariantId } from "@/lib/cart/selection";
 import { ProductGrid } from "@/components/shop/product-grid";
 import { LicenseOfferPanel } from "@/components/shop/license-offer";
+import { AddonPicker, AddonSelectionProvider } from "@/components/shop/addon-picker";
+import { listStorefrontAddons } from "@/lib/addons/queries";
 import { getLicenseOffers } from "@/lib/licenses/queries";
 import { StarRating } from "@/components/shop/star-rating";
 import { ReviewSection } from "@/components/reviews/review-section";
@@ -126,7 +128,7 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
   }));
 
   const userId = user?.id ?? null;
-  const [licenseOffers, purchaseOptions, variantImagePaths, wishlisted, waitlisted, waitlistCount] = await Promise.all([
+  const [licenseOffers, purchaseOptions, variantImagePaths, wishlisted, waitlisted, waitlistCount, addons] = await Promise.all([
     // A license can be requested only while the product is on sale.
     status === "ACTIVE" ? getLicenseOffers(product.id) : Promise.resolve([]),
     getPurchaseOptions(userId, product.id, locale, now),
@@ -135,6 +137,8 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
     userId && status === "SCHEDULED" ? isOnWaitlist(userId, product.id) : false,
     // Real count shown to everyone while the product waits to open (social proof).
     status === "SCHEDULED" ? countWaitlist(product.id) : 0,
+    // Add-ons are only offered while the product itself is on sale.
+    status === "ACTIVE" ? listStorefrontAddons(product.id, userId, locale, now) : Promise.resolve([]),
   ]);
   const variantImages = Object.fromEntries(
     purchaseOptions.flatMap((o) => {
@@ -145,6 +149,9 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
   // Same start as the variant picker, so the file list matches it before any click.
   const pickerShown = status === "ACTIVE" && purchaseOptions.length > 0 && purchaseOptions[0].variantId !== null;
   const initialVariantId = pickerShown ? defaultVariantId(purchaseOptions) : null;
+  const singleOption = purchaseOptions.length === 1 && purchaseOptions[0].variantId === null ? purchaseOptions[0] : null;
+  // Whether the main buy button will still add the product (then it carries the ticked add-ons).
+  const mainAddable = pickerShown || singleOption?.state === "available" || singleOption?.state === "guest";
 
   const details = [
     { label: t("software"), value: product.softwareTags.map((st) => st.softwareTag.name).join(", ") || null },
@@ -246,19 +253,28 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
               </div>
             </div>
 
-            <PurchasePanel
-              price={price}
-              status={status}
-              saleStartAt={product.saleStartAt}
-              saleEndAt={product.saleEndAt}
-              now={now}
-              product={{ id: product.id, slug: product.slug }}
-              options={purchaseOptions}
-              variantImages={Object.fromEntries(Object.entries(variantImages).map(([k, v]) => [k, v.url]))}
-              emailDelivery={!latest || latest.files.length === 0}
-              waitlisted={waitlisted}
-              waitlistCount={waitlistCount}
-            />
+            <AddonSelectionProvider>
+              <PurchasePanel
+                price={price}
+                status={status}
+                saleStartAt={product.saleStartAt}
+                saleEndAt={product.saleEndAt}
+                now={now}
+                product={{ id: product.id, slug: product.slug }}
+                options={purchaseOptions}
+                variantImages={Object.fromEntries(Object.entries(variantImages).map(([k, v]) => [k, v.url]))}
+                emailDelivery={!latest || latest.files.length === 0}
+                waitlisted={waitlisted}
+                waitlistCount={waitlistCount}
+              />
+              <AddonPicker
+                productId={product.id}
+                productSlug={product.slug}
+                addons={addons}
+                mainPrice={singleOption ? singleOption.price.finalPrice : null}
+                mainAddable={mainAddable}
+              />
+            </AddonSelectionProvider>
 
             {details.length > 0 && (
               <section aria-labelledby="details-heading" className="space-y-3">

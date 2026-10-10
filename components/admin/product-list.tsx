@@ -4,7 +4,7 @@ import { useState, useTransition, type MouseEvent } from "react";
 import { PreviewImage } from "@/components/shared/preview-image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Copy, Eye, EyeOff, FilePen, FolderInput, FolderOpen, ImageOff, Link2, Loader2, MoreHorizontal, Pencil, Trash2, X } from "lucide-react";
+import { Copy, Eye, FilePen, FolderInput, FolderOpen, ImageOff, Link2, Loader2, MoreHorizontal, Pencil, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -26,7 +26,7 @@ import { runWithToast, SelectInput } from "@/components/admin/form-controls";
 import { ProductStatusBadge } from "@/components/admin/product-status-badge";
 import { bulkSetPublishStatus, deleteProduct, duplicateProduct, setPublishStatus } from "@/lib/products/admin-actions";
 import { setProductsFolder } from "@/lib/folders/actions";
-import type { ProductStatus } from "@/lib/products/status";
+import type { ProductStatus, SettablePublishStatus } from "@/lib/products/status";
 import type { PublishStatus } from "@/lib/generated/prisma/enums";
 import { cn } from "@/lib/utils";
 
@@ -59,10 +59,9 @@ export type ProductListView = "list" | "grid";
 
 export type FolderOption = { id: string; name: string };
 
-const PUBLISH_OPTIONS: { value: PublishStatus; label: string; icon: typeof Eye }[] = [
+const PUBLISH_OPTIONS: { value: SettablePublishStatus; label: string; icon: typeof Eye }[] = [
   { value: "PUBLISHED", label: "เผยแพร่", icon: Eye },
   { value: "DRAFT", label: "ฉบับร่าง", icon: FilePen },
-  { value: "DISABLED", label: "ซ่อนสินค้า", icon: EyeOff },
 ];
 
 const editHref = (id: string) => `/admin/products/${id}`;
@@ -280,7 +279,7 @@ function ProductCard({ row, folders, checked, onCheckedChange }: ItemProps) {
             label={`สถานะของ ${row.nameTH}`}
             hideLabel
             value={row.publishStatus}
-            onValueChange={(v) => changeStatus.run(v as PublishStatus)}
+            onValueChange={(v) => changeStatus.run(v as SettablePublishStatus)}
             options={PUBLISH_OPTIONS.map(({ value, label }) => ({ value, label }))}
             wrapperClassName="min-w-0 flex-1 space-y-0"
             className="h-9! text-xs"
@@ -317,7 +316,7 @@ function Price({ row }: { row: AdminProductRow }) {
 function useStatusChange(productId: string) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const run = (target: PublishStatus) =>
+  const run = (target: SettablePublishStatus) =>
     startTransition(async () => {
       if (await runWithToast(() => setPublishStatus(productId, target))) router.refresh();
     });
@@ -359,7 +358,7 @@ function QuickActions({ row }: { row: AdminProductRow }) {
         variant="ghost"
         className="text-destructive hover:text-destructive"
         aria-label={`ลบ ${row.nameTH}`}
-        title={row.hasOrders ? "มีคำสั่งซื้อแล้ว ลบไม่ได้ — ใช้ “ซ่อนสินค้า” แทน" : "ลบ"}
+        title={row.hasOrders ? "มีคำสั่งซื้อแล้ว ลบไม่ได้ — เปลี่ยนเป็น “ฉบับร่าง” แทน" : "ลบ"}
         disabled={row.hasOrders}
         onClick={() => setConfirmDelete(true)}
       >
@@ -478,7 +477,7 @@ function BulkBar({
   const pending = statusPending || moveFolder.pending;
   const count = selectedIds.length;
 
-  const apply = (target: PublishStatus) =>
+  const apply = (target: SettablePublishStatus) =>
     startTransition(async () => {
       if (!(await runWithToast(() => bulkSetPublishStatus(selectedIds, target)))) return;
       onClear();

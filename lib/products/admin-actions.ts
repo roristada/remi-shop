@@ -184,7 +184,9 @@ export async function updateProduct(productId: string, _prev: ActionResult<unkno
   return warned ? okNotice({ warnings }, "บันทึกแล้ว — โปรดตรวจช่วงเวลาที่ตั้งไว้") : ok({ warnings }, "บันทึกแล้ว");
 }
 
-const PUBLISH_TARGETS = ["DRAFT", "PUBLISHED", "DISABLED"] as const;
+// DISABLED ("ซ่อนสินค้า") was removed in UAT round 3: it did the same as DRAFT. The enum value
+// stays in the database for history, but nothing can set it any more.
+const PUBLISH_TARGETS = ["DRAFT", "PUBLISHED"] as const;
 type PublishTarget = (typeof PUBLISH_TARGETS)[number];
 
 
@@ -212,7 +214,6 @@ export async function setPublishStatus(productId: string, target: PublishTarget)
   const messages: Record<PublishTarget, string> = {
     PUBLISHED: "เผยแพร่แล้ว",
     DRAFT: "เปลี่ยนเป็นฉบับร่างแล้ว",
-    DISABLED: "ซ่อนสินค้าแล้ว",
   };
   return ok(undefined, messages[target]);
 }
@@ -241,7 +242,7 @@ export async function bulkSetPublishStatus(productIds: string[], target: Publish
 
   console.info("[products] bulk publish status changed", { count: eligible.length, skipped, target });
   revalidateCatalog();
-  const labels: Record<PublishTarget, string> = { PUBLISHED: "เผยแพร่", DRAFT: "เปลี่ยนเป็นฉบับร่าง", DISABLED: "ซ่อน" };
+  const labels: Record<PublishTarget, string> = { PUBLISHED: "เผยแพร่", DRAFT: "เปลี่ยนเป็นฉบับร่าง" };
   const skippedNote = skipped > 0 ? ` · ข้าม ${skipped} รายการ (ไม่พบสินค้า)` : "";
   const message = `${labels[target]} ${eligible.length} รายการแล้ว${skippedNote}`;
   return skipped > 0 ? okNotice(undefined, message) : ok(undefined, message);
@@ -387,14 +388,14 @@ export async function deleteProduct(productId: string): Promise<ActionResult> {
   });
   if (!product) return fail("ไม่พบสินค้า");
   if (product._count.orderItems > 0) {
-    return fail("สินค้านี้มีคำสั่งซื้อแล้ว ลบไม่ได้ — ใช้ “ซ่อนสินค้า” แทน");
+    return fail("สินค้านี้มีคำสั่งซื้อแล้ว ลบไม่ได้ — เปลี่ยนเป็น “ฉบับร่าง” แทน");
   }
 
   try {
     await prisma.product.delete({ where: { id: productId } });
   } catch (error) {
     // An order may have been created between the check and the delete (FK Restrict).
-    if (isForeignKeyViolation(error)) return fail("สินค้านี้มีคำสั่งซื้อแล้ว ลบไม่ได้ — ใช้ “ซ่อนสินค้า” แทน");
+    if (isForeignKeyViolation(error)) return fail("สินค้านี้มีคำสั่งซื้อแล้ว ลบไม่ได้ — เปลี่ยนเป็น “ฉบับร่าง” แทน");
     return writeError(error, "delete");
   }
 
@@ -432,7 +433,7 @@ export async function bulkDeleteProducts(productIds: string[]): Promise<ActionRe
 
   const skipped = ids.length - deleted.length;
   console.info("[products] bulk deleted", { count: deleted.length, skipped });
-  if (deleted.length === 0) return fail("ลบไม่ได้ — สินค้าที่เลือกมีคำสั่งซื้อแล้ว ใช้ “ซ่อนสินค้า” แทน");
+  if (deleted.length === 0) return fail("ลบไม่ได้ — สินค้าที่เลือกมีคำสั่งซื้อแล้ว เปลี่ยนเป็น “ฉบับร่าง” แทน");
   revalidateCatalog();
   const message = `ลบ ${deleted.length} รายการแล้ว`;
   return skipped > 0 ? okNotice(undefined, `${message} · ข้าม ${skipped} รายการที่มีคำสั่งซื้อแล้ว`) : ok(undefined, message);

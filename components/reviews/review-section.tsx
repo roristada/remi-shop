@@ -39,14 +39,14 @@ export async function ReviewSection({ productId, productName, productSlug }: { p
             <ReviewWriteButton productId={productId} productName={productName} productSlug={productSlug} hasSession={hasSession} />
           </div>
         </div>
-        <ul className="space-y-2" aria-label={t("distribution")}>
+        <ul className="w-full max-w-md space-y-1.5" aria-label={t("distribution")}>
           {summary.distribution.map((b) => (
-            <li key={b.stars} className="flex items-center gap-3 text-sm">
-              <span className="w-14 shrink-0 tabular-nums">{t("starsShort", { count: b.stars })}</span>
-              <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-secondary" role="img" aria-label={`${b.percent}%`}>
+            <li key={b.stars} className="flex items-center gap-2.5 text-sm leading-none">
+              <span className="w-14 shrink-0 whitespace-nowrap tabular-nums">{t("starsShort", { count: b.stars })}</span>
+              <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-secondary" role="img" aria-label={`${b.percent}%`}>
                 <div className="h-full rounded-full bg-brand-strong" style={{ width: `${b.percent}%` }} />
               </div>
-              <span className="w-16 shrink-0 text-right text-muted-foreground tabular-nums">
+              <span className="w-[4.75rem] shrink-0 whitespace-nowrap text-right text-xs text-muted-foreground tabular-nums">
                 {b.percent}% ({b.count})
               </span>
             </li>

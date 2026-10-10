@@ -60,6 +60,9 @@ function CartItem({ line, locale, t }: { line: CartLineView; locale: string; t: 
           {line.variantName && (
             <p className="inline-flex rounded-full bg-secondary px-2.5 py-0.5 text-xs">{line.variantName}</p>
           )}
+          {line.addonOf && (
+            <p className="text-xs text-muted-foreground">{t("cart.addonOf", { name: line.addonOf })}</p>
+          )}
         </div>
 
         {/* What the buyer actually receives: file metadata only, never a download link. */}
@@ -134,8 +137,12 @@ export default async function CartPage({ params }: PageProps<"/[locale]/cart">) 
 
   // Lines without a file yet are emailed by the store, so the last step must not promise a download.
   const withFiles = lines.filter((l) => l.version && l.version.fileCount > 0).length;
-  const step3 = withFiles === lines.length ? "cart.step3" : withFiles === 0 ? "cart.step3Email" : "cart.step3Mixed";
-  const steps = [t("cart.step1", { minutes: expiryMinutes }), t("cart.step2"), t(step3)];
+  const delivery = withFiles === lines.length ? "" : withFiles === 0 ? "Email" : "Mixed";
+  // Nothing to pay: the server completes the order at checkout (see `checkout`), so no QR or slip steps.
+  const free = totals.total === 0;
+  const steps = free
+    ? [t("cart.freeStep1"), t(`cart.freeStep2${delivery}`)]
+    : [t("cart.step1", { minutes: expiryMinutes }), t("cart.step2"), t(`cart.step3${delivery}`)];
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 py-8 sm:py-12">
@@ -178,7 +185,7 @@ export default async function CartPage({ params }: PageProps<"/[locale]/cart">) 
               {t("cart.problemNotice")}
             </p>
           )}
-          <CheckoutButton expectedTotal={totals.total} disabled={hasProblem} />
+          <CheckoutButton expectedTotal={totals.total} disabled={hasProblem} free={free} />
 
           {/* The real flow, in order: nothing here is instant, and the page says so. */}
           <div className="space-y-3 rounded-2xl bg-secondary/45 p-4">

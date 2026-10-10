@@ -15,6 +15,7 @@ import {
   Link2,
   List,
   ListOrdered,
+  Minus,
   Underline,
   Unlink,
 } from "lucide-react";
@@ -30,8 +31,8 @@ type Props = {
 };
 
 /**
- * Rich text for product descriptions: bold, italic, underline, headings, lists, alignment and
- * links. The stored HTML is sanitized on the server on save and again before it is shown.
+ * Rich text for product descriptions: bold, italic, underline, headings, lists, alignment,
+ * links and divider lines (pasted <hr>s are kept). The stored HTML is sanitized on the server on save and again before it is shown.
  */
 export function RichTextEditor({ label, name, defaultValue, error }: Props) {
   const [html, setHtml] = useState(() => toRichHtml(defaultValue));
@@ -116,6 +117,7 @@ function Toolbar({ editor }: { editor: Editor }) {
         <Divider />
         <Tool label="รายการแบบ Bullet" active={state.bullet} onClick={() => chain().toggleBulletList().run()} icon={<List />} />
         <Tool label="รายการแบบตัวเลข" active={state.ordered} onClick={() => chain().toggleOrderedList().run()} icon={<ListOrdered />} />
+        <Tool label="เส้นกั้น" onClick={() => chain().setHorizontalRule().run()} icon={<Minus />} />
         <Divider />
         <Tool label="ชิดซ้าย" active={state.left} onClick={() => chain().setTextAlign("left").run()} icon={<AlignLeft />} />
         <Tool label="กึ่งกลาง" active={state.center} onClick={() => chain().setTextAlign("center").run()} icon={<AlignCenter />} />

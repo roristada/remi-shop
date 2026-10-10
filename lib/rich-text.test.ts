@@ -21,6 +21,10 @@ test("sanitizeRichText keeps editor formatting and makes links safe", () => {
   assert.match(html, /<a href="https:\/\/x.dev" target="_blank" rel="noopener noreferrer nofollow">link<\/a>/);
 });
 
+test("sanitizeRichText keeps divider lines", () => {
+  assert.equal(sanitizeRichText('<p>a</p><hr class="x" style="color:red"><p>b</p>'), "<p>a</p><hr /><p>b</p>");
+});
+
 test("sanitizeRichText strips scripts, event handlers and javascript: links", () => {
   const html = sanitizeRichText(
     '<p onclick="alert(1)">hi</p><script>alert(1)</script><a href="javascript:alert(1)">x</a><img src=x onerror=alert(1)><p style="color:red;text-align:left">c</p>',

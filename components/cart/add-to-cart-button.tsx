@@ -9,6 +9,7 @@ import { Link, useRouter } from "@/i18n/navigation";
 import { addToCart } from "@/lib/cart/actions";
 import type { PurchaseState } from "@/lib/cart/queries";
 import { emitCartAdded } from "./cart-events";
+import { useAddonSelection } from "@/components/shop/addon-picker";
 
 type Props = {
   productId: string;
@@ -29,6 +30,8 @@ export function AddToCartButton({ productId, variantId = null, productSlug, init
   const router = useRouter();
   const [state, setState] = useState(initialState);
   const [pending, startTransition] = useTransition();
+  // Add-ons ticked on the product page go in with the product (no provider = none).
+  const addons = useAddonSelection();
 
   if (state === "owned" || state === "inOrder") {
     return (
@@ -68,10 +71,16 @@ export function AddToCartButton({ productId, variantId = null, productSlug, init
 
   function onAdd() {
     startTransition(async () => {
-      const result = await addToCart(productId, variantId, locale);
+      const result = await addToCart(productId, variantId, locale, addons?.ids ?? []);
       if (result.ok) {
         setState("inCart");
         emitCartAdded({ item: result.item, count: result.count });
+        if (addons && addons.ids.length > 0) {
+          if (result.addons > 0) toast.success(t("add.withAddons", { count: result.addons }));
+          addons.clear();
+          // Add-on rows now show "in cart".
+          router.refresh();
+        }
         return;
       }
       if (result.code === "LOGIN_REQUIRED") {

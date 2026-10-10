@@ -14,6 +14,8 @@ import { cn } from "@/lib/utils";
 
 const LICENSE_STATUS: Record<LicenseRequestStatus, { label: string; className: string }> = {
   PENDING_REVIEW: { label: "รอพิจารณา", className: "bg-secondary text-secondary-foreground" },
+  NEEDS_INFO: { label: "รอข้อมูลจากลูกค้า", className: "bg-warning/15 text-warning" },
+  AWAITING_PRICE_CONFIRMATION: { label: "รอลูกค้ายืนยันราคา", className: "bg-warning/15 text-warning" },
   APPROVED: { label: "อนุมัติแล้ว", className: "bg-success/10 text-success" },
   REJECTED: { label: "ไม่อนุมัติ", className: "bg-destructive/10 text-destructive" },
   CANCELLED: { label: "ยกเลิก", className: "bg-muted text-muted-foreground" },

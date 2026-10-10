@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ExternalLink, ImageOff, ListChecks } from "lucide-react";
+import { ChevronRight, ExternalLink, FormInput, ImageOff, ListChecks } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/guards";
 import { formatBangkokDateTime } from "@/lib/datetime";
 import { formatTHB, toHundredths } from "@/lib/pricing/calculate";
@@ -13,26 +13,26 @@ import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/shared/pagination";
 import { ReviewActions } from "@/components/admin/review-actions";
 import { approveLicenseRequest, rejectLicenseRequest } from "@/lib/licenses/admin-actions";
+import { LICENSE_REJECT_REASONS, LICENSE_STATUS_TH, ORDER_STATUS_TH } from "@/lib/licenses/admin-labels";
+import { listActiveFormFields } from "@/lib/licenses/form-queries";
+import { ARTWORK_FIELD_ID } from "@/lib/licenses/form-fields";
+import { LicenseSendBackDialog } from "@/components/admin/license-send-back-dialog";
 import { cn } from "@/lib/utils";
 
 function one(v: string | string[] | undefined) {
   return typeof v === "string" ? v : undefined;
 }
 
-const ORDER_STATUS_TH = {
-  PENDING_PAYMENT: "รอชำระเงิน",
-  WAITING_REVIEW: "รอตรวจสลิป",
-  PAYMENT_REJECTED: "สลิปไม่ผ่าน",
-  COMPLETED: "ชำระแล้ว (สิทธิ์มีผล)",
-  CANCELLED: "ยกเลิก / หมดเวลาชำระ",
-} as const;
-
 export default async function AdminLicensesPage({ searchParams }: PageProps<"/admin/licenses">) {
   await requireAdmin();
   const sp = await searchParams;
   const tab: LicenseTab = (Object.keys(LICENSE_TABS) as LicenseTab[]).find((k) => k === one(sp.tab)) ?? "pending";
   const page = Math.max(1, Math.min(10_000, Number.parseInt(one(sp.page) ?? "1", 10) || 1));
-  const { items, total, pendingCount, pageCount } = await listLicenseRequestsForReview(tab, page);
+  const [{ items, total, pendingCount, pageCount }, fields] = await Promise.all([
+    listLicenseRequestsForReview(tab, page),
+    listActiveFormFields(),
+  ]);
+  const flaggable = [...fields.map((f) => ({ id: f.id, label: f.labelTH })), { id: ARTWORK_FIELD_ID, label: "รูปผลงาน" }];
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -41,11 +41,18 @@ export default async function AdminLicensesPage({ searchParams }: PageProps<"/ad
           <h1 className="text-2xl">คำขอ Commercial license</h1>
           <p className="text-sm text-muted-foreground">รอพิจารณา {pendingCount.toLocaleString("th-TH")} รายการ</p>
         </div>
-        <Button asChild variant="outline" className="h-10 rounded-full px-5">
-          <Link href="/admin/licenses/types">
-            <ListChecks aria-hidden /> ประเภทการใช้งาน
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline" className="h-10 rounded-full px-5">
+            <Link href="/admin/licenses/form">
+              <FormInput aria-hidden /> แบบฟอร์มคำขอ
+            </Link>
+          </Button>
+          <Button asChild variant="outline" className="h-10 rounded-full px-5">
+            <Link href="/admin/licenses/types">
+              <ListChecks aria-hidden /> ประเภทการใช้งาน
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <nav aria-label="สถานะคำขอ" className="flex gap-1 rounded-full bg-card p-1 shadow-soft sm:w-fit">
@@ -72,7 +79,7 @@ export default async function AdminLicensesPage({ searchParams }: PageProps<"/ad
       ) : (
         <ul className="space-y-4">
           {items.map((r) => (
-            <LicenseCard key={r.id} request={r} />
+            <LicenseCard key={r.id} request={r} flaggable={flaggable} />
           ))}
         </ul>
       )}
@@ -88,14 +95,7 @@ export default async function AdminLicensesPage({ searchParams }: PageProps<"/ad
   );
 }
 
-const LICENSE_REJECT_REASONS = [
-  "ข้อมูลผู้ซื้อหรือศิลปินไม่ครบถ้วน",
-  "ลักษณะการใช้งานไม่ตรงกับประเภทที่เลือก",
-  "ผลงานไม่ได้ใช้สินค้านี้",
-  "ไม่อนุญาตให้ใช้งานในลักษณะนี้",
-] as const;
-
-function LicenseCard({ request: r }: { request: ReviewLicenseRequest }) {
+function LicenseCard({ request: r, flaggable }: { request: ReviewLicenseRequest; flaggable: { id: string; label: string }[] }) {
   const account = r.user.displayName ? `${r.user.displayName} (${r.user.email})` : r.user.email;
   const total = formatTHB(toHundredths(r.total));
 
@@ -133,7 +133,15 @@ function LicenseCard({ request: r }: { request: ReviewLicenseRequest }) {
             </Link>
             <p className="text-sm text-muted-foreground">บัญชี {account}</p>
           </div>
-          <p className="text-2xl font-semibold tabular-nums">{total}</p>
+          <div className="text-right">
+            <p className="text-2xl font-semibold tabular-nums">{total}</p>
+            {r.proposedTotal && (
+              <p className="text-sm text-warning tabular-nums">เสนอใหม่ {formatTHB(toHundredths(r.proposedTotal))}</p>
+            )}
+            <span className={cn("mt-1 inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium", LICENSE_STATUS_TH[r.status].className)}>
+              {LICENSE_STATUS_TH[r.status].label}
+            </span>
+          </div>
         </div>
 
         <ul className="divide-y rounded-xl border text-sm">
@@ -146,22 +154,12 @@ function LicenseCard({ request: r }: { request: ReviewLicenseRequest }) {
         </ul>
 
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-          <dt className="text-muted-foreground">ผู้ซื้อ</dt>
-          <dd className="break-words">
-            {r.buyerName} · {r.buyerEmail} · {r.buyerContact}
-          </dd>
-          <dt className="text-muted-foreground">ศิลปิน</dt>
-          <dd className="break-words">
-            {r.artistName} · {r.artistContact}
-          </dd>
-          <dt className="text-muted-foreground">แพลตฟอร์ม</dt>
-          <dd className="break-words">{r.platform}</dd>
-          {r.note && (
-            <>
-              <dt className="text-muted-foreground">หมายเหตุ</dt>
-              <dd className="break-words whitespace-pre-line">{r.note}</dd>
-            </>
-          )}
+          {r.answers.map((ans) => (
+            <div key={ans.id} className="contents">
+              <dt className="text-muted-foreground">{ans.labelTHSnapshot}</dt>
+              <dd className="break-words whitespace-pre-line">{ans.values.join(", ")}</dd>
+            </div>
+          ))}
           <dt className="text-muted-foreground">ส่งคำขอเมื่อ</dt>
           <dd>{formatBangkokDateTime(r.createdAt)}</dd>
           {r.reviewedAt && (
@@ -196,8 +194,8 @@ function LicenseCard({ request: r }: { request: ReviewLicenseRequest }) {
           )}
         </dl>
 
-        {r.status === "PENDING_REVIEW" && (
-          <div className="mt-auto">
+        <div className="mt-auto flex flex-wrap items-center gap-2">
+          {r.status === "PENDING_REVIEW" && (
             <ReviewActions
               approve={approveLicenseRequest.bind(null, r.id)}
               reject={rejectLicenseRequest.bind(null, r.id)}
@@ -209,9 +207,22 @@ function LicenseCard({ request: r }: { request: ReviewLicenseRequest }) {
               rejectDescription="ลูกค้าจะเห็นเหตุผลนี้ และส่งคำขอใหม่ได้"
               rejectLabel="ปฏิเสธคำขอ"
               quickReasons={LICENSE_REJECT_REASONS}
+              extra={
+                <LicenseSendBackDialog
+                  requestId={r.id}
+                  currentTotal={r.total.toString().replace(/\.00$/, "")}
+                  currentTotalLabel={total}
+                  fields={flaggable}
+                />
+              }
             />
-          </div>
-        )}
+          )}
+          <Button asChild variant="ghost" className="h-10 rounded-full px-4">
+            <Link href={`/admin/licenses/${r.id}`}>
+              รายละเอียดและประวัติ <ChevronRight aria-hidden />
+            </Link>
+          </Button>
+        </div>
       </div>
     </li>
   );

@@ -11,7 +11,16 @@ import { idSchema } from "@/lib/validation/product";
 import { notifyUser } from "@/lib/notifications/service";
 import { generateOrderNumber } from "@/lib/orders/rules";
 import { normalizeRejectReason, REJECT_REASON_MAX } from "@/lib/payments/rules";
-import { LICENSE_PAYMENT_DAYS_MAX, LICENSE_PAYMENT_DAYS_MIN, licensePaymentDeadline } from "@/lib/licenses/rules";
+import {
+  LICENSE_MESSAGE_MAX,
+  LICENSE_PAYMENT_DAYS_MAX,
+  LICENSE_PAYMENT_DAYS_MIN,
+  licensePaymentDeadline,
+  OPEN_LICENSE_STATUSES,
+  planChangeRequest,
+} from "@/lib/licenses/rules";
+import { ARTWORK_FIELD_ID } from "@/lib/licenses/form-fields";
+import { fromHundredths, toHundredths } from "@/lib/pricing/calculate";
 
 // Admin is Thai-only, so messages are Thai strings.
 
@@ -27,6 +36,8 @@ const usageTypeSchema = z.object({
   nameEN: z.string().trim().min(1, "กรุณากรอกข้อมูล").max(80, "ไม่เกิน 80 ตัวอักษร"),
   descriptionTH: optionalText(300),
   descriptionEN: optionalText(300),
+  conditionsTH: optionalText(1000),
+  conditionsEN: optionalText(1000),
   isActive: z.enum(["true", "false"]).transform((v) => v === "true"),
   sortOrder: z.coerce.number().int("ต้องเป็นจำนวนเต็ม").min(0).max(9999),
 });
@@ -37,6 +48,11 @@ const licensePrice = z
   .trim()
   .regex(/^\d{1,8}(\.\d{1,2})?$/, "ราคาไม่ถูกต้อง (ทศนิยมไม่เกิน 2 ตำแหน่ง)")
   .refine((v) => Number(v) > 0, "ราคาต้องมากกว่า 0");
+
+function revalidateRequests() {
+  revalidatePath("/admin/licenses", "layout");
+  revalidatePath("/[locale]/account/licenses", "layout");
+}
 
 function revalidateLicenses() {
   revalidatePath("/admin/licenses", "layout");
@@ -57,6 +73,8 @@ export async function saveUsageType(
     nameEN: formString(formData, "nameEN"),
     descriptionTH: formString(formData, "descriptionTH"),
     descriptionEN: formString(formData, "descriptionEN"),
+    conditionsTH: formString(formData, "conditionsTH"),
+    conditionsEN: formString(formData, "conditionsEN"),
     isActive: formString(formData, "isActive") || "true",
     sortOrder: formString(formData, "sortOrder") || "0",
   });
@@ -143,6 +161,12 @@ export async function saveProductLicensePrices(productId: string, input: unknown
 
 class StaleReview extends Error {}
 
+class ChangeRequestError extends Error {
+  constructor(readonly fieldErrors: Record<string, string>) {
+    super("change request");
+  }
+}
+
 /**
  * Approves a request and opens its payment: creates an Order (kind LICENSE, no items, so it never
  * grants file access) for the locked total, due in `licensePaymentDays`. The conditional update
@@ -178,9 +202,11 @@ export async function approveLicenseRequest(requestId: string): Promise<ActionRe
         data: { status: "APPROVED", reviewedById: admin.id, reviewedAt: now, orderId: order.id, rejectReason: null },
       });
       if (updated.count !== 1) throw new StaleReview();
+      await tx.licenseRequestEvent.create({ data: { requestId, type: "APPROVED", actorId: admin.id, newTotal: request.total } });
       await notifyUser(tx, request.userId, "LICENSE_APPROVED", {
         productNameTH: request.productNameTHSnapshot,
         productNameEN: request.productNameENSnapshot,
+        requestId,
       });
     });
   } catch (error) {
@@ -190,8 +216,7 @@ export async function approveLicenseRequest(requestId: string): Promise<ActionRe
   }
 
   console.info("License request approved", { requestId, adminId: admin.id });
-  revalidatePath("/admin/licenses");
-  revalidatePath("/[locale]/account/licenses", "page");
+  revalidateRequests();
   return ok(undefined, "อนุมัติแล้ว ลูกค้าจะเห็นช่องทางชำระเงินในหน้า License ของฉัน");
 }
 
@@ -206,18 +231,30 @@ export async function rejectLicenseRequest(requestId: string, reasonInput: strin
   try {
     await prisma.$transaction(async (tx) => {
       const { count } = await tx.licenseRequest.updateMany({
-        where: { id: requestId, status: "PENDING_REVIEW" },
-        data: { status: "REJECTED", reviewedById: admin.id, reviewedAt: new Date(), rejectReason: reason },
+        // Also while waiting for the customer: the store may decide not to continue.
+        where: { id: requestId, status: { in: [...OPEN_LICENSE_STATUSES] } },
+        data: {
+          status: "REJECTED",
+          reviewedById: admin.id,
+          reviewedAt: new Date(),
+          rejectReason: reason,
+          proposedTotal: null,
+          priceChangeReason: null,
+          infoRequestMessage: null,
+          infoRequestFields: [],
+        },
       });
       if (count !== 1) throw new StaleReview();
       const request = await tx.licenseRequest.findUniqueOrThrow({
         where: { id: requestId },
         select: { userId: true, productNameTHSnapshot: true, productNameENSnapshot: true },
       });
+      await tx.licenseRequestEvent.create({ data: { requestId, type: "REJECTED", actorId: admin.id, message: reason } });
       await notifyUser(tx, request.userId, "LICENSE_REJECTED", {
         productNameTH: request.productNameTHSnapshot,
         productNameEN: request.productNameENSnapshot,
         reason,
+        requestId,
       });
     });
   } catch (error) {
@@ -227,9 +264,95 @@ export async function rejectLicenseRequest(requestId: string, reasonInput: strin
   }
 
   console.info("License request rejected", { requestId, adminId: admin.id });
-  revalidatePath("/admin/licenses");
-  revalidatePath("/[locale]/account/licenses", "page");
+  revalidateRequests();
   return ok(undefined, "ปฏิเสธคำขอแล้ว ลูกค้าจะเห็นเหตุผล");
+}
+
+const changeRequestSchema = z.object({
+  /** Baht as typed; empty = keep the price. */
+  newTotal: z
+    .string()
+    .trim()
+    .refine((v) => v === "" || /^\d{1,8}(\.\d{1,2})?$/.test(v), "ราคาไม่ถูกต้อง (ทศนิยมไม่เกิน 2 ตำแหน่ง)"),
+  priceReason: optionalText(LICENSE_MESSAGE_MAX),
+  message: optionalText(LICENSE_MESSAGE_MAX),
+  fieldIds: z.array(z.string().max(64)).max(60),
+});
+
+/**
+ * Sends a pending request back to the customer: a new price (optional reason), and/or a request
+ * to complete or correct details (optional message, flagged fields). Nothing is required beyond
+ * one actual change. The customer's answer (or acceptance of the price) returns it for review.
+ */
+export async function requestLicenseChanges(requestId: string, input: unknown): Promise<ActionResult> {
+  const admin = await requireAdmin();
+  if (!idSchema.safeParse(requestId).success) return fail("คำขอไม่ถูกต้อง");
+  const parsed = changeRequestSchema.safeParse(input);
+  if (!parsed.success) return invalid(parsed.error);
+  const { priceReason, message } = parsed.data;
+
+  const validFieldIds = new Set(
+    (await prisma.licenseFormField.findMany({ select: { id: true } })).map((f) => f.id).concat(ARTWORK_FIELD_ID),
+  );
+  const fieldIds = [...new Set(parsed.data.fieldIds)].filter((id) => validFieldIds.has(id));
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`select id from license_requests where id = ${requestId}::uuid for update`;
+      const request = await tx.licenseRequest.findUnique({
+        where: { id: requestId },
+        select: { userId: true, total: true, status: true, productNameTHSnapshot: true, productNameENSnapshot: true },
+      });
+      if (!request || request.status !== "PENDING_REVIEW") throw new StaleReview();
+
+      const newTotal = parsed.data.newTotal === "" ? null : toHundredths(parsed.data.newTotal);
+      const plan = planChangeRequest({ currentTotal: toHundredths(request.total), newTotal, message, fieldIds });
+      if (!plan.ok) {
+        throw new ChangeRequestError(
+          plan.code === "BAD_PRICE"
+            ? { newTotal: "ราคาต้องมากกว่า 0" }
+            : { form: "แก้ราคา หรือระบุข้อมูลที่ต้องการเพิ่มอย่างน้อยหนึ่งอย่าง" },
+        );
+      }
+
+      await tx.licenseRequest.update({
+        where: { id: requestId },
+        data: {
+          status: plan.status,
+          proposedTotal: plan.priceChanged ? fromHundredths(newTotal!) : null,
+          priceChangeReason: plan.priceChanged ? priceReason : null,
+          infoRequestMessage: message,
+          infoRequestFields: fieldIds,
+        },
+      });
+      await tx.licenseRequestEvent.create({
+        data: {
+          requestId,
+          type: "CHANGES_REQUESTED",
+          actorId: admin.id,
+          message,
+          ...(plan.priceChanged ? { oldTotal: request.total, newTotal: fromHundredths(newTotal!) } : {}),
+          // The price reason travels with the price change.
+          ...(plan.priceChanged && priceReason ? { changes: [{ labelTH: "เหตุผลที่แก้ราคา", labelEN: "Price change reason", before: "", after: priceReason }] } : {}),
+          fieldIds,
+        },
+      });
+      await notifyUser(tx, request.userId, "LICENSE_CHANGES_REQUESTED", {
+        productNameTH: request.productNameTHSnapshot,
+        productNameEN: request.productNameENSnapshot,
+        requestId,
+      });
+    });
+  } catch (error) {
+    if (error instanceof StaleReview) return fail("คำขอนี้ไม่ได้รอพิจารณาแล้ว กรุณารีเฟรชหน้า");
+    if (error instanceof ChangeRequestError) return fail("กรุณาตรวจสอบข้อมูล", error.fieldErrors);
+    console.error("License change request failed", { requestId, error });
+    return fail("ส่งกลับไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+  }
+
+  console.info("License changes requested", { requestId, adminId: admin.id });
+  revalidateRequests();
+  return ok(undefined, "ส่งกลับให้ลูกค้าแล้ว");
 }
 
 // ────────────────────────────── Settings ───────────────────────────────

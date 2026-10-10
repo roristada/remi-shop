@@ -18,6 +18,9 @@ export const ORDER_STATUS_LABEL_TH: Record<OrderStatus, string> = {
   CANCELLED: "ยกเลิก",
 };
 
+export const DELIVERY_FILTERS = ["email", "emailPending", "emailSent"] as const;
+export type DeliveryFilter = (typeof DELIVERY_FILTERS)[number];
+
 export type AdminOrderFilters = {
   status?: OrderStatus;
   /** Order number or customer email (contains, case-insensitive). */
@@ -25,8 +28,11 @@ export type AdminOrderFilters = {
   /** Inclusive bounds of the Bangkok calendar days picked in the form. */
   from?: Date;
   to?: Date;
-  /** "email": product orders with a line that has no file yet, so the store emails it. */
-  delivery?: "email";
+  /**
+   * "email": product orders with a line that has no file yet, so the store emails it.
+   * "emailPending" / "emailSent": of those, paid ones not yet / already marked as emailed.
+   */
+  delivery?: DeliveryFilter;
   page: number;
 };
 
@@ -46,7 +52,7 @@ export function parseAdminOrderFilters(sp: SearchParams): AdminOrderFilters {
   const status = ORDER_STATUSES.find((s) => s === one(sp.status));
   const q = one(sp.q)?.trim().slice(0, 100) || undefined;
   const page = Math.max(1, Math.min(10_000, Number.parseInt(one(sp.page) ?? "1", 10) || 1));
-  const delivery = one(sp.delivery) === "email" ? "email" : undefined;
+  const delivery = DELIVERY_FILTERS.find((d) => d === one(sp.delivery));
   return { status, q, from: bangkokDay(one(sp.from), "start"), to: bangkokDay(one(sp.to), "end"), delivery, page };
 }
 

@@ -26,6 +26,8 @@ export type ManagedUsageType = {
   nameEN: string;
   descriptionTH: string;
   descriptionEN: string;
+  conditionsTH: string;
+  conditionsEN: string;
   isActive: boolean;
   sortOrder: number;
   productCount: number;
@@ -200,6 +202,25 @@ function UsageTypeDialog({
             defaultValue={usageType?.descriptionEN}
             error={err("descriptionEN")}
           />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <TextArea
+              label="เงื่อนไขเพิ่มเติม (ไทย)"
+              name="conditionsTH"
+              rows={3}
+              maxLength={1000}
+              defaultValue={usageType?.conditionsTH}
+              hint="ลูกค้าเห็นก่อนเลือกประเภทนี้ เช่น จำนวนผลิตสูงสุด ห้ามขายต่อไฟล์"
+              error={err("conditionsTH")}
+            />
+            <TextArea
+              label="เงื่อนไขเพิ่มเติม (English)"
+              name="conditionsEN"
+              rows={3}
+              maxLength={1000}
+              defaultValue={usageType?.conditionsEN}
+              error={err("conditionsEN")}
+            />
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <TextInput
               label="ลำดับ"

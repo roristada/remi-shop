@@ -32,3 +32,10 @@ test("notificationTarget: PRODUCT_AVAILABLE leads to the product page, escaped",
   assert.equal(notificationTarget("PRODUCT_AVAILABLE", { productSlug: "../admin" }).path, "/product/..%2Fadmin");
   assert.equal(notificationTarget("PRODUCT_AVAILABLE", {}).path, "/shop");
 });
+
+test("license notifications open the request itself, and only for a real id", () => {
+  const id = "0199d1a0-0000-7000-8000-000000000001";
+  assert.deepEqual(notificationTarget("LICENSE_CHANGES_REQUESTED", { requestId: id }), { path: `/account/licenses/${id}`, localized: true });
+  assert.deepEqual(notificationTarget("ADMIN_LICENSE_RESPONDED", { requestId: id }), { path: `/admin/licenses/${id}`, localized: false });
+  assert.deepEqual(notificationTarget("LICENSE_APPROVED", { requestId: "../x" }), { path: "/account/licenses", localized: true });
+});

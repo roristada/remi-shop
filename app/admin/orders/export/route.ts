@@ -5,7 +5,19 @@ import { listOrdersForExport, orderLines } from "@/lib/orders/admin-queries";
 import { ORDER_STATUS_LABEL_TH, parseAdminOrderFilters, toCsv } from "@/lib/orders/export";
 import { toHundredths } from "@/lib/pricing/calculate";
 
-const HEADER = ["วันเวลาสั่งซื้อ", "เลขที่คำสั่งซื้อ", "ชื่อผู้ซื้อ", "อีเมล", "สินค้า", "ราคา (บาท)", "ยอดรวมคำสั่งซื้อ (บาท)", "สถานะ", "ชำระเงินเมื่อ"];
+const HEADER = [
+  "วันเวลาสั่งซื้อ",
+  "เลขที่คำสั่งซื้อ",
+  "ชื่อผู้ซื้อ",
+  "อีเมล",
+  "สินค้า",
+  "ราคา (บาท)",
+  "ต้นทุน (บาท)",
+  "กำไร (บาท)",
+  "ยอดรวมคำสั่งซื้อ (บาท)",
+  "สถานะ",
+  "ชำระเงินเมื่อ",
+];
 
 const baht = (v: { toString(): string }) => toHundredths(v) / 100;
 
@@ -25,8 +37,14 @@ export async function GET(request: NextRequest) {
     ];
     const tail = [baht(o.total), ORDER_STATUS_LABEL_TH[o.status], o.paidAt ? formatBangkokDateTime(o.paidAt) : ""];
     return lines.length > 0
-      ? lines.map((l) => [...base, l.name, baht(l.price), ...tail])
-      : [[...base, "", "", ...tail]];
+      ? lines.map((l) => {
+          // Only completed product lines have a cost; an unrecorded one is said so, never shown as 0.
+          const costed = o.status === "COMPLETED" && l.cost !== undefined;
+          const cost = !costed ? "" : l.cost == null ? "รอระบุต้นทุน" : baht(l.cost);
+          const profit = typeof cost === "number" ? Math.round((baht(l.price) - cost) * 100) / 100 : "";
+          return [...base, l.name, baht(l.price), cost, profit, ...tail];
+        })
+      : [[...base, "", "", "", "", ...tail]];
   });
 
   console.info("[orders] exported", { adminId: admin.id, orders: orders.length });

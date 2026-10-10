@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "REMI — Digital files for artists",
+    "title": "REMII — Digital files for artists",
     "description": "Brushes, textures, presets, patterns, fonts and templates for digital art."
   },
   "hero": {
@@ -24,7 +24,12 @@
     "label": "Store announcement",
     "fallbackTitle": "Explore everything in the shop",
     "fallbackBody": "Brushes, textures, presets and assets for digital art, updated regularly.",
-    "fallbackCta": "Go to shop"
+    "fallbackCta": "Go to shop",
+    "carouselLabel": "Promotions",
+    "slideLabel": "Banner {index} of {total}",
+    "previous": "Previous banner",
+    "next": "Next banner",
+    "goTo": "Go to banner {index}"
   },
   "onSale": "On sale",
   "limitedTime": "Limited time",
@@ -32,5 +37,9 @@
   "trending": "Trending",
   "trendingHint": "Best sellers in the last {days} days",
   "comingSoon": "Coming soon",
-  "comingSoonHint": "Preview the details now — ordering opens at launch time"
+  "comingSoonHint": "Preview the details now — ordering opens at launch time",
+  "announcementBar": {
+    "label": "Announcement",
+    "dismiss": "Dismiss announcement"
+  }
 }

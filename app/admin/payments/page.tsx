@@ -172,7 +172,7 @@ function PaymentCard({ payment: p, tab }: { payment: ReviewPayment; tab: Payment
             <p className="text-sm">
               <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium">Commercial license</span>{" "}
               {p.order.licenseRequest.productNameTHSnapshot}
-              <span className="text-muted-foreground"> · ศิลปิน {p.order.licenseRequest.artistName}</span>
+              {p.order.licenseRequest.artistName && <span className="text-muted-foreground"> · ศิลปิน {p.order.licenseRequest.artistName}</span>}
             </p>
             <ul className="divide-y rounded-xl border text-sm">
               {p.order.licenseRequest.items.map((i) => (

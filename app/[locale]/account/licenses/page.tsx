@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { BriefcaseBusiness, ChevronRight, Pencil } from "lucide-react";
+import { BriefcaseBusiness, ChevronRight, MessageSquareWarning, Pencil } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { intlLocale, localized } from "@/i18n/localize";
 import { requireUser } from "@/lib/auth/guards";
@@ -25,6 +25,8 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/account/
 // The label is always shown, so status is never conveyed by color alone.
 const STAGE_STYLES: Record<LicenseStage, string> = {
   REVIEW: "bg-secondary text-secondary-foreground",
+  NEEDS_INFO: "bg-warning/15 text-warning",
+  AWAITING_PRICE_CONFIRMATION: "bg-warning/15 text-warning",
   AWAITING_PAYMENT: "bg-primary/60 text-foreground",
   PAYMENT_REVIEW: "bg-secondary text-secondary-foreground",
   PAYMENT_REJECTED: "bg-destructive/10 text-destructive",
@@ -80,7 +82,7 @@ function LicenseCard({ request: r, locale, t }: { request: CustomerLicenseReques
   const fmt = intlLocale(locale);
   const stage = licenseStage(r.status, r.order?.status ?? null);
   const payable = r.order && (stage === "AWAITING_PAYMENT" || stage === "PAYMENT_REJECTED");
-  const editable = canEditLicenseRequest(r.status, r.createdAt);
+  const editable = canEditLicenseRequest(r.status, r.createdAt) && r.status !== "NEEDS_INFO";
 
   return (
     <li className="space-y-4 rounded-3xl border p-4 sm:p-5">
@@ -110,12 +112,25 @@ function LicenseCard({ request: r, locale, t }: { request: CustomerLicenseReques
       </ul>
 
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-        <dt className="text-muted-foreground">{t("buyer")}</dt>
-        <dd className="break-words">{r.buyerName}</dd>
-        <dt className="text-muted-foreground">{t("artist")}</dt>
-        <dd className="break-words">{r.artistName}</dd>
-        <dt className="text-muted-foreground">{t("platform")}</dt>
-        <dd className="break-words">{r.platform}</dd>
+        {/* Built-in questions the admin may have switched off. */}
+        {r.buyerName && (
+          <>
+            <dt className="text-muted-foreground">{t("buyer")}</dt>
+            <dd className="break-words">{r.buyerName}</dd>
+          </>
+        )}
+        {r.artistName && (
+          <>
+            <dt className="text-muted-foreground">{t("artist")}</dt>
+            <dd className="break-words">{r.artistName}</dd>
+          </>
+        )}
+        {r.platform && (
+          <>
+            <dt className="text-muted-foreground">{t("platform")}</dt>
+            <dd className="break-words">{r.platform}</dd>
+          </>
+        )}
         {r.order && (
           <>
             <dt className="text-muted-foreground">{t("orderNumber")}</dt>
@@ -162,8 +177,21 @@ function LicenseCard({ request: r, locale, t }: { request: CustomerLicenseReques
         </p>
       )}
 
-      {(payable || editable || canCancelLicenseRequest(r.status)) && (
-        <div className="flex flex-wrap items-center gap-2 border-t pt-4">
+      <div className="flex flex-wrap items-center gap-2 border-t pt-4">
+          {stage === "NEEDS_INFO" && (
+            <Button asChild className="h-11 rounded-full px-5">
+              <Link href={`/account/licenses/${r.id}/edit`}>
+                <MessageSquareWarning aria-hidden /> {t("respond")}
+              </Link>
+            </Button>
+          )}
+          {stage === "AWAITING_PRICE_CONFIRMATION" && (
+            <Button asChild className="h-11 rounded-full px-5">
+              <Link href={`/account/licenses/${r.id}`}>
+                {t("reviewPrice")} <ChevronRight aria-hidden />
+              </Link>
+            </Button>
+          )}
           {payable && r.order && (
             <Button asChild className="h-11 rounded-full px-5">
               <Link href={`/orders/${r.order.orderNumber}`}>
@@ -178,9 +206,11 @@ function LicenseCard({ request: r, locale, t }: { request: CustomerLicenseReques
               </Link>
             </Button>
           )}
+          <Button asChild variant="ghost" className="h-11 rounded-full px-4">
+            <Link href={`/account/licenses/${r.id}`}>{t("view")}</Link>
+          </Button>
           {canCancelLicenseRequest(r.status) && <CancelLicenseButton requestId={r.id} />}
-        </div>
-      )}
+      </div>
     </li>
   );
 }

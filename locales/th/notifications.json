@@ -19,6 +19,8 @@
     "ADMIN_LICENSE_REQUESTED": "มีคำขอ License ใหม่: {product}",
     "REVIEW_REMINDER": "ซื้อ {product} ไปแล้ว ให้คะแนนสั้น ๆ ได้เลย (ไม่ต้องเขียนข้อความก็ได้)",
     "PRODUCT_AVAILABLE": "{product} เปิดขายแล้ว สั่งซื้อได้เลย",
-    "PRODUCT_FILES_UPDATED": "{product} อัปเดตไฟล์แล้ว ดาวน์โหลดได้เลย"
+    "PRODUCT_FILES_UPDATED": "{product} อัปเดตไฟล์แล้ว ดาวน์โหลดได้เลย",
+    "LICENSE_CHANGES_REQUESTED": "ร้านขอข้อมูลเพิ่มเติมหรือเสนอราคาใหม่สำหรับคำขอ License ของ {product}",
+    "ADMIN_LICENSE_RESPONDED": "ลูกค้าตอบกลับคำขอ License: {product}"
   }
 }

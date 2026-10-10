@@ -24,6 +24,8 @@ import { ProductFilesManager } from "@/components/admin/product-files-manager";
 import { VariantManager, type ManagedVariant } from "@/components/admin/variant-manager";
 import { FormSection } from "@/components/admin/form-controls";
 import { LicensePricingEditor } from "@/components/admin/license-pricing-editor";
+import { AddonEditor } from "@/components/admin/addon-editor";
+import { getAddonEditorData } from "@/lib/addons/queries";
 import { getProductLicensePricing } from "@/lib/licenses/admin-queries";
 import { countStockTaken } from "@/lib/products/storefront-queries";
 
@@ -93,7 +95,7 @@ export default async function EditProductPage({ params }: PageProps<"/admin/prod
   if (!idSchema.safeParse(id).success) notFound();
 
   const now = new Date();
-  const [product, categories, folders, buyerCount, orderCount, licensePricing, softwareTags, stockTaken, waitlistCount] = await Promise.all([
+  const [product, categories, folders, buyerCount, orderCount, licensePricing, softwareTags, stockTaken, waitlistCount, addonData] = await Promise.all([
     getAdminProduct(id),
     listCategoryOptions(),
     listFolderOptions(),
@@ -103,6 +105,7 @@ export default async function EditProductPage({ params }: PageProps<"/admin/prod
     listSoftwareTagOptions(),
     countStockTaken(id, now),
     countWaitlist(id),
+    getAddonEditorData(id, now),
   ]);
   if (!product) notFound();
 
@@ -177,6 +180,11 @@ export default async function EditProductPage({ params }: PageProps<"/admin/prod
           value: "license",
           label: `License (${licensePricing.filter((l) => l.price !== null).length})`,
           content: <LicensePricingEditor rows={licensePricing} />,
+        },
+        {
+          value: "addons",
+          label: `Add-on (${addonData.enabled ? addonData.selectedIds.length : "ปิด"})`,
+          content: <AddonEditor enabled={addonData.enabled} selectedIds={addonData.selectedIds} candidates={addonData.candidates} />,
         },
       ]}
     />

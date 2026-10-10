@@ -8,8 +8,12 @@ import { ProductGrid } from "@/components/shop/product-grid";
 import { SwatchStack } from "@/components/shop/swatch-stack";
 import { TrustBar } from "@/components/shop/trust-bar";
 import { BannerSlot } from "@/components/shop/banner-slot";
+import { BannerCarousel, type CarouselBanner } from "@/components/shop/banner-carousel";
+import { AnnouncementBar } from "@/components/shop/announcement-bar";
+import { getAnnouncementBar, listLiveBanners } from "@/lib/banners/queries";
+import { resolveLink } from "@/lib/banners/display";
+import { previewImageUrl } from "@/lib/storage/public-url";
 import {
-  getActiveAnnouncement,
   listComingSoonProducts,
   listLimitedTimeProducts,
   listNewestProducts,
@@ -26,7 +30,7 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
   await connection(); // Prices and sale state depend on the current time.
   const now = new Date();
   const user = await getCurrentUser();
-  const [t, products, trending, onSale, limitedTime, comingSoon, categories, announcement] = await Promise.all([
+  const [t, products, trending, onSale, limitedTime, comingSoon, categories, liveBanners, notice] = await Promise.all([
     getTranslations("home"),
     listNewestProducts(locale, 8, now, user?.id ?? null),
     listTrendingProducts(locale, 4, now, user?.id ?? null),
@@ -34,12 +38,43 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
     listLimitedTimeProducts(locale, 4, now, user?.id ?? null),
     listComingSoonProducts(locale, 4, now, user?.id ?? null),
     listShopCategories(now),
-    getActiveAnnouncement(now),
+    listLiveBanners(now),
+    getAnnouncementBar(),
   ]);
   const shownCategories = categories.filter((c) => c._count.products > 0);
+  const banners: CarouselBanner[] = liveBanners.map((b) => {
+    const link = resolveLink(b.link);
+    return {
+      id: b.id,
+      title: localized(locale, b.titleTH, b.titleEN),
+      tag: localized(locale, b.descriptionTH, b.descriptionEN) || null,
+      cta: link ? localized(locale, b.ctaTH, b.ctaEN) || null : null,
+      theme: b.theme,
+      imageUrl: b.imagePath ? previewImageUrl(b.imagePath) : null,
+      focusX: b.imageFocusX,
+      focusY: b.imageFocusY,
+      href: link?.href ?? null,
+      external: link?.external ?? false,
+    };
+  });
+  const noticeLink = notice ? resolveLink(notice.link) : null;
 
   return (
     <>
+      {notice && (
+        <AnnouncementBar
+          text={localized(locale, notice.textTH, notice.textEN) ?? notice.textTH}
+          href={noticeLink?.href ?? null}
+          external={noticeLink?.external ?? false}
+        />
+      )}
+      {banners.length > 0 ? (
+        // Live banners take the hero's place (client request: a centre-card carousel, not a full-width hero).
+        <div className="pt-6 pb-8 sm:pt-8">
+          <h1 className="sr-only">{t("hero.title")}</h1>
+          <BannerCarousel banners={banners} />
+        </div>
+      ) : (
       <section className="mx-auto grid max-w-6xl items-center gap-10 px-4 pt-10 pb-12 sm:pt-14 md:grid-cols-[1.05fr_1fr] md:gap-12">
         <div className="space-y-6">
           <h1 className="text-[2rem] leading-[1.25] text-balance sm:text-5xl sm:leading-[1.2]">{t("hero.title")}</h1>
@@ -57,6 +92,7 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
         </div>
         <SwatchStack products={products} caption={t("hero.caption")} />
       </section>
+      )}
 
       <section aria-label={t("trust.label")} className="border-y bg-muted/30">
         <div className="mx-auto max-w-6xl px-4 py-5">
@@ -101,9 +137,12 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
         viewAll={products.length > 0 ? { href: "/shop", label: t("viewAll") } : undefined}
       />
 
-      <section className="mx-auto max-w-6xl px-4 pt-14 pb-20">
-        <BannerSlot announcement={announcement} fallbackProducts={products} />
-      </section>
+      {banners.length === 0 && (
+        <section className="mx-auto max-w-6xl px-4 pt-14 pb-20">
+          <BannerSlot fallbackProducts={products} />
+        </section>
+      )}
+      {banners.length > 0 && <div className="pb-20" />}
     </>
   );
 }

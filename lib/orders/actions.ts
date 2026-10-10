@@ -11,6 +11,9 @@ import { checkoutProductSelect, checkoutVariantSelect, toCheckoutProduct } from 
 import { cancelExpiredOrders, getOwnership } from "@/lib/orders/ownership";
 import { evaluateLine, generateOrderNumber, orderTotals } from "@/lib/orders/rules";
 import { orderNumberSchema } from "@/lib/orders/validation";
+import { addOrderToSoldCounts } from "@/lib/payments/approval";
+import { snapshotOrderCosts } from "@/lib/costs/service";
+import { lineHasFiles } from "@/lib/downloads/rules";
 
 export type CheckoutErrorCode = "LOGIN_REQUIRED" | "EMPTY" | "CART_CHANGED" | "PRICE_CHANGED" | "ERROR";
 export type CheckoutResult = { ok: false; code: CheckoutErrorCode };
@@ -25,6 +28,11 @@ class CheckoutError extends Error {
  * Creates an order from the caller's cart. Every line is re-priced and re-validated inside the
  * transaction; `expectedTotal` (satang) is only compared, so the customer is never charged an
  * amount they did not see. Redirects to the order page on success.
+ *
+ * A 0-baht order (every line free) needs no payment: it is created COMPLETED with no Payment row,
+ * and the customer goes straight to their downloads. Free lines in a paid order cost nothing and
+ * follow the normal slip flow with the rest. Ownership checks still apply, so each free line can
+ * be claimed once per account.
  */
 export async function checkout(localeInput: string, expectedTotal: number): Promise<CheckoutResult> {
   const locale = toLocale(localeInput);
@@ -33,9 +41,9 @@ export async function checkout(localeInput: string, expectedTotal: number): Prom
   if (!Number.isSafeInteger(expectedTotal) || expectedTotal < 0) return { ok: false, code: "PRICE_CHANGED" };
 
   const now = new Date();
-  let orderNumber: string;
+  let placed: { orderNumber: string; free: boolean };
   try {
-    orderNumber = await prisma.$transaction(async (tx) => {
+    placed = await prisma.$transaction(async (tx) => {
       // One checkout at a time per customer, so two tabs cannot both order the same product.
       await tx.$executeRaw`select pg_advisory_xact_lock(hashtextextended(${user.id}, 0))`;
       await cancelExpiredOrders(user.id, now, tx);
@@ -74,6 +82,7 @@ export async function checkout(localeInput: string, expectedTotal: number): Prom
       const totals = orderTotals(lines);
       if (totals.total !== expectedTotal) throw new CheckoutError("PRICE_CHANGED");
 
+      const free = totals.total === 0;
       const settings = await tx.storeSetting.findUnique({ where: { id: 1 }, select: { orderExpiryMinutes: true } });
       const expiryMinutes = settings?.orderExpiryMinutes ?? 60;
 
@@ -84,7 +93,8 @@ export async function checkout(localeInput: string, expectedTotal: number): Prom
           subtotal: fromHundredths(totals.subtotal),
           discount: fromHundredths(totals.discount),
           total: fromHundredths(totals.total),
-          expiresAt: new Date(now.getTime() + expiryMinutes * 60_000),
+          // Free: nothing to pay, so the order is complete now (paymentStatus stays null — no slip).
+          ...(free ? { status: "COMPLETED" as const, paidAt: now, expiresAt: now } : { expiresAt: new Date(now.getTime() + expiryMinutes * 60_000) }),
           items: {
             create: items.map(({ product: p, variant: v }, i) => ({
               productId: p.id,
@@ -103,9 +113,13 @@ export async function checkout(localeInput: string, expectedTotal: number): Prom
         select: { id: true, orderNumber: true },
       });
 
+      if (free) {
+        await addOrderToSoldCounts(tx, order.id);
+        await snapshotOrderCosts(tx, order.id, now);
+      }
       await tx.cartItem.deleteMany({ where: { cart: { userId: user.id } } });
-      console.info("Order created", { orderId: order.id, userId: user.id, items: products.length });
-      return order.orderNumber;
+      console.info(free ? "Free order completed" : "Order created", { orderId: order.id, userId: user.id, items: products.length });
+      return { orderNumber: order.orderNumber, free };
     });
   } catch (error) {
     if (error instanceof CheckoutError) return { ok: false, code: error.code };
@@ -114,7 +128,17 @@ export async function checkout(localeInput: string, expectedTotal: number): Prom
   }
 
   revalidatePath("/[locale]/cart", "page");
-  redirect(`/${locale}/orders/${orderNumber}`);
+  if (placed.free && (await orderHasFiles(placed.orderNumber))) redirect(`/${locale}/downloads`);
+  redirect(`/${locale}/orders/${placed.orderNumber}`);
+}
+
+/** Whether any line of the order has a file in its product's latest version (else it is emailed). */
+async function orderHasFiles(orderNumber: string): Promise<boolean> {
+  const items = await prisma.orderItem.findMany({
+    where: { order: { orderNumber } },
+    select: { variantId: true, product: { select: { versions: { where: { isLatest: true }, select: { files: { select: { variantId: true } } }, take: 1 } } } },
+  });
+  return items.some((i) => lineHasFiles(i.product.versions[0]?.files ?? [], i.variantId));
 }
 
 /** Customer cancels their own unpaid order: no slip yet (before the deadline), or a license order whose slip was rejected. */

@@ -7,7 +7,7 @@ import { fontVariables } from "@/app/fonts";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { Toaster } from "@/components/ui/sonner";
-import { THEME_INIT_SCRIPT } from "@/lib/theme";
+import { ThemeScript } from "@/components/layout/theme-script";
 import "../globals.css";
 
 export function generateStaticParams() {
@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: LayoutProps<"/[locale]">): Pr
   const t = await getTranslations({ locale, namespace: "home.meta" });
   return {
     metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
-    title: { default: t("title"), template: `%s | REMI` },
+    title: { default: t("title"), template: `%s | REMII` },
     description: t("description"),
     alternates: { languages: { th: "/th", en: "/en" } },
   };
@@ -35,7 +35,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
     // The theme script sets the `dark` class before React hydrates, hence suppressHydrationWarning.
     <html lang={locale} className={`${fontVariables} h-full antialiased`} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <ThemeScript />
       </head>
       <body className="flex min-h-full flex-col">
         <NextIntlClientProvider>

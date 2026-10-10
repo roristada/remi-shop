@@ -2,7 +2,8 @@ import type { Prisma } from "@/lib/generated/prisma/client";
 import type { ProductStatus } from "@/lib/products/status";
 import { SLUG_PATTERN } from "@/lib/validation/product";
 
-export const SHOP_PAGE_SIZE = 12;
+// 4 rows of the 4-column desktop grid (client request, UAT round 3).
+export const SHOP_PAGE_SIZE = 16;
 export const SHOP_SORTS = ["newest", "best-selling", "price-asc", "price-desc", "name"] as const;
 export type ShopSort = (typeof SHOP_SORTS)[number];
 

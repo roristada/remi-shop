@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { FolderCog, FolderOpen, Inbox, LayoutGrid, Layers, List, MonitorCog, Plus, Search } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/guards";
 import { listAdminProducts, listCategoryOptions, listFolderCounts } from "@/lib/products/admin-queries";
@@ -17,11 +18,12 @@ import { Pagination } from "@/components/shared/pagination";
 import { SelectInput } from "@/components/admin/form-controls";
 import type { PublishStatus } from "@/lib/generated/prisma/enums";
 import { cn } from "@/lib/utils";
+import { FOLDER_PANEL_COOKIE } from "@/lib/admin/ui-prefs";
+import { FolderPanelToggle } from "@/components/admin/folder-panel-toggle";
 
 const PUBLISH_FILTERS: { value: PublishStatus; label: string }[] = [
   { value: "DRAFT", label: "ฉบับร่าง" },
   { value: "PUBLISHED", label: "เผยแพร่" },
-  { value: "DISABLED", label: "ซ่อนอยู่" },
 ];
 
 const VIEWS: { value: ProductListView; label: string; icon: typeof List }[] = [
@@ -56,6 +58,8 @@ export default async function AdminProductsPage({ searchParams }: PageProps<"/ad
   const folderParam = one(sp.folder);
   const folder = folderParam === "none" || idSchema.safeParse(folderParam).success ? folderParam : undefined;
   const delivery = one(sp.delivery) === "email" ? "email" : undefined;
+
+  const folderPanelCollapsed = (await cookies()).get(FOLDER_PANEL_COOKIE)?.value === "collapsed";
 
   const [{ items, total, pageCount }, categories, folderCounts, softwareTags] = await Promise.all([
     listAdminProducts({ q, categoryId, publishStatus: status, folder, delivery, sort, page }),
@@ -132,28 +136,45 @@ export default async function AdminProductsPage({ searchParams }: PageProps<"/ad
   ];
 
   return (
-    <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[14rem_minmax(0,1fr)]">
+    <div
+      className={cn(
+        "mx-auto grid max-w-7xl gap-6",
+        // Collapsed: folders become a chip row above the list, which then gets the full width.
+        !folderPanelCollapsed && "lg:grid-cols-[12rem_minmax(0,1fr)] lg:gap-5",
+      )}
+    >
       {/* Folders live beside the products, so filing and checking what is inside is one screen. */}
-      <aside className="space-y-2 lg:sticky lg:top-6 lg:self-start">
-        <div className="flex items-center justify-between px-2">
+      <aside className={cn("min-w-0 space-y-1.5", !folderPanelCollapsed && "lg:sticky lg:top-6 lg:self-start")}>
+        <div className="flex items-center justify-between gap-1 pl-2">
           <h2 className="text-sm font-semibold">โฟลเดอร์</h2>
-          <Link href="/admin/folders" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-            <FolderCog className="size-3.5" aria-hidden /> จัดการ
-          </Link>
+          <div className="flex items-center gap-0.5">
+            <Link href="/admin/folders" className="inline-flex items-center gap-1 rounded-lg px-1.5 py-1 text-xs text-muted-foreground hover:text-foreground">
+              <FolderCog className="size-3.5" aria-hidden /> จัดการ
+            </Link>
+            <FolderPanelToggle collapsed={folderPanelCollapsed} />
+          </div>
         </div>
-        <nav aria-label="โฟลเดอร์" className="flex gap-1 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible">
+        <nav
+          aria-label="โฟลเดอร์"
+          className={cn(
+            "flex gap-1 overflow-x-auto pb-1",
+            !folderPanelCollapsed && "lg:max-h-[calc(100dvh-8rem)] lg:flex-col lg:overflow-y-auto lg:pb-0",
+          )}
+        >
           {folderLinks.map(({ key, href, label, count, icon: Icon, active }) => (
             <Link
               key={key}
               href={href}
               aria-current={active ? "page" : undefined}
+              title={label}
               className={cn(
-                "flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground",
+                "flex shrink-0 items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground",
+                folderPanelCollapsed && "rounded-full border bg-card",
                 active && "bg-secondary font-medium text-foreground",
               )}
             >
               <Icon className="size-4 shrink-0" aria-hidden />
-              <span className="min-w-0 flex-1 truncate">{label}</span>
+              <span className={cn("min-w-0 truncate", !folderPanelCollapsed && "lg:flex-1", folderPanelCollapsed && "max-w-48")}>{label}</span>
               {count !== null && <span className="text-xs tabular-nums">{count}</span>}
             </Link>
           ))}

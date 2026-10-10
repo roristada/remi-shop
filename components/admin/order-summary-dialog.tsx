@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { TableRow } from "@/components/ui/table";
 import { OrderNote } from "@/components/admin/order-note";
+import { FilesEmailedToggle } from "@/components/admin/files-emailed-toggle";
 import { cn } from "@/lib/utils";
 
 /** Display-ready order summary (prices and dates already formatted on the server). */
@@ -34,6 +35,8 @@ export type OrderSummary = {
   discount: string | null;
   total: string;
   note: string | null;
+  /** Paid order with emailed lines: when the admin marked them sent (null = not yet). Absent otherwise. */
+  filesEmail?: { sentAt: string | null };
 };
 
 const OpenSummaryContext = createContext<(() => void) | null>(null);
@@ -155,6 +158,7 @@ function SummaryContent({ summary: s }: { summary: OrderSummary }) {
             <dd className="tabular-nums">{s.total}</dd>
           </div>
         </dl>
+        {s.filesEmail && <FilesEmailedToggle orderId={s.orderId} sentAt={s.filesEmail.sentAt} />}
         <div className="space-y-1">
           <p className="text-xs text-muted-foreground">หมายเหตุภายใน (ลูกค้าไม่เห็น)</p>
           <OrderNote orderId={s.orderId} note={s.note} />

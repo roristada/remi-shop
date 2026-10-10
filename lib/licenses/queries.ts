@@ -19,7 +19,7 @@ export async function getLicenseOffers(productId: string): Promise<LicenseOffer[
 export function getUsageTypeDescriptions(ids: string[]) {
   return prisma.licenseUsageType.findMany({
     where: { id: { in: ids } },
-    select: { id: true, descriptionTH: true, descriptionEN: true },
+    select: { id: true, descriptionTH: true, descriptionEN: true, conditionsTH: true, conditionsEN: true },
   });
 }
 
@@ -43,6 +43,7 @@ export async function listLicenseRequestsForUser(userId: string, page: number, n
         artistName: true,
         platform: true,
         total: true,
+        proposedTotal: true,
         status: true,
         rejectReason: true,
         reviewedAt: true,
@@ -72,18 +73,53 @@ export function getLicenseRequestForEdit(userId: string, requestId: string) {
       id: true,
       productNameTHSnapshot: true,
       productNameENSnapshot: true,
-      buyerName: true,
-      buyerEmail: true,
-      buyerContact: true,
-      artistName: true,
-      artistContact: true,
-      platform: true,
-      note: true,
       artworkPath: true,
       total: true,
+      proposedTotal: true,
+      priceChangeReason: true,
+      infoRequestMessage: true,
+      infoRequestFields: true,
       status: true,
       createdAt: true,
       items: { orderBy: { id: "asc" }, select: { id: true, nameTHSnapshot: true, nameENSnapshot: true, price: true } },
+      answers: { select: { fieldId: true, values: true } },
     },
   });
 }
+
+/** One of the caller's own requests with its answers and history. Ownership is part of the query. */
+export async function getLicenseRequestDetail(userId: string, requestId: string, now: Date = new Date()) {
+  await cancelExpiredOrders(userId, now);
+  return prisma.licenseRequest.findFirst({
+    where: { id: requestId, userId },
+    select: {
+      id: true,
+      productNameTHSnapshot: true,
+      productNameENSnapshot: true,
+      artworkPath: true,
+      total: true,
+      proposedTotal: true,
+      priceChangeReason: true,
+      infoRequestMessage: true,
+      infoRequestFields: true,
+      status: true,
+      rejectReason: true,
+      reviewedAt: true,
+      createdAt: true,
+      product: { select: { slug: true } },
+      items: { orderBy: { id: "asc" }, select: { id: true, nameTHSnapshot: true, nameENSnapshot: true, price: true } },
+      answers: {
+        orderBy: { sortOrder: "asc" },
+        select: { id: true, fieldId: true, labelTHSnapshot: true, labelENSnapshot: true, values: true, valuesEN: true },
+      },
+      // The admin's identity stays private: only what happened and when.
+      events: {
+        orderBy: { createdAt: "asc" },
+        select: { id: true, type: true, message: true, oldTotal: true, newTotal: true, fieldIds: true, changes: true, createdAt: true },
+      },
+      order: { select: { orderNumber: true, status: true, expiresAt: true, paidAt: true } },
+    },
+  });
+}
+
+export type CustomerLicenseRequestDetail = NonNullable<Awaited<ReturnType<typeof getLicenseRequestDetail>>>;

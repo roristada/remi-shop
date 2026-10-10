@@ -1,35 +1,21 @@
 import { z } from "zod";
+import { FIELD_LIMITS } from "@/lib/licenses/form-fields";
 
-// Shared by the request form (instant feedback) and the server action (authoritative).
-// Messages are error codes that map to `shop.license.errors.*` translation keys.
-
-const text = (max: number) => z.string().trim().min(1, "required").max(max, "too_long");
+// Shape checks for the request form's server actions. The answers themselves are checked against
+// the admin-defined form with `resolveAnswers` (lib/licenses/form-fields.ts). Messages are error
+// codes that map to `shop.license.errors.*` translation keys.
 
 export const LICENSE_LIMITS = {
-  name: 100,
-  email: 254,
-  contact: 200,
-  platform: 200,
-  note: 1000,
   usageTypes: 20,
 } as const;
 
-export const licenseRequestFieldsSchema = z.object({
-  buyerName: text(LICENSE_LIMITS.name),
-  buyerEmail: z.string().trim().max(LICENSE_LIMITS.email, "too_long").pipe(z.email("invalid_email")),
-  buyerContact: text(LICENSE_LIMITS.contact),
-  artistName: text(LICENSE_LIMITS.name),
-  artistContact: text(LICENSE_LIMITS.contact),
-  platform: text(LICENSE_LIMITS.platform),
-  note: z
-    .string()
-    .trim()
-    .max(LICENSE_LIMITS.note, "too_long")
-    .transform((v) => (v === "" ? null : v)),
-  usageTypeIds: z.array(z.uuid("pick_usage")).min(1, "pick_usage").max(LICENSE_LIMITS.usageTypes, "pick_usage"),
-});
-
-export type LicenseRequestFields = z.input<typeof licenseRequestFieldsSchema>;
+/** fieldId → text, or the chosen option ids. Sizes are capped before any per-field check. */
+const answersSchema = z
+  .record(
+    z.string().max(64),
+    z.union([z.string().max(FIELD_LIMITS.TEXTAREA * 2), z.array(z.string().max(64)).max(FIELD_LIMITS.options)]),
+  )
+  .refine((r) => Object.keys(r).length <= FIELD_LIMITS.fields * 2, "too_long");
 
 /** The artwork is optional: it can be attached later while the request is editable. */
 const artworkFields = {
@@ -37,15 +23,19 @@ const artworkFields = {
   artworkFileName: z.string().trim().min(1).max(255).nullish(),
 };
 
-export const licenseSubmitSchema = licenseRequestFieldsSchema.extend({
+export const licenseSubmitSchema = z.object({
   productId: z.uuid(),
+  usageTypeIds: z.array(z.uuid("pick_usage")).min(1, "pick_usage").max(LICENSE_LIMITS.usageTypes, "pick_usage"),
+  answers: answersSchema,
   /** Total the customer saw (satang); only compared, never charged. */
   expectedTotal: z.number().int().nonnegative(),
   ...artworkFields,
 });
 
-/** Edit keeps the usage types and price as submitted. */
-export const licenseEditFieldsSchema = licenseRequestFieldsSchema.omit({ usageTypeIds: true });
-export type LicenseEditFields = z.input<typeof licenseEditFieldsSchema>;
-
-export const licenseEditSchema = licenseEditFieldsSchema.extend(artworkFields);
+/** Edit or answer a request for changes. Usage types stay as submitted. */
+export const licenseEditSchema = z.object({
+  answers: answersSchema,
+  /** Required when the store proposed a new price in the same round. */
+  acceptPrice: z.boolean().optional(),
+  ...artworkFields,
+});

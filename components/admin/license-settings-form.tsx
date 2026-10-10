@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, type FormEvent } from "react";
+import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FormSection, TextInput, useResultToast } from "@/components/admin/form-controls";
@@ -24,6 +25,14 @@ export function LicenseSettingsForm({ licensePaymentDays }: { licensePaymentDays
       title="Commercial license"
       description="เวลาที่ลูกค้ามีให้ชำระเงินหลังอนุมัติคำขอ ถ้าไม่แนบสลิปภายในเวลานี้ คำสั่งซื้อจะถูกยกเลิก ใช้กับคำขอที่อนุมัติหลังบันทึกเท่านั้น"
     >
+      <div className="flex flex-wrap gap-2">
+        <Button asChild variant="outline" className="h-9 rounded-full px-4">
+          <Link href="/admin/licenses/form">แก้ไขแบบฟอร์มคำขอ</Link>
+        </Button>
+        <Button asChild variant="outline" className="h-9 rounded-full px-4">
+          <Link href="/admin/licenses/types">ประเภทการใช้งานและเงื่อนไข</Link>
+        </Button>
+      </div>
       <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-3" noValidate>
         <TextInput
           label="ชำระเงินภายใน (วัน)"

@@ -4,6 +4,9 @@ import type { PriceInput } from "@/lib/pricing/calculate";
 /** Customer-facing status, always derived server-side (never stored or trusted from the client). */
 export type ProductStatus = "DRAFT" | "SCHEDULED" | "ACTIVE" | "DISABLED" | "ENDED";
 
+/** What the admin can choose. DISABLED ("ซ่อนสินค้า") is legacy-only since UAT round 3 (same as DRAFT). */
+export type SettablePublishStatus = Exclude<PublishStatus, "DISABLED">;
+
 export type ProductStatusInput = {
   publishStatus: PublishStatus;
   saleStartAt: Date | null;

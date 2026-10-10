@@ -40,6 +40,8 @@ export function pickLicenseLines(offers: LicenseOffer[], selectedIds: readonly s
 /** What the customer sees for a request, combining the review state with its order's payment state. */
 export type LicenseStage =
   | "REVIEW"
+  | "NEEDS_INFO"
+  | "AWAITING_PRICE_CONFIRMATION"
   | "REJECTED"
   | "CANCELLED"
   | "AWAITING_PAYMENT"
@@ -64,9 +66,12 @@ export function licenseStage(status: LicenseRequestStatus, orderStatus: OrderSta
   }
 }
 
+/** Statuses still in review (not decided): the customer may withdraw these. */
+export const OPEN_LICENSE_STATUSES = ["PENDING_REVIEW", "NEEDS_INFO", "AWAITING_PRICE_CONFIRMATION"] as const satisfies LicenseRequestStatus[];
+
 /** Only a request the store has not decided yet can be withdrawn by the customer. */
 export function canCancelLicenseRequest(status: LicenseRequestStatus): boolean {
-  return status === "PENDING_REVIEW";
+  return (OPEN_LICENSE_STATUSES as readonly LicenseRequestStatus[]).includes(status);
 }
 
 /** How long after submitting a customer may edit the request's details or attach the artwork. */
@@ -80,11 +85,42 @@ export function licenseEditDeadline(createdAt: Date): Date {
 }
 
 /**
- * Details and artwork stay editable for 30 days while the request is live (waiting or approved).
- * The chosen usage types and price are locked at submit and never editable.
+ * Details and artwork stay editable for 30 days while the request is live (waiting or approved),
+ * and always while the store is waiting for the customer's corrections (NEEDS_INFO).
+ * The chosen usage types are locked at submit; only the store can change the price.
  */
 export function canEditLicenseRequest(status: LicenseRequestStatus, createdAt: Date, now: Date = new Date()): boolean {
+  if (status === "NEEDS_INFO") return true;
   return (status === "PENDING_REVIEW" || status === "APPROVED") && now < licenseEditDeadline(createdAt);
+}
+
+export const LICENSE_MESSAGE_MAX = 1000;
+
+export type ChangeRequestInput = {
+  /** Current total, satang. */
+  currentTotal: number;
+  /** Proposed total, satang; null = keep the price. */
+  newTotal: number | null;
+  message: string | null;
+  fieldIds: string[];
+};
+
+export type ChangeRequestPlan =
+  | { ok: true; status: "NEEDS_INFO" | "AWAITING_PRICE_CONFIRMATION"; priceChanged: boolean }
+  | { ok: false; code: "NOTHING" | "BAD_PRICE" };
+
+/**
+ * What an admin "send back to the customer" does. Asking for details (a message or flagged fields)
+ * means NEEDS_INFO, even with a new price; a new price alone waits for the customer's acceptance.
+ * Either way the request comes back to the store for a final review.
+ */
+export function planChangeRequest(input: ChangeRequestInput): ChangeRequestPlan {
+  const { currentTotal, newTotal, message, fieldIds } = input;
+  if (newTotal !== null && (!Number.isSafeInteger(newTotal) || newTotal <= 0)) return { ok: false, code: "BAD_PRICE" };
+  const priceChanged = newTotal !== null && newTotal !== currentTotal;
+  const asksForInfo = Boolean(message) || fieldIds.length > 0;
+  if (!priceChanged && !asksForInfo) return { ok: false, code: "NOTHING" };
+  return { ok: true, status: asksForInfo ? "NEEDS_INFO" : "AWAITING_PRICE_CONFIRMATION", priceChanged };
 }
 
 export const LICENSE_PAYMENT_DAYS_MIN = 1;

@@ -21,8 +21,8 @@ import type { ActionResult } from "@/lib/actions/result";
 import { REJECT_REASON_MAX } from "@/lib/payments/rules";
 
 type Props = {
-  /** Server actions already bound to the record under review. */
-  approve: () => Promise<ActionResult>;
+  /** Server actions already bound to the record under review. Without `approve`, only reject is offered. */
+  approve?: () => Promise<ActionResult>;
   reject: (reason: string) => Promise<ActionResult>;
   approveTitle: string;
   approveDescription: ReactNode;
@@ -31,6 +31,8 @@ type Props = {
   rejectLabel: string;
   /** Common reasons, one tap to fill in; the admin can still edit the text. */
   quickReasons: readonly string[];
+  /** More actions shown between approve and reject (e.g. send back to the customer). */
+  extra?: ReactNode;
 };
 
 /** Approve (with confirm) / reject (with a required reason) for admin review queues. */
@@ -43,6 +45,7 @@ export function ReviewActions({
   rejectDescription,
   rejectLabel,
   quickReasons,
+  extra,
 }: Props) {
   const router = useRouter();
   const reasonId = useId();
@@ -66,21 +69,24 @@ export function ReviewActions({
 
   return (
     <div className="flex flex-wrap gap-2">
-      <ConfirmDialog
-        trigger={
-          <Button className="h-10 rounded-full px-5">
-            <Check aria-hidden /> อนุมัติ
-          </Button>
-        }
-        title={approveTitle}
-        description={approveDescription}
-        confirmLabel="อนุมัติ"
-        onConfirm={async () => {
-          const result = await approve();
-          if (!result.ok) toast.error(result.error);
-          router.refresh();
-        }}
-      />
+      {approve && (
+        <ConfirmDialog
+          trigger={
+            <Button className="h-10 rounded-full px-5">
+              <Check aria-hidden /> อนุมัติ
+            </Button>
+          }
+          title={approveTitle}
+          description={approveDescription}
+          confirmLabel="อนุมัติ"
+          onConfirm={async () => {
+            const result = await approve();
+            if (!result.ok) toast.error(result.error);
+            router.refresh();
+          }}
+        />
+      )}
+      {extra}
 
       <Dialog open={open} onOpenChange={(v) => !pending && setOpen(v)}>
         <DialogTrigger asChild>

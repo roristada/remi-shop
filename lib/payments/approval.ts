@@ -1,6 +1,7 @@
 import "server-only";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { notifyUser } from "@/lib/notifications/service";
+import { snapshotOrderCosts } from "@/lib/costs/service";
 
 /** The payment was already reviewed (or its order moved on) — nothing was changed. */
 export class StaleReview extends Error {}
@@ -31,11 +32,19 @@ export async function approvePaymentTx(
     data: { status: "COMPLETED", paymentStatus: "APPROVED", paidAt: now },
   });
   if (updated.count !== 1 || order.count !== 1) throw new StaleReview();
-  // One per order line, like the cards' "sold" label. Raw SQL so a sale does not bump updatedAt.
-  // LICENSE orders have no lines, so nothing changes for them.
+  await addOrderToSoldCounts(tx, payment.orderId);
+  await snapshotOrderCosts(tx, payment.orderId, now);
+  await notifyUser(tx, payment.order.userId, "PAYMENT_APPROVED", { orderNumber: payment.order.orderNumber });
+}
+
+/**
+ * Counts a completed order's lines into the products' sold counts — one per line, like the cards'
+ * "sold" label. Raw SQL so a sale does not bump updatedAt. LICENSE orders have no lines.
+ * Call exactly once per order, when it becomes COMPLETED.
+ */
+export async function addOrderToSoldCounts(tx: Prisma.TransactionClient, orderId: string): Promise<void> {
   await tx.$executeRaw`
     UPDATE "products" AS p SET "sold_count" = p."sold_count" + s.n
-    FROM (SELECT "product_id", COUNT(*)::int AS n FROM "order_items" WHERE "order_id" = ${payment.orderId}::uuid GROUP BY "product_id") AS s
+    FROM (SELECT "product_id", COUNT(*)::int AS n FROM "order_items" WHERE "order_id" = ${orderId}::uuid GROUP BY "product_id") AS s
     WHERE p."id" = s."product_id"`;
-  await notifyUser(tx, payment.order.userId, "PAYMENT_APPROVED", { orderNumber: payment.order.orderNumber });
 }

@@ -10,6 +10,7 @@ import { toHundredths } from "@/lib/pricing/calculate";
 import { getProductStatus } from "@/lib/products/status";
 import { getShopProduct } from "@/lib/products/storefront-queries";
 import { getLicenseOffers, getUsageTypeDescriptions } from "@/lib/licenses/queries";
+import { listActiveFormFields } from "@/lib/licenses/form-queries";
 import { LicenseRequestForm } from "@/components/shop/license-request-form";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/product/[slug]/license">): Promise<Metadata> {
@@ -32,8 +33,11 @@ export default async function LicenseRequestPage({ params }: PageProps<"/[locale
   const name = localized(locale, product.nameTH, product.nameEN);
   const available = getProductStatus(product, new Date()) === "ACTIVE";
   const offers = available ? await getLicenseOffers(product.id) : [];
-  const descriptions = await getUsageTypeDescriptions(offers.map((o) => o.usageTypeId));
-  const descById = new Map(descriptions.map((d) => [d.id, localized(locale, d.descriptionTH, d.descriptionEN)]));
+  const [descriptions, fields] = await Promise.all([
+    getUsageTypeDescriptions(offers.map((o) => o.usageTypeId)),
+    listActiveFormFields(),
+  ]);
+  const descById = new Map(descriptions.map((d) => [d.id, d]));
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:py-12">
@@ -58,10 +62,12 @@ export default async function LicenseRequestPage({ params }: PageProps<"/[locale
           offers={offers.map((o) => ({
             usageTypeId: o.usageTypeId,
             name: localized(locale, o.nameTH, o.nameEN),
-            description: descById.get(o.usageTypeId) ?? null,
+            description: localized(locale, descById.get(o.usageTypeId)?.descriptionTH ?? null, descById.get(o.usageTypeId)?.descriptionEN ?? null),
+            conditions: localized(locale, descById.get(o.usageTypeId)?.conditionsTH ?? null, descById.get(o.usageTypeId)?.conditionsEN ?? null),
             price: toHundredths(o.price),
           }))}
-          defaults={{ buyerName: profile?.displayName ?? "", buyerEmail: profile?.email ?? user.email ?? "" }}
+          fields={fields}
+          defaults={{ name: profile?.displayName ?? "", email: profile?.email ?? user.email ?? "" }}
         />
       )}
     </div>

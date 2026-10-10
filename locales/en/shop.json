@@ -24,7 +24,6 @@
     "sortName": "Name (A–Z)",
     "sortBestSelling": "Best selling",
     "onSale": "On sale only",
-    "comingSoon": "Coming soon only",
     "apply": "Search",
     "clear": "Clear filters",
     "sidebarLabel": "More filters",
@@ -179,7 +178,9 @@
       "too_large": "Files must be 5 MB or smaller",
       "empty": "The file is empty",
       "signature_mismatch": "This file is not a valid image",
-      "EDIT_CLOSED": "This request can no longer be edited (over 30 days, or the store has decided on it)."
+      "EDIT_CLOSED": "This request can no longer be edited (over 30 days, or the store has decided on it).",
+      "invalid_choice": "Please choose one of the options",
+      "PRICE_NOT_ACCEPTED": "Please confirm you accept the new price first"
     },
     "optional": "(optional)",
     "artworkAttached": "An image is attached. Choose a new one to replace it.",
@@ -189,7 +190,21 @@
     "editHint": "You can edit until {date}",
     "editClosed": "This request can no longer be edited (over 30 days, or the store has decided on it).",
     "save": "Save changes",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "detailsTitle": "Request details",
+    "conditions": "Conditions:",
+    "storeNoteTitle": "The store needs more details",
+    "flaggedHint": "Fields with an orange frame are the ones the store asked you to add or correct",
+    "flagged": "(store asked to update)",
+    "newPriceTitle": "The store proposed a new price",
+    "oldPrice": "Previous price",
+    "newPrice": "New price",
+    "priceReason": "Reason",
+    "acceptNewPrice": "I accept the new price of {price}",
+    "sendBack": "Send back to the store",
+    "sendBackHint": "The store reviews it once more before approving. Earlier details stay in the request history.",
+    "respondTitle": "Send more details",
+    "respondIntro": "The store needs more details for your {product} request. Update them and send them back."
   },
   "rating": {
     "count": "{count, plural, one {# review} other {# reviews}}",
@@ -277,5 +292,22 @@
   },
   "card": {
     "sold": "{count, number} sold"
+  },
+  "addons": {
+    "title": "Add to your order",
+    "hint": "Optional extras. Each is charged at its own normal price.",
+    "extra": "{count, plural, one {# add-on} other {# add-ons}} selected",
+    "total": "Total with this product",
+    "addedWithMain": "Added to your cart together with this product",
+    "addSelected": "Add selected add-ons to cart",
+    "added": "{count, plural, one {# add-on} other {# add-ons}} added to your cart",
+    "addFailed": "Couldn't add the add-ons. Please try again.",
+    "state": {
+      "owned": "Already yours",
+      "inCart": "Already in your cart",
+      "inOrder": "In an open order",
+      "available": "",
+      "guest": ""
+    }
   }
 }

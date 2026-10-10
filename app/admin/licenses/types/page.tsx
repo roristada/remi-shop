@@ -27,6 +27,8 @@ export default async function AdminUsageTypesPage() {
           nameEN: t.nameEN,
           descriptionTH: t.descriptionTH ?? "",
           descriptionEN: t.descriptionEN ?? "",
+          conditionsTH: t.conditionsTH ?? "",
+          conditionsEN: t.conditionsEN ?? "",
           isActive: t.isActive,
           sortOrder: t.sortOrder,
           productCount: t._count.prices,

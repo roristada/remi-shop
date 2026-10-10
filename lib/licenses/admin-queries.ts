@@ -6,6 +6,7 @@ import { createSignedViewUrls } from "@/lib/storage/payment-storage";
 
 export const LICENSE_TABS = {
   pending: { label: "รอพิจารณา", statuses: ["PENDING_REVIEW"] },
+  customer: { label: "รอลูกค้า", statuses: ["NEEDS_INFO", "AWAITING_PRICE_CONFIRMATION"] },
   approved: { label: "อนุมัติแล้ว", statuses: ["APPROVED"] },
   closed: { label: "ปฏิเสธ / ยกเลิก", statuses: ["REJECTED", "CANCELLED"] },
 } as const satisfies Record<string, { label: string; statuses: LicenseRequestStatus[] }>;
@@ -35,6 +36,7 @@ export async function listLicenseRequestsForReview(tab: LicenseTab, page: number
         note: true,
         artworkPath: true,
         total: true,
+        proposedTotal: true,
         status: true,
         rejectReason: true,
         reviewedAt: true,
@@ -44,6 +46,7 @@ export async function listLicenseRequestsForReview(tab: LicenseTab, page: number
         user: { select: { email: true, displayName: true } },
         product: { select: { id: true } },
         items: { orderBy: { id: "asc" }, select: { id: true, nameTHSnapshot: true, price: true } },
+        answers: { orderBy: { sortOrder: "asc" }, select: { id: true, labelTHSnapshot: true, values: true } },
         order: { select: { orderNumber: true, status: true, expiresAt: true } },
       },
     }),
@@ -81,3 +84,53 @@ export async function getProductLicensePricing(productId: string) {
   const priceById = new Map(prices.map((p) => [p.usageTypeId, p.price.toString()]));
   return types.map((t) => ({ ...t, price: priceById.get(t.id) ?? null }));
 }
+
+/** One request with everything the review screen shows: answers, history and a signed artwork URL. */
+export async function getLicenseRequestForReview(requestId: string) {
+  const r = await prisma.licenseRequest.findUnique({
+    where: { id: requestId },
+    select: {
+      id: true,
+      productNameTHSnapshot: true,
+      artworkPath: true,
+      total: true,
+      proposedTotal: true,
+      priceChangeReason: true,
+      infoRequestMessage: true,
+      infoRequestFields: true,
+      status: true,
+      rejectReason: true,
+      reviewedAt: true,
+      cancelledAt: true,
+      createdAt: true,
+      reviewedBy: { select: { email: true, displayName: true } },
+      user: { select: { id: true, email: true, displayName: true } },
+      product: { select: { id: true, slug: true } },
+      items: { orderBy: { id: "asc" }, select: { id: true, nameTHSnapshot: true, price: true } },
+      answers: {
+        orderBy: { sortOrder: "asc" },
+        select: { id: true, fieldId: true, labelTHSnapshot: true, type: true, values: true },
+      },
+      events: {
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          type: true,
+          message: true,
+          oldTotal: true,
+          newTotal: true,
+          fieldIds: true,
+          changes: true,
+          createdAt: true,
+          actor: { select: { email: true, displayName: true } },
+        },
+      },
+      order: { select: { orderNumber: true, status: true, expiresAt: true } },
+    },
+  });
+  if (!r) return null;
+  const urls = r.artworkPath ? await createSignedViewUrls(BUCKETS.licenseArtworks, [r.artworkPath]) : new Map<string, string>();
+  return { ...r, artworkUrl: r.artworkPath ? (urls.get(r.artworkPath) ?? null) : null };
+}
+
+export type ReviewLicenseRequestDetail = NonNullable<Awaited<ReturnType<typeof getLicenseRequestForReview>>>;

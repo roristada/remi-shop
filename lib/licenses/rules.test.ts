@@ -66,3 +66,23 @@ test("canEditLicenseRequest allows live requests for 30 days only", () => {
   assert.equal(canEditLicenseRequest("REJECTED", created, created), false);
   assert.equal(canEditLicenseRequest("CANCELLED", created, created), false);
 });
+
+test("send-back plan: info wins over price-only; nothing is refused", async () => {
+  const { planChangeRequest } = await import("./rules");
+  const base = { currentTotal: 50000, newTotal: null, message: null, fieldIds: [] as string[] };
+  assert.deepEqual(planChangeRequest(base), { ok: false, code: "NOTHING" });
+  assert.deepEqual(planChangeRequest({ ...base, newTotal: 50000 }), { ok: false, code: "NOTHING" });
+  assert.deepEqual(planChangeRequest({ ...base, newTotal: 0 }), { ok: false, code: "BAD_PRICE" });
+  assert.deepEqual(planChangeRequest({ ...base, newTotal: 60000 }), { ok: true, status: "AWAITING_PRICE_CONFIRMATION", priceChanged: true });
+  assert.deepEqual(planChangeRequest({ ...base, fieldIds: ["artwork"] }), { ok: true, status: "NEEDS_INFO", priceChanged: false });
+  assert.deepEqual(planChangeRequest({ ...base, newTotal: 60000, message: "แนบรูป" }), { ok: true, status: "NEEDS_INFO", priceChanged: true });
+});
+
+test("open statuses can be cancelled; NEEDS_INFO is always editable", async () => {
+  const { canCancelLicenseRequest, canEditLicenseRequest } = await import("./rules");
+  assert.equal(canCancelLicenseRequest("NEEDS_INFO"), true);
+  assert.equal(canCancelLicenseRequest("AWAITING_PRICE_CONFIRMATION"), true);
+  assert.equal(canCancelLicenseRequest("APPROVED"), false);
+  assert.equal(canEditLicenseRequest("NEEDS_INFO", new Date("2020-01-01")), true);
+  assert.equal(canEditLicenseRequest("AWAITING_PRICE_CONFIRMATION", new Date()), false);
+});

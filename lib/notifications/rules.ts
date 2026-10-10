@@ -16,6 +16,8 @@ export type NotificationParams = {
   productSlug?: string;
   /** PRODUCT_UPDATED: "files" when files of an existing version changed rather than a new version. */
   update?: string;
+  /** License notifications: which request the link opens. */
+  requestId?: string;
 };
 
 const PARAM_KEYS = [
@@ -28,6 +30,7 @@ const PARAM_KEYS = [
   "stage",
   "productSlug",
   "update",
+  "requestId",
 ] as const;
 
 /** Reads a stored params value defensively: unknown keys and non-strings are dropped. */
@@ -42,7 +45,13 @@ export function parseNotificationParams(value: unknown): NotificationParams {
   return out;
 }
 
-export const ADMIN_NOTIFICATION_TYPES = ["ADMIN_SLIP_SUBMITTED", "ADMIN_LICENSE_REQUESTED"] as const satisfies NotificationType[];
+export const ADMIN_NOTIFICATION_TYPES = [
+  "ADMIN_SLIP_SUBMITTED",
+  "ADMIN_LICENSE_REQUESTED",
+  "ADMIN_LICENSE_RESPONDED",
+] as const satisfies NotificationType[];
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Where a notification leads. `localized` paths get the viewer's locale prefix; admin paths do
@@ -67,11 +76,17 @@ export function notificationTarget(
         : { path: "/shop", localized: true };
     case "LICENSE_APPROVED":
     case "LICENSE_REJECTED":
-      return { path: "/account/licenses", localized: true };
+    case "LICENSE_CHANGES_REQUESTED":
+      return params.requestId && UUID.test(params.requestId)
+        ? { path: `/account/licenses/${params.requestId}`, localized: true }
+        : { path: "/account/licenses", localized: true };
     case "ADMIN_SLIP_SUBMITTED":
       return { path: "/admin/payments", localized: false };
     case "ADMIN_LICENSE_REQUESTED":
-      return { path: "/admin/licenses", localized: false };
+    case "ADMIN_LICENSE_RESPONDED":
+      return params.requestId && UUID.test(params.requestId)
+        ? { path: `/admin/licenses/${params.requestId}`, localized: false }
+        : { path: "/admin/licenses", localized: false };
   }
 }
 

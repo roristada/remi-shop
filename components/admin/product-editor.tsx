@@ -3,14 +3,13 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, EyeOff, FilePen, Loader2, MoreHorizontal, Send, Trash2 } from "lucide-react";
+import { ChevronLeft, FilePen, Loader2, MoreHorizontal, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -218,7 +217,7 @@ export function ProductEditor({ productId, publishStatus, title, summary, tabs, 
               <Button className="h-10 rounded-full px-5" disabled={busy} onClick={() => void save("PUBLISHED")}>
                 <Send aria-hidden /> บันทึกและเผยแพร่
               </Button>
-              {productId && <MoreMenu productId={productId} publishStatus={publishStatus} hasOrders={hasOrders} disabled={busy} />}
+              {productId && <MoreMenu productId={productId} hasOrders={hasOrders} disabled={busy} />}
             </div>
           </div>
           {summary && <div className="mt-2 pl-12">{summary}</div>}
@@ -244,23 +243,17 @@ export function ProductEditor({ productId, publishStatus, title, summary, tabs, 
   );
 }
 
-/** Rare actions: hide from the shop, back to draft, delete. */
+/** Rare actions: delete. (Unpublish = "บันทึกเป็นฉบับร่าง".) */
 function MoreMenu({
   productId,
-  publishStatus,
   hasOrders,
   disabled,
 }: {
   productId: string;
-  publishStatus: PublishStatus | null;
   hasOrders: boolean;
   disabled: boolean;
 }) {
-  const router = useRouter();
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const hide = async () => {
-    if (await runWithToast(() => setPublishStatus(productId, "DISABLED"))) router.refresh();
-  };
   return (
     <>
       <DropdownMenu>
@@ -270,12 +263,6 @@ function MoreMenu({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
-          {publishStatus !== "DISABLED" && (
-            <DropdownMenuItem onSelect={() => void hide()}>
-              <EyeOff aria-hidden /> ซ่อนสินค้า
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuSeparator />
           <DropdownMenuItem
             disabled={hasOrders}
             className="text-destructive focus:text-destructive"

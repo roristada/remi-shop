@@ -81,9 +81,47 @@ enum OrderKind {
 /// Review state of a commercial license request. Payment state after approval lives on its Order.
 enum LicenseRequestStatus {
   PENDING_REVIEW
+  /// The store asked the customer to complete or correct details (may also carry a new price).
+  NEEDS_INFO
+  /// The store proposed a new price; the customer must accept it before the final review.
+  AWAITING_PRICE_CONFIRMATION
   APPROVED
   REJECTED
   CANCELLED
+}
+
+/// Input kind of an admin-defined license request form field.
+enum LicenseFieldType {
+  TEXT
+  TEXTAREA
+  EMAIL
+  /// One choice, shown as radio buttons.
+  RADIO
+  /// Any number of choices.
+  CHECKBOX
+  /// One choice from a select list.
+  DROPDOWN
+}
+
+/// Append-only history of a license request.
+enum LicenseEventType {
+  SUBMITTED
+  CUSTOMER_EDITED
+  CHANGES_REQUESTED
+  CUSTOMER_RESPONDED
+  PRICE_ACCEPTED
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+/// Card colour of a home-page banner (the carousel's pastel palette).
+enum BannerTheme {
+  PINK
+  LILAC
+  SKY
+  BUTTER
+  MINT
 }
 
 /// In-app (navbar) notification events. Customer types go to the order/request owner; ADMIN_* go to every admin.
@@ -95,6 +133,10 @@ enum NotificationType {
   LICENSE_REJECTED
   ADMIN_SLIP_SUBMITTED
   ADMIN_LICENSE_REQUESTED
+  /// The store asked for more details and/or proposed a new price.
+  LICENSE_CHANGES_REQUESTED
+  /// The customer answered a request for changes (or accepted the new price).
+  ADMIN_LICENSE_RESPONDED
   REVIEW_REMINDER
   PRODUCT_AVAILABLE
 }
@@ -115,9 +157,10 @@ model Profile {
   wishlist         Wishlist[]
   orders           Order[]
   downloads        Download[]
-  reviewedPayments Payment[]        @relation("PaymentReviewer")
+  reviewedPayments Payment[]             @relation("PaymentReviewer")
   licenseRequests  LicenseRequest[]
-  reviewedLicenses LicenseRequest[] @relation("LicenseReviewer")
+  reviewedLicenses LicenseRequest[]      @relation("LicenseReviewer")
+  licenseEvents    LicenseRequestEvent[] @relation("LicenseEventActor")
   reviews          Review[]
   notifications    Notification[]
   waitlist         WaitlistEntry[]
@@ -227,6 +270,10 @@ model Product {
   versions        ProductVersion[]
   wishlist        Wishlist[]
   waitlist        WaitlistEntry[]
+  /// Offer this product's add-ons on its page (the list lives in ProductAddon).
+  addonsEnabled   Boolean               @default(false) @map("addons_enabled")
+  addons          ProductAddon[]        @relation("ProductAddons")
+  addonOf         ProductAddon[]        @relation("AddonProduct")
   cartItems       CartItem[]
   orderItems      OrderItem[]
   downloads       Download[]
@@ -419,15 +466,18 @@ model Cart {
 }
 
 model CartItem {
-  id        String   @id @default(uuid(7)) @db.Uuid
-  cartId    String   @map("cart_id") @db.Uuid
-  productId String   @map("product_id") @db.Uuid
+  id                 String   @id @default(uuid(7)) @db.Uuid
+  cartId             String   @map("cart_id") @db.Uuid
+  productId          String   @map("product_id") @db.Uuid
   /// Required when the product has variants. One line per (product, variant): two partial
   /// unique indexes in SQL, since NULL variant ids would not collide in a plain unique index.
-  variantId String?  @map("variant_id") @db.Uuid
+  variantId          String?  @map("variant_id") @db.Uuid
   /// Digital goods: always 1 (CHECK constraint in SQL migration).
-  quantity  Int      @default(1)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  quantity           Int      @default(1)
+  /// Added as an add-on of this product: removing that product from the cart removes this line too.
+  /// No FK on purpose: it only groups cart lines and must never block deleting a product.
+  addedWithProductId String?  @map("added_with_product_id") @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   cart    Cart            @relation(fields: [cartId], references: [id], onDelete: Cascade)
   product Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -439,27 +489,68 @@ model CartItem {
   @@map("cart_items")
 }
 
+/// A product offered as an optional add-on on another product's page. Add-ons are sold at their
+/// own normal price (with their own discount); buying them together never makes anything cheaper.
+model ProductAddon {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  productId      String   @map("product_id") @db.Uuid
+  addonProductId String   @map("addon_product_id") @db.Uuid
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  product      Product @relation("ProductAddons", fields: [productId], references: [id], onDelete: Cascade)
+  addonProduct Product @relation("AddonProduct", fields: [addonProductId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, addonProductId])
+  @@index([addonProductId])
+  @@map("product_addons")
+}
+
+/// One row of the admin's cost sheet as last synced. The whole table is replaced on every sync,
+/// so importing the same sheet again never duplicates anything.
+model CostReference {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  /// Sheet tab = folder name.
+  tab          String
+  nameEN       String    @map("name_en")
+  nameZH       String    @map("name_zh")
+  /// Lower-case letters/digits/CJK only, for matching product names.
+  matchEN      String    @map("match_en")
+  matchZH      String    @map("match_zh")
+  costYuan     Decimal   @map("cost_yuan") @db.Decimal(10, 2)
+  /// A "(ราคาพิเศษ)" row: used only while its promo dates cover the order date.
+  isPromo      Boolean   @default(false) @map("is_promo")
+  promoStartAt DateTime? @map("promo_start_at") @db.Timestamptz(6)
+  promoEndAt   DateTime? @map("promo_end_at") @db.Timestamptz(6)
+  importedAt   DateTime  @default(now()) @map("imported_at") @db.Timestamptz(6)
+
+  @@index([tab])
+  @@map("cost_references")
+}
+
 // ──────────────────────────── Orders ─────────────────────────────
 
 /// Source of truth for payment state is the latest Payment row;
 /// Order.paymentStatus mirrors it and is updated in the same transaction.
 model Order {
-  id            String         @id @default(uuid(7)) @db.Uuid
-  orderNumber   String         @unique @map("order_number")
-  userId        String         @map("user_id") @db.Uuid
-  kind          OrderKind      @default(PRODUCT)
-  subtotal      Decimal        @db.Decimal(10, 2)
-  discount      Decimal        @default(0) @db.Decimal(10, 2)
-  total         Decimal        @db.Decimal(10, 2)
-  status        OrderStatus    @default(PENDING_PAYMENT)
+  id             String         @id @default(uuid(7)) @db.Uuid
+  orderNumber    String         @unique @map("order_number")
+  userId         String         @map("user_id") @db.Uuid
+  kind           OrderKind      @default(PRODUCT)
+  subtotal       Decimal        @db.Decimal(10, 2)
+  discount       Decimal        @default(0) @db.Decimal(10, 2)
+  total          Decimal        @db.Decimal(10, 2)
+  status         OrderStatus    @default(PENDING_PAYMENT)
   /// null until the first slip is uploaded.
-  paymentStatus PaymentStatus? @map("payment_status")
+  paymentStatus  PaymentStatus? @map("payment_status")
   /// PENDING_PAYMENT orders without a slip are cancelled after this time.
-  expiresAt     DateTime       @map("expires_at") @db.Timestamptz(6)
-  paidAt        DateTime?      @map("paid_at") @db.Timestamptz(6)
-  cancelledAt   DateTime?      @map("cancelled_at") @db.Timestamptz(6)
-  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  expiresAt      DateTime       @map("expires_at") @db.Timestamptz(6)
+  paidAt         DateTime?      @map("paid_at") @db.Timestamptz(6)
+  /// Lines without a file are emailed by the store; set when the admin marks them as sent.
+  filesEmailedAt DateTime?      @map("files_emailed_at") @db.Timestamptz(6)
+  cancelledAt    DateTime?      @map("cancelled_at") @db.Timestamptz(6)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   user           Profile         @relation(fields: [userId], references: [id], onDelete: Restrict)
   items          OrderItem[]
@@ -488,20 +579,29 @@ model OrderAdminNote {
 
 /// Snapshot of what was bought — never recomputed from Product.
 model OrderItem {
-  id                     String  @id @default(uuid(7)) @db.Uuid
-  orderId                String  @map("order_id") @db.Uuid
-  productId              String  @map("product_id") @db.Uuid
-  productNameTHSnapshot  String  @map("product_name_th_snapshot")
-  productNameENSnapshot  String  @map("product_name_en_snapshot")
-  productVersionSnapshot String? @map("product_version_snapshot")
+  id                     String   @id @default(uuid(7)) @db.Uuid
+  orderId                String   @map("order_id") @db.Uuid
+  productId              String   @map("product_id") @db.Uuid
+  productNameTHSnapshot  String   @map("product_name_th_snapshot")
+  productNameENSnapshot  String   @map("product_name_en_snapshot")
+  productVersionSnapshot String?  @map("product_version_snapshot")
   /// Set when the product was bought as a variant; grants that variant's files.
-  variantId              String? @map("variant_id") @db.Uuid
-  variantNameTHSnapshot  String? @map("variant_name_th_snapshot")
-  variantNameENSnapshot  String? @map("variant_name_en_snapshot")
-  unitPrice              Decimal @map("unit_price") @db.Decimal(10, 2)
-  discount               Decimal @default(0) @db.Decimal(10, 2)
-  finalPrice             Decimal @map("final_price") @db.Decimal(10, 2)
-  quantity               Int     @default(1)
+  variantId              String?  @map("variant_id") @db.Uuid
+  variantNameTHSnapshot  String?  @map("variant_name_th_snapshot")
+  variantNameENSnapshot  String?  @map("variant_name_en_snapshot")
+  unitPrice              Decimal  @map("unit_price") @db.Decimal(10, 2)
+  discount               Decimal  @default(0) @db.Decimal(10, 2)
+  finalPrice             Decimal  @map("final_price") @db.Decimal(10, 2)
+  quantity               Int      @default(1)
+  /// Cost snapshot, taken when the order completes (or at the first cost sync after that) and
+  /// never changed afterwards. null = no cost found yet ("รอระบุต้นทุน").
+  costYuan               Decimal? @map("cost_yuan") @db.Decimal(10, 2)
+  /// THB per yuan used for `cost`.
+  costRate               Decimal? @map("cost_rate") @db.Decimal(10, 4)
+  /// Cost in THB = costYuan × costRate.
+  cost                   Decimal? @db.Decimal(10, 2)
+  /// The promotional cost row ("(ราคาพิเศษ)") was used.
+  costIsPromo            Boolean  @default(false) @map("cost_is_promo")
 
   order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
   /// Restrict: products that were sold cannot be hard-deleted (disable instead).
@@ -573,6 +673,9 @@ model LicenseUsageType {
   nameEN        String   @map("name_en")
   descriptionTH String?  @map("description_th")
   descriptionEN String?  @map("description_en")
+  /// Extra terms the customer reads before choosing this usage type.
+  conditionsTH  String?  @map("conditions_th")
+  conditionsEN  String?  @map("conditions_en")
   isActive      Boolean  @default(true) @map("is_active")
   sortOrder     Int      @default(0) @map("sort_order")
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -608,18 +711,25 @@ model LicenseRequest {
   productId             String               @map("product_id") @db.Uuid
   productNameTHSnapshot String               @map("product_name_th_snapshot")
   productNameENSnapshot String               @map("product_name_en_snapshot")
-  buyerName             String               @map("buyer_name")
-  buyerEmail            String               @map("buyer_email")
-  buyerContact          String               @map("buyer_contact")
-  artistName            String               @map("artist_name")
-  artistContact         String               @map("artist_contact")
-  platform              String
+  buyerName             String?              @map("buyer_name")
+  buyerEmail            String?              @map("buyer_email")
+  buyerContact          String?              @map("buyer_contact")
+  artistName            String?              @map("artist_name")
+  artistContact         String?              @map("artist_contact")
+  platform              String?
   note                  String?
   /// Object key inside the private `license-artworks` bucket; null until the customer attaches it.
   artworkPath           String?              @map("artwork_path")
   total                 Decimal              @db.Decimal(10, 2)
   status                LicenseRequestStatus @default(PENDING_REVIEW)
   rejectReason          String?              @map("reject_reason")
+  /// Price the store proposed (NEEDS_INFO / AWAITING_PRICE_CONFIRMATION); becomes `total` once accepted.
+  proposedTotal         Decimal?             @map("proposed_total") @db.Decimal(10, 2)
+  priceChangeReason     String?              @map("price_change_reason")
+  /// What the store asked the customer to fix (current round only; every round is kept in `events`).
+  infoRequestMessage    String?              @map("info_request_message")
+  /// Form field ids (and "artwork") the customer must complete or correct.
+  infoRequestFields     String[]             @default([]) @map("info_request_fields")
   reviewedById          String?              @map("reviewed_by") @db.Uuid
   reviewedAt            DateTime?            @map("reviewed_at") @db.Timestamptz(6)
   cancelledAt           DateTime?            @map("cancelled_at") @db.Timestamptz(6)
@@ -628,12 +738,14 @@ model LicenseRequest {
   createdAt             DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  user       Profile              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user       Profile                @relation(fields: [userId], references: [id], onDelete: Restrict)
   /// Restrict: products with license requests cannot be hard-deleted (disable instead).
-  product    Product              @relation(fields: [productId], references: [id], onDelete: Restrict)
-  reviewedBy Profile?             @relation("LicenseReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
-  order      Order?               @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  product    Product                @relation(fields: [productId], references: [id], onDelete: Restrict)
+  reviewedBy Profile?               @relation("LicenseReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  order      Order?                 @relation(fields: [orderId], references: [id], onDelete: Restrict)
   items      LicenseRequestItem[]
+  answers    LicenseRequestAnswer[]
+  events     LicenseRequestEvent[]
 
   @@index([userId, createdAt(sort: Desc)])
   @@index([status, createdAt])
@@ -659,22 +771,99 @@ model LicenseRequestItem {
   @@map("license_request_items")
 }
 
+/// One question on the commercial-license request form, defined by the admin in Settings.
+/// `key` marks the original built-in fields (buyerName, artistName, ...): their answers are also
+/// copied to the matching legacy LicenseRequest columns, which other screens still show.
+model LicenseFormField {
+  id            String           @id @default(uuid(7)) @db.Uuid
+  key           String?          @unique
+  labelTH       String           @map("label_th")
+  labelEN       String           @map("label_en")
+  descriptionTH String?          @map("description_th")
+  descriptionEN String?          @map("description_en")
+  type          LicenseFieldType
+  isRequired    Boolean          @default(false) @map("is_required")
+  isActive      Boolean          @default(true) @map("is_active")
+  sortOrder     Int              @default(0) @map("sort_order")
+  /// RADIO / CHECKBOX / DROPDOWN choices: [{ "id", "th", "en" }] (validated in lib/licenses/form-fields.ts).
+  options       Json             @default("[]")
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  answers LicenseRequestAnswer[]
+
+  @@index([isActive, sortOrder])
+  @@map("license_form_fields")
+}
+
+/// A customer's answer to one form field, with the question as it read at the time.
+model LicenseRequestAnswer {
+  id              String           @id @default(uuid(7)) @db.Uuid
+  requestId       String           @map("request_id") @db.Uuid
+  /// SetNull: deleting a field from the form keeps past answers (they carry their own label).
+  fieldId         String?          @map("field_id") @db.Uuid
+  labelTHSnapshot String           @map("label_th_snapshot")
+  labelENSnapshot String           @map("label_en_snapshot")
+  type            LicenseFieldType
+  /// Text answers: one entry. Choice answers: the chosen options' Thai / English labels.
+  values          String[]         @default([])
+  valuesEN        String[]         @default([]) @map("values_en")
+  sortOrder       Int              @default(0) @map("sort_order")
+
+  request LicenseRequest    @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  field   LicenseFormField? @relation(fields: [fieldId], references: [id], onDelete: SetNull)
+
+  @@unique([requestId, fieldId])
+  @@index([fieldId])
+  @@map("license_request_answers")
+}
+
+/// Who did what to a license request, and what changed. Never updated or deleted.
+model LicenseRequestEvent {
+  id        String           @id @default(uuid(7)) @db.Uuid
+  requestId String           @map("request_id") @db.Uuid
+  type      LicenseEventType
+  /// The admin who acted; null = the customer who owns the request.
+  actorId   String?          @map("actor_id") @db.Uuid
+  message   String?
+  oldTotal  Decimal?         @map("old_total") @db.Decimal(10, 2)
+  newTotal  Decimal?         @map("new_total") @db.Decimal(10, 2)
+  /// Field ids (and "artwork") the event is about.
+  fieldIds  String[]         @default([]) @map("field_ids")
+  /// Customer edits: [{ labelTH, labelEN, before, after }] so earlier answers are never lost.
+  changes   Json?
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  request LicenseRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  actor   Profile?       @relation("LicenseEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([requestId, createdAt])
+  @@map("license_request_events")
+}
+
 // ─────────────────────────── Content ─────────────────────────────
 
 model Announcement {
-  id            String    @id @default(uuid(7)) @db.Uuid
-  titleTH       String    @map("title_th")
-  titleEN       String    @map("title_en")
-  descriptionTH String?   @map("description_th")
-  descriptionEN String?   @map("description_en")
-  imagePath     String?   @map("image_path")
+  id            String      @id @default(uuid(7)) @db.Uuid
+  titleTH       String      @map("title_th")
+  titleEN       String      @map("title_en")
+  descriptionTH String?     @map("description_th")
+  descriptionEN String?     @map("description_en")
+  imagePath     String?     @map("image_path")
   link          String?
-  startAt       DateTime? @map("start_at") @db.Timestamptz(6)
-  endAt         DateTime? @map("end_at") @db.Timestamptz(6)
-  isActive      Boolean   @default(true) @map("is_active")
-  sortOrder     Int       @default(0) @map("sort_order")
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// Button text on the banner card; no button when empty.
+  ctaTH         String?     @map("cta_th")
+  ctaEN         String?     @map("cta_en")
+  theme         BannerTheme @default(PINK)
+  /// Which part of the image stays in frame (object-position, 0–100 %).
+  imageFocusX   Int         @default(50) @map("image_focus_x")
+  imageFocusY   Int         @default(50) @map("image_focus_y")
+  startAt       DateTime?   @map("start_at") @db.Timestamptz(6)
+  endAt         DateTime?   @map("end_at") @db.Timestamptz(6)
+  isActive      Boolean     @default(true) @map("is_active")
+  sortOrder     Int         @default(0) @map("sort_order")
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@index([isActive, startAt, endAt])
   @@map("announcements")
@@ -697,19 +886,29 @@ model PaymentSetting {
 }
 
 model StoreSetting {
-  id                         Int      @id @default(1)
-  storeName                  String   @default("Remi Shop") @map("store_name")
-  contactEmail               String?  @map("contact_email")
-  lineId                     String?  @map("line_id")
-  facebookUrl                String?  @map("facebook_url")
-  instagramUrl               String?  @map("instagram_url")
+  id                         Int       @id @default(1)
+  storeName                  String    @default("Remi Shop") @map("store_name")
+  contactEmail               String?   @map("contact_email")
+  lineId                     String?   @map("line_id")
+  facebookUrl                String?   @map("facebook_url")
+  instagramUrl               String?   @map("instagram_url")
   /// Unpaid (no slip) orders auto-cancel after this many minutes.
-  orderExpiryMinutes         Int      @default(60) @map("order_expiry_minutes")
+  orderExpiryMinutes         Int       @default(60) @map("order_expiry_minutes")
   /// Anti-spam: max download requests per user per minute.
-  downloadRateLimitPerMinute Int      @default(10) @map("download_rate_limit_per_minute")
+  downloadRateLimitPerMinute Int       @default(10) @map("download_rate_limit_per_minute")
   /// Days an approved license request has to be paid before its order is cancelled.
-  licensePaymentDays         Int      @default(3) @map("license_payment_days")
-  updatedAt                  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  licensePaymentDays         Int       @default(3) @map("license_payment_days")
+  /// Google Sheet with the cost list (one tab per folder, named exactly like the folder).
+  costSheetId                String?   @map("cost_sheet_id")
+  /// THB per yuan for costs.
+  costRate                   Decimal   @default(5.1) @map("cost_rate") @db.Decimal(10, 4)
+  costSyncedAt               DateTime? @map("cost_synced_at") @db.Timestamptz(6)
+  /// Small notice bar at the top of the home page (maintenance, outages, store-wide news).
+  announcementBarEnabled     Boolean   @default(false) @map("announcement_bar_enabled")
+  announcementBarTH          String?   @map("announcement_bar_th")
+  announcementBarEN          String?   @map("announcement_bar_en")
+  announcementBarLink        String?   @map("announcement_bar_link")
+  updatedAt                  DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("store_settings")
 }

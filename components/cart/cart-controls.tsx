@@ -43,8 +43,11 @@ export function RemoveFromCartButton({
   );
 }
 
-/** Sends the total the customer saw; the server re-prices and refuses if it no longer matches. */
-export function CheckoutButton({ expectedTotal, disabled }: { expectedTotal: number; disabled: boolean }) {
+/**
+ * Sends the total the customer saw; the server re-prices and refuses if it no longer matches.
+ * `free` only changes the label — the server decides on its own whether the order needs payment.
+ */
+export function CheckoutButton({ expectedTotal, disabled, free = false }: { expectedTotal: number; disabled: boolean; free?: boolean }) {
   const t = useTranslations("cart");
   const locale = useLocale();
   const router = useRouter();
@@ -57,7 +60,7 @@ export function CheckoutButton({ expectedTotal, disabled }: { expectedTotal: num
       aria-busy={pending}
       onClick={() =>
         startTransition(async () => {
-          // Redirects to the order page on success; only failures return here.
+          // Redirects (order page, or downloads for a free order) on success; only failures return here.
           const result = await checkout(locale, expectedTotal);
           if (!result) return;
           if (result.code === "LOGIN_REQUIRED") {
@@ -70,7 +73,7 @@ export function CheckoutButton({ expectedTotal, disabled }: { expectedTotal: num
       }
     >
       {pending && <Loader2 className="animate-spin" aria-hidden />}
-      {t("cart.checkout")}
+      {free ? t("cart.checkoutFree") : t("cart.checkout")}
     </Button>
   );
 }

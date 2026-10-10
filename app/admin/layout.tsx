@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BadgeCheck, Stamp, FolderOpen, LayoutDashboard, MessageSquareText, Package, Receipt, Settings, Tags, Users } from "lucide-react";
+import { BadgeCheck, Calculator, Stamp, FolderOpen, GalleryHorizontal, LayoutDashboard, MessageSquareText, Package, Receipt, Settings, Tags, Users } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/guards";
 import { fontVariables } from "@/app/fonts";
 import { NextIntlClientProvider } from "next-intl";
@@ -10,7 +10,7 @@ import notificationMessages from "@/locales/th/notifications.json";
 import "../globals.css";
 
 export const metadata: Metadata = {
-  title: "Admin | REMI",
+  title: "Admin | REMII",
   robots: { index: false, follow: false },
 };
 
@@ -22,7 +22,9 @@ const ADMIN_NAV = [
   { href: "/admin/payments", label: "ตรวจสลิป", icon: BadgeCheck },
   { href: "/admin/licenses", label: "คำขอ License", icon: Stamp },
   { href: "/admin/orders", label: "คำสั่งซื้อ", icon: Receipt },
+  { href: "/admin/profit", label: "ต้นทุนและกำไร", icon: Calculator },
   { href: "/admin/reviews", label: "รีวิว", icon: MessageSquareText },
+  { href: "/admin/banners", label: "แบนเนอร์และประกาศ", icon: GalleryHorizontal },
   { href: "/admin/customers", label: "ลูกค้า", icon: Users },
   { href: "/admin/settings", label: "ตั้งค่า", icon: Settings },
 ];
@@ -35,7 +37,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
     <html lang="th" className={`${fontVariables} h-full antialiased`}>
       <body className="flex min-h-full bg-muted/40">
         <aside className="hidden w-60 shrink-0 border-r bg-sidebar p-4 md:block">
-          <p className="mb-6 px-2 font-bold">REMI Admin</p>
+          <p className="mb-6 px-2 font-bold">REMII Admin</p>
           <nav aria-label="Admin" className="flex flex-col gap-1">
             {ADMIN_NAV.map(({ href, label, icon: Icon }) => (
               <Link

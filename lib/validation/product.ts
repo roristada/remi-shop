@@ -37,7 +37,7 @@ const optionalPercent = z
   .refine((v) => v === null || (Number(v) > 0 && Number(v) < 100), "ส่วนลดต้องมากกว่า 0 และน้อยกว่า 100");
 
 /** `datetime-local` value interpreted as Asia/Bangkok. */
-const optionalDateTime = z.string().transform((v, ctx) => {
+export const optionalDateTime = z.string().transform((v, ctx) => {
   const parsed = parseBangkokDateTimeLocal(v);
   if (parsed === undefined) {
     ctx.addIssue({ code: "custom", message: "วันเวลาไม่ถูกต้อง" });

@@ -3,13 +3,13 @@ import type { Metadata } from "next";
 import { PreviewImage } from "@/components/shared/preview-image";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { Clock3, Download, ExternalLink, Images, List, Mail, Star } from "lucide-react";
+import { Clock3, Download, ExternalLink, Mail, Star } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { intlLocale, localized } from "@/i18n/localize";
 import { requireUser } from "@/lib/auth/guards";
 import { formatBangkokDateTime } from "@/lib/datetime";
 import { formatTHB, fromHundredths, toHundredths } from "@/lib/pricing/calculate";
-import { getOrderForUser, getPaymentSettings, listOrderGalleryImages, type CustomerOrder } from "@/lib/orders/queries";
+import { getOrderForUser, getPaymentSettings, type CustomerOrder } from "@/lib/orders/queries";
 import { orderNumberSchema } from "@/lib/orders/validation";
 import { previewImageSrc, previewImageUrl } from "@/lib/storage/public-url";
 import { BUCKETS } from "@/lib/storage/buckets";
@@ -32,7 +32,6 @@ import { BackLink } from "@/components/shared/back-link";
 import { getOrderReviewStates } from "@/lib/reviews/queries";
 import { OrderReviewButton, ReviewPrompt, type OrderReviewItem } from "@/components/reviews/order-review-actions";
 import { lineKey } from "@/lib/orders/rules";
-import { ProductGallery } from "@/components/shop/product-gallery";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/orders/[orderNumber]">): Promise<Metadata> {
   const { locale, orderNumber } = await params;
@@ -40,9 +39,8 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/orders/[
   return { title: t("order", { orderNumber: orderNumber.toUpperCase() }), robots: { index: false } };
 }
 
-export default async function OrderPage({ params, searchParams }: PageProps<"/[locale]/orders/[orderNumber]">) {
+export default async function OrderPage({ params }: PageProps<"/[locale]/orders/[orderNumber]">) {
   const { locale, orderNumber: raw } = await params;
-  const gallery = (await searchParams).view === "gallery";
   setRequestLocale(locale);
   const user = await requireUser(`/${locale}/login?next=${encodeURIComponent(`/${locale}/orders/${raw}`)}`);
   const parsed = orderNumberSchema.safeParse(raw);
@@ -102,30 +100,6 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/[l
       }))
     : [];
   const promptItems = reviewItems.filter((i) => i.state === "CAN_REVIEW");
-  const hasProducts = !order.licenseRequest && order.items.length > 0;
-  // Gallery mode: only the pictures of what was bought, nothing else.
-  const galleryImages = gallery && hasProducts
-    ? (await listOrderGalleryImages(order.items.map((i) => i.product.id))).map((img) => ({
-        id: img.id,
-        url: previewImageSrc(img, "detail"),
-        alt: localized(locale, img.altTextTH, img.altTextEN) || "",
-      }))
-    : null;
-  const orderPath = `/orders/${order.orderNumber}`;
-
-  if (galleryImages) {
-    return (
-      <div className="mx-auto max-w-4xl space-y-6 px-4 py-8 sm:py-12">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <BackLink href={orderPath}>{t("order.galleryBack")}</BackLink>
-          <ViewSwitch path={orderPath} gallery t={t} />
-        </div>
-        <h1 className="sr-only">{t("order.gallery")}</h1>
-        <ProductGallery images={galleryImages} />
-      </div>
-    );
-  }
-
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:py-12">
       <BackLink href="/orders">{t("order.back")}</BackLink>
@@ -158,12 +132,9 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/[l
 
       <div className={showPanel ? "grid gap-8 lg:grid-cols-[minmax(0,1fr)_24rem]" : "grid gap-8"}>
         <section aria-labelledby="items-heading" className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 id="items-heading" className="text-lg">
-              {order.licenseRequest ? t("order.licenseItems") : t("order.items")}
-            </h2>
-            {hasProducts && <ViewSwitch path={orderPath} gallery={false} t={t} />}
-          </div>
+          <h2 id="items-heading" className="text-lg">
+            {order.licenseRequest ? t("order.licenseItems") : t("order.items")}
+          </h2>
           {order.licenseRequest ? (
             <LicenseSummary license={order.licenseRequest} locale={locale} t={t} />
           ) : (
@@ -268,25 +239,6 @@ function fileDelivery(hasFiles: boolean[]): Delivery {
   return hasFiles.some(Boolean) ? "mixed" : "email";
 }
 
-/** List ⇄ gallery (pictures only) for the order's products. */
-function ViewSwitch({ path, gallery, t }: { path: string; gallery: boolean; t: T }) {
-  const item = (active: boolean) =>
-    cn(
-      "inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm text-muted-foreground hover:text-foreground",
-      active && "bg-secondary font-medium text-foreground",
-    );
-  return (
-    <nav aria-label={t("order.viewLabel")} className="flex rounded-full border p-0.5">
-      <Link href={path} aria-current={!gallery ? "page" : undefined} className={item(!gallery)}>
-        <List className="size-4" aria-hidden /> {t("order.viewList")}
-      </Link>
-      <Link href={`${path}?view=gallery`} aria-current={gallery ? "page" : undefined} className={item(gallery)}>
-        <Images className="size-4" aria-hidden /> {t("order.gallery")}
-      </Link>
-    </nav>
-  );
-}
-
 /** What a LICENSE order pays for: rights only, so there is no file or version to list. */
 function LicenseSummary({
   license,
@@ -304,9 +256,12 @@ function LicenseSummary({
         <Link href={`/product/${license.product.slug}`} className="font-semibold hover:underline">
           {localized(locale, license.productNameTHSnapshot, license.productNameENSnapshot)}
         </Link>
-        <p className="text-xs text-muted-foreground">
-          {t("order.licenseFor", { artist: license.artistName, platform: license.platform })}
-        </p>
+        {/* Artist and platform are form questions the admin can switch off. */}
+        {license.artistName && license.platform && (
+          <p className="text-xs text-muted-foreground">
+            {t("order.licenseFor", { artist: license.artistName, platform: license.platform })}
+          </p>
+        )}
       </div>
       <ul>
         {license.items.map((item) => (
