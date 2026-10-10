@@ -8,7 +8,7 @@ import type { ActionResult } from "@/lib/actions/result";
 import { updateAnnouncementBar } from "@/lib/banners/actions";
 import { ANNOUNCEMENT_BAR_MAX } from "@/lib/validation/banner";
 
-type Values = { enabled: boolean; textTH: string; textEN: string; link: string };
+type Values = { enabled: boolean; textTH: string; textEN: string; link: string; scroll: boolean };
 
 export function AnnouncementBarForm({ values }: { values: Values }) {
   const [state, setState] = useState<ActionResult | null>(null);
@@ -31,6 +31,11 @@ export function AnnouncementBarForm({ values }: { values: Values }) {
         <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
           <input type="checkbox" name="enabled" defaultChecked={values.enabled} className="size-4 accent-brand-strong" />
           แสดงแถบประกาศบนหน้าแรก
+        </label>
+        <label className="flex cursor-pointer items-center gap-2 text-sm">
+          <input type="checkbox" name="scroll" defaultChecked={values.scroll} className="size-4 accent-brand-strong" />
+          ให้ข้อความวิ่ง
+          <span className="text-xs text-muted-foreground">(หยุดเมื่อลูกค้าเอาเมาส์ชี้ · ไม่วิ่งสำหรับคนที่ตั้งลดการเคลื่อนไหวในเครื่อง)</span>
         </label>
         <div className="grid gap-4 md:grid-cols-2">
           <TextInput label="ข้อความ (TH)" name="textTH" maxLength={ANNOUNCEMENT_BAR_MAX} defaultValue={values.textTH} error={err("textTH")} />

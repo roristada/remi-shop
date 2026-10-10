@@ -36,6 +36,13 @@ export function listLiveBanners(now: Date) {
       imagePath: true,
       imageFocusX: true,
       imageFocusY: true,
+      imageZoom: true,
+      bgColor: true,
+      fadeDirection: true,
+      fadeStrength: true,
+      tintImage: true,
+      textBlur: true,
+      fullBlur: true,
     },
   });
 }
@@ -54,21 +61,37 @@ export function getAdminBanner(id: string) {
 export async function getAnnouncementBar() {
   const s = await prisma.storeSetting.findUnique({
     where: { id: 1 },
-    select: { announcementBarEnabled: true, announcementBarTH: true, announcementBarEN: true, announcementBarLink: true },
+    select: { announcementBarEnabled: true, announcementBarTH: true, announcementBarEN: true, announcementBarLink: true, announcementBarScroll: true },
   });
   if (!s?.announcementBarEnabled || !s.announcementBarTH) return null;
-  return { textTH: s.announcementBarTH, textEN: s.announcementBarEN, link: s.announcementBarLink };
+  return { textTH: s.announcementBarTH, textEN: s.announcementBarEN, link: s.announcementBarLink, scroll: s.announcementBarScroll };
 }
 
 export async function getAnnouncementBarSettings() {
   const s = await prisma.storeSetting.findUnique({
     where: { id: 1 },
-    select: { announcementBarEnabled: true, announcementBarTH: true, announcementBarEN: true, announcementBarLink: true },
+    select: { announcementBarEnabled: true, announcementBarTH: true, announcementBarEN: true, announcementBarLink: true, announcementBarScroll: true },
   });
   return {
     enabled: s?.announcementBarEnabled ?? false,
     textTH: s?.announcementBarTH ?? "",
     textEN: s?.announcementBarEN ?? "",
     link: s?.announcementBarLink ?? "",
+    scroll: s?.announcementBarScroll ?? false,
+  };
+}
+
+/** Random product cards for the carousel (admin settings). */
+export async function getRandomBannerSettings() {
+  const s = await prisma.storeSetting.findUnique({
+    where: { id: 1 },
+    select: { bannerRandomEnabled: true, bannerRandomCount: true, bannerRandomFolderId: true, bannerRandomFade: true, bannerRandomFullBlur: true },
+  });
+  return {
+    enabled: s?.bannerRandomEnabled ?? false,
+    count: s?.bannerRandomCount ?? 3,
+    folderId: s?.bannerRandomFolderId ?? null,
+    fade: s?.bannerRandomFade ?? true,
+    fullBlur: s?.bannerRandomFullBlur ?? false,
   };
 }

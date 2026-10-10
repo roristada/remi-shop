@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
+import { pickRandom, RANDOM_BANNER_POOL } from "@/lib/banners/random";
 import { prisma } from "@/lib/prisma/client";
 import { CATALOG_CACHE_SECONDS, CATALOG_CACHE_TAG } from "@/lib/products/revalidate";
 import type { Prisma } from "@/lib/generated/prisma/client";
@@ -64,7 +65,7 @@ function cardSelect(userId: string | null, now: Date) {
     images: {
       orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
       take: 1,
-      select: { imagePath: true, cardPath: true, altTextTH: true, altTextEN: true },
+      select: { imagePath: true, cardPath: true, detailPath: true, altTextTH: true, altTextEN: true },
     },
     wishlist: { where: { userId: userId ?? NO_USER }, select: { userId: true }, take: 1 },
     stockLimit: true,
@@ -275,6 +276,33 @@ export async function listNewestProducts(locale: string, take = 8, now: Date = n
     select: cardSelect(userId, now),
   });
   return rows.map((r) => toCard(r, locale, now));
+}
+
+/**
+ * Home banner carousel: `take` products picked at random on every call from what can be bought right
+ * now (listed, open, not sold out) and has a picture, optionally within one folder. Returns each
+ * card with a larger picture for the banner.
+ */
+export async function listRandomBannerProducts(locale: string, take: number, folderId: string | null, now: Date = new Date()) {
+  const buyable = await buyableWhere(now);
+  const pool = await prisma.product.findMany({
+    where: { AND: [buyable, openNowWhere(now), { images: { some: {} } }, ...(folderId ? [{ folderId }] : [])] },
+    orderBy: { publishedAt: "desc" },
+    take: RANDOM_BANNER_POOL,
+    select: { id: true },
+  });
+  const ids = pickRandom(pool.map((p) => p.id), take);
+  if (ids.length === 0) return [];
+  const rows = await prisma.product.findMany({ where: { id: { in: ids } }, select: cardSelect(null, now) });
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return ids.flatMap((id) => {
+    const row = byId.get(id);
+    if (!row) return [];
+    const card = toCard(row, locale, now);
+    // Variant-only products whose options are all off or sold out are skipped like on the shelves.
+    if (card.status !== "ACTIVE" || card.variantsSoldOut || !row.images[0]) return [];
+    return [{ card, imageUrl: previewImageSrc(row.images[0], "detail") }];
+  });
 }
 
 /** Selling right now: sale window already open (or not set). `listedProductWhere` excludes ended ones. */

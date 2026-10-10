@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma/client";
 import { fail, formString, invalid, ok, type ActionResult } from "@/lib/actions/result";
 import { announcementBarSchema, bannerSchema } from "@/lib/validation/banner";
+import { RANDOM_BANNER_MAX } from "@/lib/banners/random";
 import { idSchema, uploadRequestSchema } from "@/lib/validation/product";
 import { BUCKETS } from "@/lib/storage/buckets";
 import { checkFileMeta, FILE_TYPE_ERROR_TH, getExtension, IMAGE_FILE_TYPES } from "@/lib/storage/file-types";
@@ -28,6 +29,13 @@ function parseBanner(formData: FormData) {
     theme: formString(formData, "theme"),
     imageFocusX: formString(formData, "imageFocusX") || "50",
     imageFocusY: formString(formData, "imageFocusY") || "50",
+    imageZoom: formString(formData, "imageZoom") || "100",
+    bgColor: formString(formData, "bgColor"),
+    fadeDirection: formString(formData, "fadeDirection") || "LEFT",
+    fadeStrength: formString(formData, "fadeStrength") || "100",
+    tintImage: formData.get("tintImage") === "on",
+    textBlur: formString(formData, "textBlur") || "50",
+    fullBlur: formData.get("fullBlur") === "on",
     startAt: formString(formData, "startAt"),
     endAt: formString(formData, "endAt"),
     isActive: formData.get("isActive") === "on",
@@ -151,6 +159,7 @@ export async function updateAnnouncementBar(_prev: ActionResult | null, formData
     textTH: formString(formData, "textTH"),
     textEN: formString(formData, "textEN"),
     link: formString(formData, "link"),
+    scroll: formData.get("scroll") === "on",
   });
   if (!parsed.success) return invalid(parsed.error);
 
@@ -159,8 +168,37 @@ export async function updateAnnouncementBar(_prev: ActionResult | null, formData
     announcementBarTH: parsed.data.textTH,
     announcementBarEN: parsed.data.textEN,
     announcementBarLink: parsed.data.link,
+    announcementBarScroll: parsed.data.scroll,
   };
   await prisma.storeSetting.upsert({ where: { id: 1 }, create: { id: 1, ...data }, update: data });
   revalidateBanners();
   return ok(undefined, parsed.data.enabled ? "แถบประกาศแสดงบนหน้าแรกแล้ว" : "บันทึกแล้ว (ปิดการแสดง)");
+}
+
+/** Random product cards after the admin's own banners (picked anew on every home-page visit). */
+export async function updateRandomBannerSettings(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  await requireAdmin();
+  const enabled = formData.get("enabled") === "on";
+  const count = Number.parseInt(formString(formData, "count"), 10);
+  const folderRaw = formString(formData, "folderId");
+  if (!Number.isInteger(count) || count < 1 || count > RANDOM_BANNER_MAX) {
+    return fail("กรุณาตรวจสอบข้อมูล", { count: `เลือก 1–${RANDOM_BANNER_MAX} ใบ` });
+  }
+  let folderId: string | null = null;
+  if (folderRaw && folderRaw !== "all") {
+    if (!idSchema.safeParse(folderRaw).success) return fail("โฟลเดอร์ไม่ถูกต้อง");
+    const folder = await prisma.folder.findUnique({ where: { id: folderRaw }, select: { id: true } });
+    if (!folder) return fail("ไม่พบโฟลเดอร์นี้ อาจถูกลบไปแล้ว");
+    folderId = folder.id;
+  }
+  const data = {
+    bannerRandomEnabled: enabled,
+    bannerRandomCount: count,
+    bannerRandomFolderId: folderId,
+    bannerRandomFade: formData.get("fade") === "on",
+    bannerRandomFullBlur: formData.get("fullBlur") === "on",
+  };
+  await prisma.storeSetting.upsert({ where: { id: 1 }, create: { id: 1, ...data }, update: data });
+  revalidateBanners();
+  return ok(undefined, enabled ? "เปิดการสุ่มสินค้าในแบนเนอร์แล้ว" : "ปิดการสุ่มสินค้าแล้ว");
 }

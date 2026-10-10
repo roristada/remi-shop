@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { GalleryHorizontal, Pencil, Plus } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/guards";
-import { getAnnouncementBarSettings, listAdminBanners, MAX_LIVE_BANNERS } from "@/lib/banners/queries";
+import { getAnnouncementBarSettings, getRandomBannerSettings, listAdminBanners, MAX_LIVE_BANNERS } from "@/lib/banners/queries";
+import { listFolderOptions } from "@/lib/products/admin-queries";
+import { RandomBannerForm } from "@/components/admin/random-banner-form";
 import { bannerState, BANNER_STATE_LABEL_TH, type BannerState } from "@/lib/banners/rules";
 import { formatBangkokDateTime } from "@/lib/datetime";
 import { previewImageUrl } from "@/lib/storage/public-url";
@@ -10,6 +12,7 @@ import { AnnouncementBarForm } from "@/components/admin/announcement-bar-form";
 import { BannerRowActions } from "@/components/admin/banner-row-actions";
 import { BannerCard } from "@/components/shop/banner-card";
 import { cn } from "@/lib/utils";
+import type { FadeDirection } from "@/lib/banners/look";
 
 const STATE_STYLE: Record<BannerState, string> = {
   LIVE: "bg-success/15 text-success",
@@ -20,7 +23,12 @@ const STATE_STYLE: Record<BannerState, string> = {
 
 export default async function AdminBannersPage() {
   await requireAdmin();
-  const [banners, bar] = await Promise.all([listAdminBanners(), getAnnouncementBarSettings()]);
+  const [banners, bar, random, folders] = await Promise.all([
+    listAdminBanners(),
+    getAnnouncementBarSettings(),
+    getRandomBannerSettings(),
+    listFolderOptions(),
+  ]);
   const now = new Date();
   const liveCount = banners.filter((b) => bannerState(b, now) === "LIVE").length;
 
@@ -39,7 +47,7 @@ export default async function AdminBannersPage() {
             <h2 className="font-semibold">แบนเนอร์โปรโมชัน</h2>
             <p className="text-sm text-muted-foreground">
               แสดงเรียงตามลำดับนี้ สูงสุด {MAX_LIVE_BANNERS} ใบพร้อมกัน · ตอนนี้แสดงอยู่ {liveCount} ใบ
-              {liveCount === 0 && " (หน้าแรกจะแสดงส่วนหัวแบบเดิมแทน)"}
+              {liveCount === 0 && !random.enabled && " (หน้าแรกจะแสดงส่วนหัวแบบเดิมแทน)"}
             </p>
           </div>
           <Button asChild className="h-10 rounded-full px-5">
@@ -48,6 +56,8 @@ export default async function AdminBannersPage() {
             </Link>
           </Button>
         </div>
+
+        <RandomBannerForm values={random} folders={folders.map((f) => ({ id: f.id, name: f.nameTH }))} />
 
         {banners.length === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed px-4 py-12 text-center">
@@ -63,7 +73,7 @@ export default async function AdminBannersPage() {
                 <li key={b.id} className="flex flex-wrap items-center gap-4 py-3 sm:flex-nowrap">
                   <div className="w-44 shrink-0 overflow-hidden rounded-xl" style={{ aspectRatio: "920 / 340" }}>
                     <BannerCard
-                      className="pointer-events-none [&_p]:text-[0.7rem]! [&_span]:hidden"
+                      className="pointer-events-none [&_p]:text-xs! [&_span]:hidden"
                       banner={{
                         id: b.id,
                         title: b.titleTH,
@@ -73,6 +83,13 @@ export default async function AdminBannersPage() {
                         imageUrl: b.imagePath ? previewImageUrl(b.imagePath) : null,
                         focusX: b.imageFocusX,
                         focusY: b.imageFocusY,
+                        zoom: b.imageZoom,
+                        bgColor: b.bgColor,
+                        fadeDirection: b.fadeDirection as FadeDirection,
+                        fadeStrength: b.fadeStrength,
+                        tintImage: b.tintImage,
+                        textBlur: b.textBlur,
+                        fullBlur: b.fullBlur,
                       }}
                     />
                   </div>

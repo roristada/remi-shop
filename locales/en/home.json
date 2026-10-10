@@ -29,7 +29,9 @@
     "slideLabel": "Banner {index} of {total}",
     "previous": "Previous banner",
     "next": "Next banner",
-    "goTo": "Go to banner {index}"
+    "goTo": "Go to banner {index}",
+    "productCta": "View product",
+    "discountTag": "{percent}% off"
   },
   "onSale": "On sale",
   "limitedTime": "Limited time",

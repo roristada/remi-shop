@@ -10,11 +10,14 @@ import { TrustBar } from "@/components/shop/trust-bar";
 import { BannerSlot } from "@/components/shop/banner-slot";
 import { BannerCarousel, type CarouselBanner } from "@/components/shop/banner-carousel";
 import { AnnouncementBar } from "@/components/shop/announcement-bar";
-import { getAnnouncementBar, listLiveBanners } from "@/lib/banners/queries";
+import { getAnnouncementBar, getRandomBannerSettings, listLiveBanners } from "@/lib/banners/queries";
+import type { BannerTheme } from "@/lib/generated/prisma/enums";
 import { resolveLink } from "@/lib/banners/display";
+import type { FadeDirection } from "@/lib/banners/look";
 import { previewImageUrl } from "@/lib/storage/public-url";
 import {
   listComingSoonProducts,
+  listRandomBannerProducts,
   listLimitedTimeProducts,
   listNewestProducts,
   listOnSaleProducts,
@@ -23,6 +26,8 @@ import {
   listShopCategories,
   type ProductCardData,
 } from "@/lib/products/storefront-queries";
+
+const RANDOM_THEMES: BannerTheme[] = ["PINK", "SKY", "LILAC", "MINT", "BUTTER"];
 
 export default async function HomePage({ params }: PageProps<"/[locale]">) {
   const { locale } = await params;
@@ -41,6 +46,12 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
     listLiveBanners(now),
     getAnnouncementBar(),
   ]);
+  const randomSettings = await getRandomBannerSettings();
+  // A new pick on every visit (the page is rendered per request).
+  const randomProducts = randomSettings.enabled
+    ? await listRandomBannerProducts(locale, randomSettings.count, randomSettings.folderId, now)
+    : [];
+  const tBanner = await getTranslations("home.banner");
   const shownCategories = categories.filter((c) => c._count.products > 0);
   const banners: CarouselBanner[] = liveBanners.map((b) => {
     const link = resolveLink(b.link);
@@ -53,10 +64,41 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
       imageUrl: b.imagePath ? previewImageUrl(b.imagePath) : null,
       focusX: b.imageFocusX,
       focusY: b.imageFocusY,
+      zoom: b.imageZoom,
+      bgColor: b.bgColor,
+      fadeDirection: b.fadeDirection as FadeDirection,
+      fadeStrength: b.fadeStrength,
+      tintImage: b.tintImage,
+      textBlur: b.textBlur,
+      fullBlur: b.fullBlur,
       href: link?.href ?? null,
       external: link?.external ?? false,
     };
   });
+  // Product cards follow the admin's banners: no price (admin request); a discount tag only for a live discount.
+  for (const [i, { card, imageUrl }] of randomProducts.entries()) {
+    const p = card.price;
+    banners.push({
+      id: `product-${card.id}`,
+      title: card.name,
+      tag: p.isDiscounted ? tBanner("discountTag", { percent: p.discountPercent / 100 }) : card.categoryName,
+      cta: tBanner("productCta"),
+      theme: RANDOM_THEMES[i % RANDOM_THEMES.length],
+      imageUrl,
+      focusX: 50,
+      focusY: 50,
+      zoom: 100,
+      bgColor: null,
+      fadeDirection: randomSettings.fade ? "LEFT" : "NONE",
+      fadeStrength: 60,
+      // Product art shows in its own colours.
+      tintImage: false,
+      textBlur: 60,
+      fullBlur: randomSettings.fullBlur,
+      href: `/product/${card.slug}`,
+      external: false,
+    });
+  }
   const noticeLink = notice ? resolveLink(notice.link) : null;
 
   return (
@@ -66,6 +108,7 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
           text={localized(locale, notice.textTH, notice.textEN) ?? notice.textTH}
           href={noticeLink?.href ?? null}
           external={noticeLink?.external ?? false}
+          scroll={notice.scroll}
         />
       )}
       {banners.length > 0 ? (

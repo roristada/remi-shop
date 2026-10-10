@@ -254,7 +254,9 @@ export function BannerCarousel({ banners }: { banners: CarouselBanner[] }) {
     <section
       aria-roledescription="carousel"
       aria-label={t("carouselLabel")}
-      className="banner-carousel group/carousel relative"
+      // isolate: the cards' z-index (up to 100) and the arrows' (200) stay inside the carousel, so
+      // the sticky header and its popups (notifications, cart) always paint above it.
+      className="banner-carousel group/carousel relative isolate"
       onKeyDown={(e) => {
         if (n < 2) return;
         if (e.key === "ArrowLeft") step(-1);

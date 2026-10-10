@@ -7,6 +7,7 @@ import { previewImageUrl } from "@/lib/storage/public-url";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { BannerForm } from "@/components/admin/banner-form";
+import type { FadeDirection } from "@/lib/banners/look";
 
 export default async function EditBannerPage({ params }: PageProps<"/admin/banners/[id]">) {
   await requireAdmin();
@@ -36,6 +37,13 @@ export default async function EditBannerPage({ params }: PageProps<"/admin/banne
           theme: b.theme,
           imageFocusX: b.imageFocusX,
           imageFocusY: b.imageFocusY,
+          imageZoom: b.imageZoom,
+          bgColor: b.bgColor ?? "",
+          fadeDirection: b.fadeDirection as FadeDirection,
+          fadeStrength: b.fadeStrength,
+          tintImage: b.tintImage,
+          textBlur: b.textBlur,
+          fullBlur: b.fullBlur,
           startAt: toBangkokDateTimeLocal(b.startAt),
           endAt: toBangkokDateTimeLocal(b.endAt),
           isActive: b.isActive,

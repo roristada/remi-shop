@@ -858,6 +858,21 @@ model Announcement {
   /// Which part of the image stays in frame (object-position, 0–100 %).
   imageFocusX   Int         @default(50) @map("image_focus_x")
   imageFocusY   Int         @default(50) @map("image_focus_y")
+  /// Zoom of the picture inside the card, in percent (100 = just covers the card).
+  imageZoom     Int         @default(100) @map("image_zoom")
+  /// Custom card colour (#rrggbb); null = the theme's colour.
+  bgColor       String?     @map("bg_color")
+  /// Which side the colour fade over the picture starts from (LEFT/RIGHT/TOP/BOTTOM/NONE).
+  fadeDirection String      @default("LEFT") @map("fade_direction")
+  /// Opacity of that fade, 0–100.
+  fadeStrength  Int         @default(100) @map("fade_strength")
+  /// Blend the card colour into the picture (multiply).
+  tintImage     Boolean     @default(true) @map("tint_image")
+  /// Blur of the picture behind the text (left side), 0–100 (100 ≈ 16px).
+  textBlur      Int         @default(50) @map("text_blur")
+  /// Blur the whole picture, heaviest behind the text and easing off to the right (never sharp).
+  /// (Column keeps its first name, edge_blur.)
+  fullBlur      Boolean     @default(false) @map("edge_blur")
   startAt       DateTime?   @map("start_at") @db.Timestamptz(6)
   endAt         DateTime?   @map("end_at") @db.Timestamptz(6)
   isActive      Boolean     @default(true) @map("is_active")
@@ -903,11 +918,22 @@ model StoreSetting {
   /// THB per yuan for costs.
   costRate                   Decimal   @default(5.1) @map("cost_rate") @db.Decimal(10, 4)
   costSyncedAt               DateTime? @map("cost_synced_at") @db.Timestamptz(6)
+  /// Home carousel: also show randomly picked products (new pick on every visit) after the admin's banners.
+  bannerRandomEnabled        Boolean   @default(false) @map("banner_random_enabled")
+  bannerRandomCount          Int       @default(3) @map("banner_random_count")
+  /// Pick only from this folder; null = the whole shop. No FK: a deleted folder simply means "whole shop".
+  bannerRandomFolderId       String?   @map("banner_random_folder_id") @db.Uuid
+  /// Colour fade over random product cards' pictures (off = picture only, text straight on it).
+  bannerRandomFade           Boolean   @default(true) @map("banner_random_fade")
+  /// Blur the whole picture of random product cards, easing off left to right (never sharp).
+  bannerRandomFullBlur       Boolean   @default(false) @map("banner_random_full_blur")
   /// Small notice bar at the top of the home page (maintenance, outages, store-wide news).
   announcementBarEnabled     Boolean   @default(false) @map("announcement_bar_enabled")
   announcementBarTH          String?   @map("announcement_bar_th")
   announcementBarEN          String?   @map("announcement_bar_en")
   announcementBarLink        String?   @map("announcement_bar_link")
+  /// Scroll the notice text as a ticker instead of showing it still.
+  announcementBarScroll      Boolean   @default(false) @map("announcement_bar_scroll")
   updatedAt                  DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("store_settings")

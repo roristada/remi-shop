@@ -29,7 +29,9 @@
     "slideLabel": "แบนเนอร์ที่ {index} จาก {total}",
     "previous": "แบนเนอร์ก่อนหน้า",
     "next": "แบนเนอร์ถัดไป",
-    "goTo": "ไปที่แบนเนอร์ที่ {index}"
+    "goTo": "ไปที่แบนเนอร์ที่ {index}",
+    "productCta": "ดูสินค้า",
+    "discountTag": "ลด {percent}%"
   },
   "onSale": "สินค้าลดราคา",
   "limitedTime": "สินค้าจำกัดเวลา",

@@ -27,6 +27,13 @@ const banner = {
   theme: "PINK",
   imageFocusX: "50",
   imageFocusY: "50",
+  imageZoom: "100",
+  bgColor: "",
+  fadeDirection: "LEFT",
+  fadeStrength: "100",
+  tintImage: true,
+  textBlur: "50",
+  fullBlur: false,
   startAt: "",
   endAt: "",
   isActive: true,
@@ -39,13 +46,19 @@ test("banner: a button needs a link, and end must follow start", () => {
   assert.equal(bannerSchema.safeParse({ ...banner, startAt: "2026-10-10T10:00", endAt: "2026-10-10T09:00" }).success, false);
   assert.equal(bannerSchema.safeParse({ ...banner, theme: "RED" }).success, false);
   assert.equal(bannerSchema.safeParse({ ...banner, imageFocusY: "101" }).success, false);
+  assert.equal(bannerSchema.safeParse({ ...banner, imageZoom: "99" }).success, false);
+  assert.equal(bannerSchema.safeParse({ ...banner, imageZoom: "250" }).success, true);
+  assert.equal(bannerSchema.safeParse({ ...banner, bgColor: "#ABCDEF" }).data?.bgColor, "#abcdef");
+  assert.equal(bannerSchema.safeParse({ ...banner, bgColor: "red" }).success, false);
+  assert.equal(bannerSchema.safeParse({ ...banner, fadeDirection: "DIAGONAL" }).success, false);
+  assert.equal(bannerSchema.safeParse({ ...banner, fadeStrength: "101" }).success, false);
 });
 
 test("announcement bar: needs Thai text before it can be shown", () => {
   assert.equal(announcementBarSchema.safeParse({ enabled: true, textTH: "", textEN: "", link: "" }).success, false);
   assert.equal(announcementBarSchema.safeParse({ enabled: false, textTH: "", textEN: "", link: "" }).success, true);
   const ok = announcementBarSchema.parse({ enabled: true, textTH: " ปิดปรับปรุง ", textEN: "", link: "" });
-  assert.deepEqual(ok, { enabled: true, textTH: "ปิดปรับปรุง", textEN: null, link: null });
+  assert.deepEqual(ok, { enabled: true, textTH: "ปิดปรับปรุง", textEN: null, link: null, scroll: false });
 });
 
 test("banner image keys are tied to their banner", async () => {

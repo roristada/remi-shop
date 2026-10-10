@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { BannerTheme } from "@/lib/generated/prisma/enums";
 import { optionalDateTime } from "@/lib/validation/product";
+import { FADE_DIRECTIONS, HEX_COLOR } from "@/lib/banners/look";
 
 export const BANNER_TITLE_MAX = 80;
 export const BANNER_TAG_MAX = 40;
@@ -46,6 +47,9 @@ export function stripLocalePrefix(path: string): string {
 }
 
 const focus = z.coerce.number().int().min(0).max(100);
+export const BANNER_ZOOM_MIN = 100;
+export const BANNER_ZOOM_MAX = 300;
+const zoom = z.coerce.number().int().min(BANNER_ZOOM_MIN).max(BANNER_ZOOM_MAX);
 
 export const bannerSchema = z
   .object({
@@ -59,6 +63,17 @@ export const bannerSchema = z
     theme: z.enum(BannerTheme),
     imageFocusX: focus,
     imageFocusY: focus,
+    imageZoom: zoom,
+    bgColor: z
+      .string()
+      .trim()
+      .refine((v) => v === "" || HEX_COLOR.test(v), "สีไม่ถูกต้อง (ใช้รูปแบบ #rrggbb)")
+      .transform((v) => (v === "" ? null : v.toLowerCase())),
+    fadeDirection: z.enum(FADE_DIRECTIONS),
+    fadeStrength: z.coerce.number().int().min(0).max(100),
+    tintImage: z.boolean(),
+    textBlur: z.coerce.number().int().min(0).max(100),
+    fullBlur: z.boolean(),
     startAt: optionalDateTime,
     endAt: optionalDateTime,
     isActive: z.boolean(),
@@ -81,6 +96,7 @@ export const announcementBarSchema = z
     textTH: optionalText(ANNOUNCEMENT_BAR_MAX),
     textEN: optionalText(ANNOUNCEMENT_BAR_MAX),
     link: optionalLink,
+    scroll: z.boolean().default(false),
   })
   .superRefine((d, ctx) => {
     if (d.enabled && !d.textTH) ctx.addIssue({ code: "custom", path: ["textTH"], message: "กรอกข้อความก่อนเปิดแสดง" });
