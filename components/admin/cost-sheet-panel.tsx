@@ -74,7 +74,7 @@ export function CostSheetPanel({ sheetUrl, rate, syncedAt }: Props) {
         </ul>
       )}
       <form onSubmit={onSubmit} className="grid gap-3 sm:grid-cols-[1fr_10rem_auto] sm:items-end" noValidate>
-        <TextInput label="ลิงก์ Google Sheet" name="sheet" defaultValue={sheetUrl} hint="ต้องแชร์แบบ “ทุกคนที่มีลิงก์ดูได้”" error={err("sheet")} />
+        <TextInput label="ลิงก์ Google Sheet (แชร์แบบ “ทุกคนที่มีลิงก์ดูได้”)" name="sheet" defaultValue={sheetUrl} error={err("sheet")} />
         <TextInput label="เรท (บาท / 1 หยวน)" name="rate" inputMode="decimal" defaultValue={rate} error={err("rate")} />
         <Button type="submit" variant="outline" disabled={saving} aria-busy={saving} className="h-10 rounded-full px-5">
           {saving && <Loader2 className="animate-spin" aria-hidden />} บันทึก

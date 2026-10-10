@@ -282,16 +282,13 @@
   filter: brightness(0.8);
 }
 .banner-card-frost {
+  /* Gradient and mask come from the card's settings (lib/banners/look.ts). No backdrop blur:
+     Chrome then drops the multiply-tinted picture underneath (blank card). */
   z-index: 1;
   pointer-events: none;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--banner-bg) 92%, transparent) 0%,
-    color-mix(in srgb, var(--banner-bg) 68%, transparent) 48%,
-    transparent 88%
-  );
-  backdrop-filter: blur(6px);
-  mask-image: linear-gradient(90deg, #000 38%, transparent 82%);
+}
+.banner-card-image[data-tint="off"] {
+  mix-blend-mode: normal;
 }
 
 /* Carousel geometry: the centre card plus a peek of its neighbours. */
@@ -302,5 +299,64 @@
 @media (min-width: 640px) {
   .banner-carousel {
     --banner-w: min(72vw, 920px);
+  }
+}
+
+/* Profit report (admin, light only). Palette validated with the dataviz checks:
+   profit = cherry-ink, cost = deepened powder-sky; revenue not yet costed = neutral hatch. */
+:root {
+  --chart-profit: #b0426b;
+  --chart-cost: #3a9bc4;
+}
+.bg-chart-profit {
+  background-color: var(--chart-profit);
+}
+.bg-chart-cost {
+  background-color: var(--chart-cost);
+}
+.bg-chart-pending {
+  background-color: var(--muted);
+  background-image: repeating-linear-gradient(135deg, var(--input) 0 2px, transparent 2px 6px);
+}
+
+/* Announcement ticker: the track holds two identical copies; sliding it by half loops seamlessly.
+   Each copy is at least the bar's width (container units) so short notices don't repeat side by side. */
+.announcement-marquee {
+  container-type: inline-size;
+  /* Text slides in and out softly instead of being cut at the bar's edges. */
+  mask-image: linear-gradient(to right, transparent, #000 1.5rem, #000 calc(100% - 1.5rem), transparent);
+}
+.announcement-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: announcement-marquee var(--marquee-duration, 20s) linear infinite;
+}
+.announcement-marquee-copy {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 100cqw;
+  padding-inline-end: 4rem;
+  white-space: nowrap;
+}
+.announcement-marquee:hover .announcement-marquee-track,
+:focus-visible > .announcement-marquee .announcement-marquee-track {
+  animation-play-state: paused;
+}
+@keyframes announcement-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .announcement-marquee-track {
+    animation: none;
+  }
+  .announcement-marquee-copy {
+    white-space: normal;
+  }
+  .announcement-marquee-copy[aria-hidden] {
+    display: none;
   }
 }

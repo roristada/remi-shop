@@ -7,12 +7,14 @@ import { aggregateProfit, type ProfitLine } from "@/lib/costs/profit";
 export const PROFIT_LINE_LIMIT = 20_000;
 export const PROFIT_ORDERS_PAGE_SIZE = 20;
 
+const paidIn = (from: Date, to: Date) => ({ status: "COMPLETED" as const, paidAt: { gte: from, lte: to } });
+
 /**
- * Sales, cost and profit of completed product orders paid in [from, to]. Costs are the snapshots
- * taken at completion; license income has no cost and is reported on its own.
+ * Sales, cost and profit of completed product orders paid in [from, to], by brand and product.
+ * Costs are the snapshots taken at completion; license income has no cost and is reported apart.
  */
-export async function getProfitReport(from: Date, to: Date, page: number) {
-  const paid = { status: "COMPLETED" as const, paidAt: { gte: from, lte: to } };
+export async function getProfitSummary(from: Date, to: Date) {
+  const paid = paidIn(from, to);
   const [items, license, orderCount] = await Promise.all([
     prisma.orderItem.findMany({
       where: { order: { ...paid, kind: "PRODUCT" } },
@@ -21,11 +23,8 @@ export async function getProfitReport(from: Date, to: Date, page: number) {
         orderId: true,
         productId: true,
         productNameTHSnapshot: true,
-        variantNameTHSnapshot: true,
         finalPrice: true,
         cost: true,
-        costYuan: true,
-        costIsPromo: true,
         product: { select: { folder: { select: { nameTH: true } } } },
       },
     }),
@@ -41,33 +40,67 @@ export async function getProfitReport(from: Date, to: Date, page: number) {
     revenue: toHundredths(i.finalPrice),
     cost: i.cost === null ? null : toHundredths(i.cost),
   }));
-  const report = aggregateProfit(lines);
-
-  // Newest paid orders first, one page at a time, with their lines.
-  const orders = await prisma.order.findMany({
-    where: { ...paid, kind: "PRODUCT" },
-    orderBy: { paidAt: "desc" },
-    skip: (page - 1) * PROFIT_ORDERS_PAGE_SIZE,
-    take: PROFIT_ORDERS_PAGE_SIZE,
-    select: {
-      id: true,
-      orderNumber: true,
-      paidAt: true,
-      user: { select: { email: true } },
-      items: {
-        orderBy: { id: "asc" },
-        select: { id: true, productNameTHSnapshot: true, variantNameTHSnapshot: true, finalPrice: true, cost: true, costYuan: true, costIsPromo: true },
-      },
-    },
-  });
-
+  const { totals, folders, topProducts } = aggregateProfit(lines, 8);
   return {
-    ...report,
-    truncated: items.length >= PROFIT_LINE_LIMIT,
+    totals,
+    folders,
+    topProducts,
     orderCount,
+    truncated: items.length >= PROFIT_LINE_LIMIT,
     licenseRevenue: license._sum.total ? toHundredths(license._sum.total) : 0,
     licenseCount: license._count,
-    orders: orders.map((o) => ({ ...o, totals: report.orders.get(o.id) ?? null })),
-    pageCount: Math.max(1, Math.ceil(orderCount / PROFIT_ORDERS_PAGE_SIZE)),
+  };
+}
+
+/** Paid product orders in the period (the page header's count on tabs that skip the summary). */
+export function countPaidProductOrders(from: Date, to: Date) {
+  return prisma.order.count({ where: { ...paidIn(from, to), kind: "PRODUCT" } });
+}
+
+/** One page of paid product orders, newest first, each with its lines and totals (satang). */
+export async function listProfitOrders(from: Date, to: Date, page: number) {
+  const where = { ...paidIn(from, to), kind: "PRODUCT" as const };
+  const [total, orders] = await Promise.all([
+    prisma.order.count({ where }),
+    prisma.order.findMany({
+      where,
+      orderBy: { paidAt: "desc" },
+      skip: (page - 1) * PROFIT_ORDERS_PAGE_SIZE,
+      take: PROFIT_ORDERS_PAGE_SIZE,
+      select: {
+        id: true,
+        orderNumber: true,
+        paidAt: true,
+        user: { select: { email: true, displayName: true } },
+        items: {
+          orderBy: { id: "asc" },
+          select: {
+            id: true,
+            productNameTHSnapshot: true,
+            variantNameTHSnapshot: true,
+            finalPrice: true,
+            cost: true,
+            costYuan: true,
+            costIsPromo: true,
+          },
+        },
+      },
+    }),
+  ]);
+  return {
+    pageCount: Math.max(1, Math.ceil(total / PROFIT_ORDERS_PAGE_SIZE)),
+    orders: orders.map((o) => {
+      const { totals } = aggregateProfit(
+        o.items.map((i) => ({
+          orderId: o.id,
+          productId: i.id,
+          productName: "",
+          folder: null,
+          revenue: toHundredths(i.finalPrice),
+          cost: i.cost === null ? null : toHundredths(i.cost),
+        })),
+      );
+      return { ...o, totals };
+    }),
   };
 }
