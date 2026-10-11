@@ -174,7 +174,8 @@
       "unsupported_type": "Only JPG, PNG or WEBP images are supported.",
       "too_large": "The file must be 5 MB or smaller.",
       "empty": "The file is empty.",
-      "signature_mismatch": "This file is not a valid image."
+      "signature_mismatch": "This file is not a valid image.",
+      "unreadable": "This image couldn't be read. Save it to your device (or take a screenshot of the slip) and choose it again."
     },
     "reviewBodyLicense": "The store is checking your payment. Your commercial license becomes active as soon as it is confirmed."
   }

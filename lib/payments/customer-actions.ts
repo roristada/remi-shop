@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { getCurrentUser } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma/client";
 import { isUniqueViolation } from "@/lib/prisma/errors";
@@ -13,10 +14,31 @@ import { createSignedUpload, removeObjects, verifyUploadedObject, type SignedUpl
 import { isSlipPath, newSlipPath } from "@/lib/storage/payment-storage";
 import { notifyAdmins } from "@/lib/notifications/service";
 import { autoCheckSlip } from "@/lib/payments/auto-check";
+import { clientMeta } from "@/lib/security/log";
 
 /** Codes map to `cart.slip.errors.*` translation keys. */
 export type SlipErrorCode = "LOGIN_REQUIRED" | "NOT_ALLOWED" | "ERROR" | "not_found" | FileTypeError;
 export type SlipResult<T = undefined> = { ok: true; data: T } | { ok: false; code: SlipErrorCode };
+
+/** Longest client-supplied text kept in a diagnostic log line. */
+const LOG_TEXT_MAX = 200;
+
+/**
+ * Warn-level `[slip]` log for every failed attempt, so a customer report ("it took several tries")
+ * can be traced with `netlify logs -l warn`. No file contents, emails or tokens.
+ */
+async function logSlipFailure(details: Record<string, unknown>): Promise<void> {
+  console.warn("[slip] upload failed", { ...details, ...clientMeta(await headers()) });
+}
+
+async function slipFailure(
+  step: "request" | "confirm",
+  code: SlipErrorCode,
+  details: Record<string, unknown>,
+): Promise<{ ok: false; code: SlipErrorCode }> {
+  await logSlipFailure({ step, code, ...details });
+  return { ok: false, code };
+}
 
 /** The caller's own order in a state that accepts a slip. The order is never chosen by id from the client. */
 async function findUploadableOrder(userId: string, orderNumberInput: string, now: Date) {
@@ -36,17 +58,19 @@ export async function requestSlipUpload(
   const user = await getCurrentUser();
   if (!user) return { ok: false, code: "LOGIN_REQUIRED" };
   const parsed = uploadRequestSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, code: "unsupported_type" };
+  const log = { orderNumber: String(orderNumber).slice(0, 40), userId: user.id };
+  if (!parsed.success) return slipFailure("request", "unsupported_type", { ...log, reason: "invalid input" });
 
-  const typeError = checkFileMeta(IMAGE_FILE_TYPES, parsed.data.fileName, parsed.data.size);
-  if (typeError) return { ok: false, code: typeError };
+  const { fileName, size } = parsed.data;
+  const typeError = checkFileMeta(IMAGE_FILE_TYPES, fileName, size);
+  if (typeError) return slipFailure("request", typeError, { ...log, ext: getExtension(fileName), size });
 
   const now = new Date();
   const order = await findUploadableOrder(user.id, orderNumber, now);
-  if (!order) return { ok: false, code: "NOT_ALLOWED" };
+  if (!order) return slipFailure("request", "NOT_ALLOWED", log);
 
-  const upload = await createSignedUpload(BUCKETS.paymentSlips, newSlipPath(order.id, parsed.data.fileName, now));
-  return upload ? { ok: true, data: upload } : { ok: false, code: "ERROR" };
+  const upload = await createSignedUpload(BUCKETS.paymentSlips, newSlipPath(order.id, fileName, now));
+  return upload ? { ok: true, data: upload } : slipFailure("request", "ERROR", { ...log, reason: "signed upload url" });
 }
 
 /** `approved`: the automatic check passed and the order is already complete. */
@@ -60,16 +84,17 @@ export async function confirmSlipUpload(
   const now = new Date();
   const order = await findUploadableOrder(user.id, orderNumber, now);
   // The path must be one we issued for this order (no other customer's order, no other bucket key).
+  const log = { orderNumber: String(orderNumber).slice(0, 40), userId: user.id };
   if (!order || typeof input?.path !== "string" || !isSlipPath(input.path, order.id)) {
-    return { ok: false, code: "NOT_ALLOWED" };
+    return slipFailure("confirm", "NOT_ALLOWED", { ...log, reason: order ? "bad path" : "order not uploadable" });
   }
   if (typeof input.fileName !== "string" || getExtension(input.path) !== getExtension(input.fileName)) {
     await removeObjects(BUCKETS.paymentSlips, [input.path]);
-    return { ok: false, code: "unsupported_type" };
+    return slipFailure("confirm", "unsupported_type", { ...log, reason: "extension changed" });
   }
 
   const verified = await verifyUploadedObject(BUCKETS.paymentSlips, input.path, input.fileName);
-  if (!verified.ok) return { ok: false, code: verified.error };
+  if (!verified.ok) return slipFailure("confirm", verified.error, { ...log, ext: getExtension(input.fileName) });
 
   let paymentId: string;
   try {
@@ -97,7 +122,7 @@ export async function confirmSlipUpload(
   } catch (error) {
     await removeObjects(BUCKETS.paymentSlips, [input.path]);
     if (isUniqueViolation(error) || (error instanceof Error && error.message === "ORDER_STATE_CHANGED")) {
-      return { ok: false, code: "NOT_ALLOWED" };
+      return slipFailure("confirm", "NOT_ALLOWED", { ...log, reason: "order state changed" });
     }
     console.error("Slip confirm failed", { orderId: order.id, userId: user.id, error });
     return { ok: false, code: "ERROR" };
@@ -118,4 +143,27 @@ export async function confirmSlipUpload(
   revalidatePath("/[locale]/orders/[orderNumber]", "page");
   revalidatePath("/admin/payments");
   return { ok: true, data: { approved } };
+}
+
+/**
+ * Diagnostics only: the browser reports a failure the server cannot see (the direct upload to
+ * storage, or a server action call that never arrived). Changes nothing; just logs.
+ */
+export async function reportSlipClientFailure(
+  orderNumber: string,
+  input: { stage: string; reason: string; size: number; type: string; ext: string },
+): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) return;
+  const text = (value: unknown) => (typeof value === "string" ? value.slice(0, LOG_TEXT_MAX) : null);
+  await logSlipFailure({
+    step: "client",
+    stage: text(input?.stage),
+    reason: text(input?.reason),
+    orderNumber: text(orderNumber)?.slice(0, 40),
+    userId: user.id,
+    size: typeof input?.size === "number" ? input.size : null,
+    type: text(input?.type)?.slice(0, 60),
+    ext: text(input?.ext)?.slice(0, 10),
+  });
 }

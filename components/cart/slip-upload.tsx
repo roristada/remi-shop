@@ -7,11 +7,48 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "@/i18n/navigation";
 import { putSignedUpload } from "@/lib/storage/upload-client";
-import { confirmSlipUpload, requestSlipUpload } from "@/lib/payments/customer-actions";
+import type { SignedUpload } from "@/lib/storage/product-storage";
+import { confirmSlipUpload, reportSlipClientFailure, requestSlipUpload } from "@/lib/payments/customer-actions";
 import { MAX_FILE_SIZE } from "@/lib/storage/buckets";
 
 const ACCEPT = ".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp";
 const EXTENSIONS = /\.(jpe?g|png|webp)$/i;
+const MIME_EXTENSIONS: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+
+/**
+ * Name sent to the server. Some banking apps and galleries hand over images with no or an odd
+ * extension (e.g. `.jfif`, or none); the browser's image type then decides. The server still
+ * checks the real bytes against this extension, so a wrong guess cannot slip through.
+ */
+function slipFileName(file: File): string | null {
+  if (EXTENSIONS.test(file.name)) return file.name;
+  const ext = MIME_EXTENSIONS[file.type];
+  return ext ? `slip.${ext}` : null;
+}
+
+/** Extra tries for the direct upload; mobile connections drop the body now and then. */
+const UPLOAD_RETRIES = 2;
+const RETRY_DELAY_MS = 1500;
+
+/**
+ * Uploads to the same one-time target, retrying a failed send. A retry after a send that did land
+ * gets "already exists" from storage; that counts as success (the server verifies the object next).
+ */
+async function uploadWithRetry(
+  target: SignedUpload,
+  body: Blob,
+  contentType: string,
+  onError: (reason: string) => void,
+): Promise<boolean> {
+  for (let attempt = 0; attempt <= UPLOAD_RETRIES; attempt++) {
+    let reason = "";
+    if (await putSignedUpload(target, body, contentType, (r) => (reason = r))) return true;
+    if (attempt > 0 && /already exists/i.test(reason)) return true;
+    onError(`attempt ${attempt + 1}: ${reason}`);
+    if (attempt < UPLOAD_RETRIES) await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+  }
+  return false;
+}
 
 /**
  * Choose → preview → send. The browser uploads straight to private storage with a one-time token;
@@ -23,6 +60,7 @@ export function SlipUpload({ orderNumber }: { orderNumber: string }) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [fileName, setFileName] = useState("");
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -38,31 +76,77 @@ export function SlipUpload({ orderNumber }: { orderNumber: string }) {
     setError(null);
     if (!next) return;
     // Quick client-side feedback only; the server repeats every check.
-    if (!EXTENSIONS.test(next.name)) return setError(t("errors.unsupported_type"));
-    if (next.size > MAX_FILE_SIZE) return setError(t("errors.too_large"));
+    const reject = (code: "unsupported_type" | "too_large") => {
+      setError(t(`errors.${code}`));
+      void reportSlipClientFailure(orderNumber, {
+        stage: "pick",
+        reason: code,
+        size: next.size,
+        type: next.type,
+        ext: next.name.split(".").pop() ?? "",
+      }).catch(() => undefined);
+    };
+    const name = slipFileName(next);
+    if (!name) return reject("unsupported_type");
+    if (next.size > MAX_FILE_SIZE) return reject("too_large");
     if (previewRef.current) URL.revokeObjectURL(previewRef.current);
     previewRef.current = URL.createObjectURL(next);
     setPreview(previewRef.current);
     setFile(next);
+    setFileName(name);
   }
 
   function send() {
     if (!file) return;
+    // Failures the server never sees (direct storage upload, dropped requests) are reported for diagnostics.
+    const report = (stage: string, reason: string) =>
+      reportSlipClientFailure(orderNumber, {
+        stage,
+        reason,
+        size: file.size,
+        type: file.type,
+        ext: file.name.split(".").pop() ?? "",
+      }).catch(() => undefined);
+
     startTransition(async () => {
-      const target = await requestSlipUpload(orderNumber, { fileName: file.name, size: file.size });
-      if (!target.ok) return setError(t(`errors.${target.code}`));
+      let stage = "request";
+      try {
+        const target = await requestSlipUpload(orderNumber, { fileName, size: file.size });
+        if (!target.ok) return setError(t(`errors.${target.code}`));
 
-      const { path } = target.data;
-      if (!(await putSignedUpload(target.data, file, file.type || "image/jpeg"))) return setError(t("errors.ERROR"));
+        // Read the bytes up front: an Android photo-picker file that is not really on the device
+        // fails here with a clear message instead of as a silent network error mid-upload.
+        stage = "read";
+        const contentType = file.type || "image/jpeg";
+        let body: Blob;
+        try {
+          body = new Blob([await file.arrayBuffer()], { type: contentType });
+        } catch (e) {
+          void report("read", e instanceof Error ? `${e.name}: ${e.message}` : String(e));
+          return setError(t("errors.unreadable"));
+        }
 
-      // The server may verify the slip with the bank here, which takes a few seconds.
-      setChecking(true);
-      const result = await confirmSlipUpload(orderNumber, { path, fileName: file.name });
-      setChecking(false);
-      if (!result.ok) return setError(t(`errors.${result.code}`));
+        stage = "upload";
+        const { path } = target.data;
+        if (!(await uploadWithRetry(target.data, body, contentType, (reason) => report("upload", reason)))) {
+          return setError(t("errors.ERROR"));
+        }
 
-      toast.success(t(result.data.approved ? "approved" : "submitted"));
-      router.refresh();
+        // The server may verify the slip with the bank here, which takes a few seconds.
+        stage = "confirm";
+        setChecking(true);
+        const result = await confirmSlipUpload(orderNumber, { path, fileName });
+        if (!result.ok) return setError(t(`errors.${result.code}`));
+
+        toast.success(t(result.data.approved ? "approved" : "submitted"));
+        router.refresh();
+      } catch (e) {
+        // A server action that never answered (network drop, function timeout) used to fail silently.
+        setError(t("errors.ERROR"));
+        void report(stage, `exception: ${e instanceof Error ? e.message : String(e)}`);
+      } finally {
+        setChecking(false);
+      }
     });
   }
 
