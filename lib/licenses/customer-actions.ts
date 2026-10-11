@@ -119,6 +119,19 @@ async function verifyFiles(files: FileAnswer[]): Promise<LicenseErrorCode | null
   return null;
 }
 
+/**
+ * A "new upload" must be a fresh object: a key already held by any request (even the same
+ * customer's) is refused, so a failed submit's cleanup can never delete a stored file.
+ */
+async function anyInUse(paths: string[]): Promise<boolean> {
+  if (paths.length === 0) return false;
+  const [answers, artworks] = await Promise.all([
+    prisma.licenseRequestAnswer.count({ where: { filePath: { in: paths } } }),
+    prisma.licenseRequest.count({ where: { artworkPath: { in: paths } } }),
+  ]);
+  return answers + artworks > 0;
+}
+
 const usedFilePaths = (answers: ResolvedAnswer[]) => new Set(answers.flatMap((a) => (a.filePath ? [a.filePath] : [])));
 
 /** One-time token for a file answering a FILE question (image or PDF), under a key scoped to the caller. */
@@ -160,6 +173,7 @@ export async function submitLicenseRequest(input: unknown): Promise<LicenseResul
   const ownPath = ownArtworkPath(input, user.id);
   const files = sentFiles(input, user.id);
   const uploaded = [...(ownPath ? [ownPath] : []), ...files.map((f) => f.path)];
+  if (await anyInUse(uploaded)) return { ok: false, code: "NOT_ALLOWED" };
   const discard = async () => {
     if (uploaded.length > 0) await removeObjects(BUCKETS.licenseArtworks, uploaded);
   };
@@ -307,6 +321,7 @@ export async function updateLicenseRequest(requestId: string, input: unknown): P
   const storedPaths = new Set(stored.map((a) => a.filePath!));
   const newFiles = sentFiles(input, user.id).filter((f) => !storedPaths.has(f.path));
   const uploaded = [...(ownPath ? [ownPath] : []), ...newFiles.map((f) => f.path)];
+  if (await anyInUse(uploaded)) return { ok: false, code: "NOT_ALLOWED" };
   const discard = async () => {
     if (uploaded.length > 0) await removeObjects(BUCKETS.licenseArtworks, uploaded);
   };
