@@ -76,17 +76,43 @@ export async function listStorefrontAddons(productId: string, userId: string | n
 
 export type AddonCandidate = { id: string; name: string; imageUrl: string | null; price: number; status: string };
 
-/** Admin editor: this product's add-on list, and every product that can be one (no variants, not itself). */
+/**
+ * Admin editor: this product's add-on list and every product that can be one (no variants, not
+ * itself), plus, for an add-on-only product, the main products that sell it and every product
+ * that can (not add-on-only itself).
+ */
 export async function getAddonEditorData(productId: string, now: Date = new Date()) {
-  const [product, links, candidates] = await Promise.all([
-    prisma.product.findUnique({ where: { id: productId }, select: { addonsEnabled: true } }),
+  const [product, links, mainLinks, candidates, mainCandidates] = await Promise.all([
+    prisma.product.findUnique({
+      where: { id: productId },
+      select: { addonsEnabled: true, addonOnly: true, _count: { select: { variants: true } } },
+    }),
     prisma.productAddon.findMany({
       where: { productId },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
       select: { addonProductId: true },
     }),
+    prisma.productAddon.findMany({ where: { addonProductId: productId }, orderBy: { createdAt: "asc" }, select: { productId: true } }),
     prisma.product.findMany({
       where: { id: { not: productId }, variants: { none: {} } },
+      orderBy: [{ nameTH: "asc" }],
+      take: 1000,
+      select: {
+        id: true,
+        nameTH: true,
+        price: true,
+        discountPercent: true,
+        discountStartAt: true,
+        discountEndAt: true,
+        publishStatus: true,
+        saleStartAt: true,
+        saleEndAt: true,
+        images: { orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }], take: 1, select: { imagePath: true, cardPath: true } },
+      },
+    }),
+    // Main products: anything except itself and other add-on-only products (variants are fine).
+    prisma.product.findMany({
+      where: { id: { not: productId }, addonOnly: false },
       orderBy: [{ nameTH: "asc" }],
       take: 1000,
       select: {
@@ -105,6 +131,18 @@ export async function getAddonEditorData(productId: string, now: Date = new Date
   ]);
   return {
     enabled: product?.addonsEnabled ?? false,
+    addonOnly: product?.addonOnly ?? false,
+    hasVariants: (product?._count.variants ?? 0) > 0,
+    mainIds: mainLinks.map((l) => l.productId),
+    mainCandidates: mainCandidates.map(
+      (c): AddonCandidate => ({
+        id: c.id,
+        name: c.nameTH,
+        imageUrl: c.images[0] ? previewImageSrc(c.images[0], "card") : null,
+        price: calculateProductPrice(c, now).finalPrice,
+        status: getProductStatus(c, now),
+      }),
+    ),
     selectedIds: links.map((l) => l.addonProductId),
     candidates: candidates.map(
       (c): AddonCandidate => ({
@@ -116,4 +154,33 @@ export async function getAddonEditorData(productId: string, now: Date = new Date
       }),
     ),
   };
+}
+
+export type AddonMainLink = { slug: string; name: string; imageUrl: string | null };
+
+/** Published products that sell this add-on-only product, for its page ("buy it with ..."). */
+export async function listAddonMains(addonProductId: string, locale: string): Promise<AddonMainLink[]> {
+  const links = await prisma.productAddon.findMany({
+    where: {
+      addonProductId,
+      product: { addonsEnabled: true, addonOnly: false, publishStatus: "PUBLISHED", category: { status: "ACTIVE" } },
+    },
+    orderBy: { createdAt: "asc" },
+    take: 24,
+    select: {
+      product: {
+        select: {
+          slug: true,
+          nameTH: true,
+          nameEN: true,
+          images: { orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }], take: 1, select: { imagePath: true, cardPath: true } },
+        },
+      },
+    },
+  });
+  return links.map(({ product: p }) => ({
+    slug: p.slug,
+    name: localized(locale, p.nameTH, p.nameEN),
+    imageUrl: p.images[0] ? previewImageSrc(p.images[0], "card") : null,
+  }));
 }

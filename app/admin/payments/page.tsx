@@ -1,3 +1,4 @@
+import { addonNoteTH } from "@/lib/addons/rules";
 import Link from "next/link";
 import { ExternalLink, ImageOff } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/guards";
@@ -208,15 +209,21 @@ function PaymentCard({ payment: p, tab }: { payment: ReviewPayment; tab: Payment
           </div>
         ) : (
           <ul className="divide-y rounded-xl border text-sm">
-            {p.order.items.map((i) => (
-              <li key={i.id} className="flex justify-between gap-3 px-3 py-2">
-                <span className="min-w-0 truncate">
-                  {i.productNameTHSnapshot}
-                  {i.variantNameTHSnapshot && <span> ({i.variantNameTHSnapshot})</span>}
-                </span>
-                <span className="shrink-0 tabular-nums">{formatTHB(toHundredths(i.finalPrice))}</span>
-              </li>
-            ))}
+            {p.order.items.map((i) => {
+              const addonNote = addonNoteTH(i, p.order.items);
+              return (
+                <li key={i.id} className="flex justify-between gap-3 px-3 py-2">
+                  <span className="min-w-0">
+                    <span className="block truncate">
+                      {i.productNameTHSnapshot}
+                      {i.variantNameTHSnapshot && <span> ({i.variantNameTHSnapshot})</span>}
+                    </span>
+                    {addonNote && <span className="block text-xs text-muted-foreground">{addonNote}</span>}
+                  </span>
+                  <span className="shrink-0 tabular-nums">{formatTHB(toHundredths(i.finalPrice))}</span>
+                </li>
+              );
+            })}
           </ul>
         )}
 

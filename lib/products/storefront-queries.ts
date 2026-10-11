@@ -61,6 +61,7 @@ function cardSelect(userId: string | null, now: Date) {
     ratingCount: true,
     ratingSum: true,
     soldCount: true,
+    addonOnly: true,
     category: { select: { slug: true, nameTH: true, nameEN: true } },
     images: {
       orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
@@ -108,6 +109,8 @@ export type ProductCardData = {
   opensAt: string | null;
   /** Server time at render, so the card countdown can correct a wrong browser clock. */
   serverNow: string;
+  /** Sold only with a product that offers it (card shows an "Add-on" tag). */
+  addonOnly: boolean;
 };
 
 /** Card price and stock: the product's own, or for a product with variants the cheapest active one. */
@@ -218,6 +221,7 @@ function toCard(row: CardRow, locale: string, now: Date): ProductCardData {
     wishlisted: row.wishlist.length > 0,
     rating: { average: ratingAverage(row.ratingSum, row.ratingCount), count: row.ratingCount },
     soldCount: row.soldCount,
+    addonOnly: row.addonOnly,
   };
 }
 
@@ -604,6 +608,7 @@ function queryShopProduct(slug: string, includeHidden: boolean) {
     select: {
       id: true,
       slug: true,
+      addonOnly: true,
       nameTH: true,
       nameEN: true,
       descriptionTH: true,

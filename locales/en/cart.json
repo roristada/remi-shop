@@ -29,7 +29,9 @@
     "CART_CHANGED": "Some items in your cart can no longer be bought. Remove them before paying.",
     "PRICE_CHANGED": "Prices have changed. Please check the new total.",
     "ERROR": "Something went wrong. Please try again.",
-    "SOLD_OUT": "This product is sold out."
+    "SOLD_OUT": "This product is sold out.",
+    "ADDON_ONLY": "This is an add-on. It can only be bought together with its main product",
+    "NEEDS_MAIN": "Add-ons must be bought together with their main product"
   },
   "cart": {
     "title": "Cart",
@@ -50,7 +52,8 @@
       "UNAVAILABLE": "No longer on sale",
       "OWNED": "You already own this",
       "IN_ORDER": "In another unfinished order",
-      "SOLD_OUT": "Sold out"
+      "SOLD_OUT": "Sold out",
+      "NEEDS_MAIN": "Add-on: add its main product to the cart first"
     },
     "problemNotice": "Remove the items that can't be bought to place your order.",
     "fileSummary": "{count} files · {size}",

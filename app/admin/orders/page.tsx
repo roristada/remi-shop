@@ -1,3 +1,4 @@
+import { addonNoteTH } from "@/lib/addons/rules";
 import Link from "next/link";
 import { Download, Mail, Search } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/guards";
@@ -57,7 +58,7 @@ function toSummary(o: AdminOrderListRow): OrderSummary {
           return {
             id: i.id,
             name: i.productNameTHSnapshot,
-            detail: i.variantNameTHSnapshot,
+            detail: [i.variantNameTHSnapshot, addonNoteTH(i, o.items)].filter(Boolean).join(" · ") || null,
             emailDelivery: emailed.has(i.id),
             price: money(i.finalPrice),
             originalPrice: toHundredths(i.discount) > 0 ? money(i.unitPrice) : null,

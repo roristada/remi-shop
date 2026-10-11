@@ -60,7 +60,8 @@
     "unavailable": "Hidden",
     "soldOut": "Sold out",
     "stock": "{left}/{limit} left",
-    "fromPrice": "From"
+    "fromPrice": "From",
+    "addon": "Add-on"
   },
   "price": {
     "original": "Regular price",
@@ -113,7 +114,12 @@
     "variantFiles": "Files for {name}",
     "sharedFiles": "Files for every option",
     "fullSize": "Full size",
-    "sold": "{count, number} sold"
+    "sold": "{count, number} sold",
+    "addonOnlyTitle": "Add-on",
+    "addonOnlyHint": "Not sold on its own. Add it on the main product's page when you buy it, or from there later if you already own it.",
+    "addonOnlyMains": "Buy it with",
+    "addonOnlyGoTo": "Go to main product",
+    "addonOnlyNoMain": "No main product offers this add-on right now."
   },
   "views": {
     "label": "View",

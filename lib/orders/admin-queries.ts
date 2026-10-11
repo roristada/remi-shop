@@ -68,6 +68,8 @@ const ORDER_LIST_SELECT = {
     orderBy: { id: "asc" },
     select: {
       id: true,
+      productId: true,
+      addedWithProductId: true,
       productNameTHSnapshot: true,
       variantNameTHSnapshot: true,
       unitPrice: true,

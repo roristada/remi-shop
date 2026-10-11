@@ -1,4 +1,6 @@
 import "server-only";
+import { getAddonOnlyContext } from "@/lib/addons/eligibility";
+import { applyAddonOnlyRule } from "@/lib/addons/rules";
 import { prisma } from "@/lib/prisma/client";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { localized } from "@/i18n/localize";
@@ -37,6 +39,7 @@ export function checkoutProductSelect(now: Date) {
     category: { select: { status: true } },
     versions: { where: { isLatest: true }, select: { versionNumber: true }, take: 1 },
     stockLimit: true,
+    addonOnly: true,
     // `variants` counts every variant, active or not: having any means a variant must be chosen.
     _count: { select: { ...stockTakenCountSelect(now), variants: true } },
   } satisfies Prisma.ProductSelect;
@@ -218,13 +221,10 @@ export async function getCartView(userId: string, locale: string, now: Date = ne
     },
   });
 
-  const ownership = await getOwnership(
-    userId,
-    items.map((i) => i.product.id),
-    now,
-  );
+  const productIds = items.map((i) => i.product.id);
+  const [ownership, addonCtx] = await Promise.all([getOwnership(userId, productIds, now), getAddonOnlyContext(userId, productIds)]);
   const mainNames = new Map(items.map((i) => [i.product.id, localized(locale, i.product.nameTH, i.product.nameEN)]));
-  const lines: CartLineView[] = items.map(({ product, variant, addedWithProductId }) => {
+  const viewLines: CartLineView[] = items.map(({ product, variant, addedWithProductId }) => {
     const name = localized(locale, product.nameTH, product.nameEN);
     const image = product.images[0];
     return {
@@ -244,5 +244,7 @@ export async function getCartView(userId: string, locale: string, now: Date = ne
     };
   });
 
+  // Add-on-only products need a product that offers them in the cart (or one the customer owns).
+  const lines = applyAddonOnlyRule(viewLines, addonCtx);
   return { lines, totals: orderTotals(lines) };
 }

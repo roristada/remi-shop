@@ -280,6 +280,8 @@ model Product {
   waitlist        WaitlistEntry[]
   /// Offer this product's add-ons on its page (the list lives in ProductAddon).
   addonsEnabled   Boolean               @default(false) @map("addons_enabled")
+  /// Sold only as an add-on: bought together with (or after owning) a product that offers it.
+  addonOnly       Boolean               @default(false) @map("addon_only")
   addons          ProductAddon[]        @relation("ProductAddons")
   addonOf         ProductAddon[]        @relation("AddonProduct")
   cartItems       CartItem[]
@@ -610,6 +612,9 @@ model OrderItem {
   cost                   Decimal? @db.Decimal(10, 2)
   /// The promotional cost row ("(ราคาพิเศษ)") was used.
   costIsPromo            Boolean  @default(false) @map("cost_is_promo")
+  /// Bought as an add-on of this product (a line of the same order, or a main the customer
+  /// already owned). No FK: a snapshot for display only.
+  addedWithProductId     String?  @map("added_with_product_id") @db.Uuid
 
   order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
   /// Restrict: products that were sold cannot be hard-deleted (disable instead).

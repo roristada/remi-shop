@@ -184,7 +184,7 @@ export default async function EditProductPage({ params }: PageProps<"/admin/prod
         {
           value: "addons",
           label: `Add-on (${addonData.enabled ? addonData.selectedIds.length : "ปิด"})`,
-          content: <AddonEditor enabled={addonData.enabled} selectedIds={addonData.selectedIds} candidates={addonData.candidates} />,
+          content: <AddonEditor {...addonData} />,
         },
       ]}
     />

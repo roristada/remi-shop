@@ -7,7 +7,8 @@ import { isSoldOut, type StockInfo } from "@/lib/products/stock";
 // without variants, or one variant of a product (a customer may own several variants).
 
 /** Why a cart line cannot be bought right now. */
-export type LineProblem = "UNAVAILABLE" | "OWNED" | "IN_ORDER" | "SOLD_OUT";
+// NEEDS_MAIN: an add-on-only product without a product that offers it (see lib/addons/rules.ts).
+export type LineProblem = "UNAVAILABLE" | "OWNED" | "IN_ORDER" | "SOLD_OUT" | "NEEDS_MAIN";
 
 /**
  * One purchasable line. For a variant line the price, discount and stock are the variant's;

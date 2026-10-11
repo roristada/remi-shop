@@ -29,7 +29,8 @@ import { defaultVariantId } from "@/lib/cart/selection";
 import { ProductGrid } from "@/components/shop/product-grid";
 import { LicenseOfferPanel } from "@/components/shop/license-offer";
 import { AddonPicker, AddonSelectionProvider } from "@/components/shop/addon-picker";
-import { listStorefrontAddons } from "@/lib/addons/queries";
+import { listAddonMains, listStorefrontAddons } from "@/lib/addons/queries";
+import { AddonOnlyPanel } from "@/components/shop/addon-only-panel";
 import { getLicenseOffers } from "@/lib/licenses/queries";
 import { StarRating } from "@/components/shop/star-rating";
 import { ReviewSection } from "@/components/reviews/review-section";
@@ -128,7 +129,7 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
   }));
 
   const userId = user?.id ?? null;
-  const [licenseOffers, purchaseOptions, variantImagePaths, wishlisted, waitlisted, waitlistCount, addons] = await Promise.all([
+  const [licenseOffers, purchaseOptions, variantImagePaths, wishlisted, waitlisted, waitlistCount, addons, addonMains] = await Promise.all([
     // A license can be requested only while the product is on sale.
     status === "ACTIVE" ? getLicenseOffers(product.id) : Promise.resolve([]),
     getPurchaseOptions(userId, product.id, locale, now),
@@ -138,7 +139,9 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
     // Real count shown to everyone while the product waits to open (social proof).
     status === "SCHEDULED" ? countWaitlist(product.id) : 0,
     // Add-ons are only offered while the product itself is on sale.
-    status === "ACTIVE" ? listStorefrontAddons(product.id, userId, locale, now) : Promise.resolve([]),
+    status === "ACTIVE" && !product.addonOnly ? listStorefrontAddons(product.id, userId, locale, now) : Promise.resolve([]),
+    // An add-on-only product is bought from the page of a product that offers it.
+    product.addonOnly ? listAddonMains(product.id, locale) : Promise.resolve([]),
   ]);
   const variantImages = Object.fromEntries(
     purchaseOptions.flatMap((o) => {
@@ -253,28 +256,32 @@ export default async function ProductPage({ params }: PageProps<"/[locale]/produ
               </div>
             </div>
 
-            <AddonSelectionProvider>
-              <PurchasePanel
-                price={price}
-                status={status}
-                saleStartAt={product.saleStartAt}
-                saleEndAt={product.saleEndAt}
-                now={now}
-                product={{ id: product.id, slug: product.slug }}
-                options={purchaseOptions}
-                variantImages={Object.fromEntries(Object.entries(variantImages).map(([k, v]) => [k, v.url]))}
-                emailDelivery={!latest || latest.files.length === 0}
-                waitlisted={waitlisted}
-                waitlistCount={waitlistCount}
-              />
-              <AddonPicker
-                productId={product.id}
-                productSlug={product.slug}
-                addons={addons}
-                mainPrice={singleOption ? singleOption.price.finalPrice : null}
-                mainAddable={mainAddable}
-              />
-            </AddonSelectionProvider>
+            {product.addonOnly ? (
+              <AddonOnlyPanel price={price} status={status} mains={addonMains} />
+            ) : (
+              <AddonSelectionProvider>
+                <PurchasePanel
+                  price={price}
+                  status={status}
+                  saleStartAt={product.saleStartAt}
+                  saleEndAt={product.saleEndAt}
+                  now={now}
+                  product={{ id: product.id, slug: product.slug }}
+                  options={purchaseOptions}
+                  variantImages={Object.fromEntries(Object.entries(variantImages).map(([k, v]) => [k, v.url]))}
+                  emailDelivery={!latest || latest.files.length === 0}
+                  waitlisted={waitlisted}
+                  waitlistCount={waitlistCount}
+                />
+                <AddonPicker
+                  productId={product.id}
+                  productSlug={product.slug}
+                  addons={addons}
+                  mainPrice={singleOption ? singleOption.price.finalPrice : null}
+                  mainAddable={mainAddable}
+                />
+              </AddonSelectionProvider>
+            )}
 
             {details.length > 0 && (
               <section aria-labelledby="details-heading" className="space-y-3">

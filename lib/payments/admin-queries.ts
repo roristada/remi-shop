@@ -45,9 +45,11 @@ export async function listPaymentsForReview(tab: PaymentTab, page: number) {
             items: {
               select: {
                 id: true,
+                productId: true,
                 productNameTHSnapshot: true,
                 variantNameTHSnapshot: true,
                 finalPrice: true,
+                addedWithProductId: true,
               },
             },
             licenseRequest: {

@@ -36,6 +36,7 @@ export function ProductCard({ product, priority = false }: { product: ProductCar
         <div className="absolute top-2.5 left-2.5 flex flex-wrap gap-1">
           {price.isDiscounted && <DiscountBadge percent={price.discountPercent} />}
           <ProductStatusTag status={product.status} soldOut={soldOut} />
+          {product.addonOnly && <Badge className="bg-secondary text-secondary-foreground">{t("addon")}</Badge>}
           {stock && !soldOut && product.status === "ACTIVE" && (
             <Badge className="bg-background/85 text-foreground backdrop-blur-sm">
               {t("stock", { left: stock.left, limit: stock.limit })}

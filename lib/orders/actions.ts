@@ -1,5 +1,7 @@
 "use server";
 
+import { getAddonOnlyContext } from "@/lib/addons/eligibility";
+import { applyAddonOnlyRule, pickAddonMain } from "@/lib/addons/rules";
 import { randomBytes } from "node:crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -65,7 +67,7 @@ export async function checkout(localeInput: string, expectedTotal: number): Prom
       const items = await tx.cartItem.findMany({
         where: { cart: { userId: user.id } },
         orderBy: { createdAt: "asc" },
-        select: { product: { select: checkoutProductSelect(now) }, variant: { select: checkoutVariantSelect(now) } },
+        select: { product: { select: checkoutProductSelect(now) }, variant: { select: checkoutVariantSelect(now) }, addedWithProductId: true },
       });
       if (items.length === 0) throw new CheckoutError("EMPTY");
 
@@ -76,8 +78,18 @@ export async function checkout(localeInput: string, expectedTotal: number): Prom
         now,
         tx,
       );
-      const lines = items.map((i) => evaluateLine(toCheckoutProduct(i.product, i.variant), ownership, now));
+      // Add-on-only products are sold only with a product that offers them (or after owning one).
+      const addonCtx = await getAddonOnlyContext(
+        user.id,
+        products.map((p) => p.id),
+        tx,
+      );
+      const lines = applyAddonOnlyRule(
+        items.map((i) => evaluateLine(toCheckoutProduct(i.product, i.variant), ownership, now)),
+        addonCtx,
+      );
       if (lines.some((l) => l.problem)) throw new CheckoutError("CART_CHANGED");
+      const orderProductIds = new Set(products.map((p) => p.id));
 
       const totals = orderTotals(lines);
       if (totals.total !== expectedTotal) throw new CheckoutError("PRICE_CHANGED");
@@ -96,7 +108,7 @@ export async function checkout(localeInput: string, expectedTotal: number): Prom
           // Free: nothing to pay, so the order is complete now (paymentStatus stays null — no slip).
           ...(free ? { status: "COMPLETED" as const, paidAt: now, expiresAt: now } : { expiresAt: new Date(now.getTime() + expiryMinutes * 60_000) }),
           items: {
-            create: items.map(({ product: p, variant: v }, i) => ({
+            create: items.map(({ product: p, variant: v, addedWithProductId }, i) => ({
               productId: p.id,
               variantId: v?.id ?? null,
               productNameTHSnapshot: p.nameTH,
@@ -107,6 +119,7 @@ export async function checkout(localeInput: string, expectedTotal: number): Prom
               unitPrice: fromHundredths(lines[i].price.unitPrice),
               discount: fromHundredths(lines[i].price.discount),
               finalPrice: fromHundredths(lines[i].price.finalPrice),
+              addedWithProductId: pickAddonMain({ productId: p.id, addedWithProductId }, orderProductIds, addonCtx),
             })),
           },
         },
@@ -197,10 +210,17 @@ export async function reorderRejectedOrder(orderNumberInput: string, localeInput
       order.items.map((i) => i.product.id),
       now,
     );
-    const buyable = order.items.filter(
-      (i) => evaluateLine(toCheckoutProduct(i.product, i.variant), ownership, now).problem === null,
+    const productIds = order.items.map((i) => i.product.id);
+    const addonCtx = await getAddonOnlyContext(user.id, productIds);
+    const checked = applyAddonOnlyRule(
+      order.items.map((i) => evaluateLine(toCheckoutProduct(i.product, i.variant), ownership, now)),
+      addonCtx,
     );
+    const buyable = order.items.filter((_, i) => checked[i].problem === null);
     if (buyable.length === 0) return { ok: false, code: "NOTHING_TO_ORDER" };
+    // Add-ons go back linked to a main product of the same order, so removing it takes them along.
+    const reordered = new Set(buyable.map((i) => i.product.id));
+    const mainFor = (productId: string) => addonCtx.mainsByAddon.get(productId)?.find((m) => reordered.has(m)) ?? null;
 
     const cart = await prisma.cart.upsert({
       where: { userId: user.id },
@@ -209,7 +229,7 @@ export async function reorderRejectedOrder(orderNumberInput: string, localeInput
       select: { id: true },
     });
     await prisma.cartItem.createMany({
-      data: buyable.map((i) => ({ cartId: cart.id, productId: i.product.id, variantId: i.variant?.id ?? null })),
+      data: buyable.map((i) => ({ cartId: cart.id, productId: i.product.id, variantId: i.variant?.id ?? null, addedWithProductId: mainFor(i.product.id) })),
       skipDuplicates: true,
     });
   } catch (error) {

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma/client";
+import type { Prisma } from "@/lib/generated/prisma/client";
 import { isUniqueViolation } from "@/lib/prisma/errors";
 import { getOwnership } from "@/lib/orders/ownership";
 import { evaluateLine, lineKey, type LineProblem } from "@/lib/orders/rules";
@@ -16,11 +17,14 @@ import { cleanAddonIds } from "@/lib/addons/rules";
 /** Codes map to `cart.errors.*` translation keys. */
 export type CartActionResult = { ok: true } | { ok: false; code: LineProblem | "LOGIN_REQUIRED" | "ERROR" };
 
+/** ADDON_ONLY: the product is sold only as an add-on of another product. */
+type AddErrorCode = LineProblem | "ADDON_ONLY" | "LOGIN_REQUIRED" | "ERROR";
+
 /** What the header cart popover shows after an add. Price is computed server-side (satang). */
 export type AddedCartItem = { name: string; imageUrl: string | null; finalPrice: number; unitPrice: number };
 export type AddToCartResult =
   | { ok: true; item: AddedCartItem; count: number; addons: number }
-  | { ok: false; code: LineProblem | "LOGIN_REQUIRED" | "ERROR" };
+  | { ok: false; code: AddErrorCode };
 
 /** One line of the header mini-cart. Prices are server-calculated (satang). */
 export type MiniCartLine = {
@@ -62,13 +66,19 @@ export async function getMiniCart(locale: string): Promise<MiniCart | null> {
 async function addAddonLines(userId: string, cartId: string, productId: string, addonIds: string[], linkToMain: boolean, now: Date): Promise<number> {
   if (addonIds.length === 0) return 0;
   const links = await prisma.productAddon.findMany({
-    where: { productId, addonProductId: { in: addonIds }, product: { addonsEnabled: true } },
+    where: { productId, addonProductId: { in: addonIds }, product: { addonsEnabled: true, addonOnly: false } },
     select: { addonProduct: { select: checkoutProductSelect(now) } },
   });
   const products = links.map((l) => l.addonProduct);
   if (products.length === 0) return 0;
-  const ownership = await getOwnership(userId, products.map((p) => p.id), now);
-  const buyable = products.filter((p) => evaluateLine(toCheckoutProduct(p, null), ownership, now).problem === null);
+  const [ownership, ownsMain] = await Promise.all([
+    getOwnership(userId, products.map((p) => p.id), now),
+    // Without the main product in the cart, add-on-only products need the customer to own it.
+    linkToMain ? true : prisma.orderItem.count({ where: { productId, order: { userId, status: "COMPLETED" } } }).then((n) => n > 0),
+  ]);
+  const buyable = products.filter(
+    (p) => (ownsMain || !p.addonOnly) && evaluateLine(toCheckoutProduct(p, null), ownership, now).problem === null,
+  );
   const { count } = await prisma.cartItem.createMany({
     data: buyable.map((p) => ({ cartId, productId: p.id, variantId: null, addedWithProductId: linkToMain ? productId : null })),
     // Already in the cart on its own: leave that line as it is.
@@ -96,6 +106,8 @@ export async function addToCart(productId: string, variantId: string | null, loc
     },
   });
   if (!product) return { ok: false, code: "UNAVAILABLE" };
+  // Sold only together with a product that offers it (from that product's add-on box).
+  if (product.addonOnly) return { ok: false, code: "ADDON_ONLY" };
   // Scoped to the product: a variant id of another product matches nothing.
   const variant = variantId
     ? await prisma.productVariant.findFirst({ where: { id: variantId, productId }, select: checkoutVariantSelect(now) })
@@ -176,10 +188,29 @@ export async function removeFromCart(productId: string, variantId: string | null
   // Scoped to the caller's own cart; a foreign id simply matches nothing.
   await prisma.$transaction(async (tx) => {
     await tx.cartItem.deleteMany({ where: { productId, variantId, cart: { userId: user.id } } });
-    // Add-ons go with their main product once no line of it is left (client decision, UAT round 3).
     const left = await tx.cartItem.count({ where: { productId, cart: { userId: user.id } } });
-    if (left === 0) await tx.cartItem.deleteMany({ where: { addedWithProductId: productId, cart: { userId: user.id } } });
+    if (left === 0) await detachAddons(tx, user.id, productId);
   });
   revalidatePath("/[locale]/cart", "page");
   return { ok: true };
+}
+
+/**
+ * Once no line of `mainId` is left, its add-ons move to another product in the cart that offers
+ * them; the rest leave with it (client decision, UAT round 3).
+ */
+async function detachAddons(tx: Prisma.TransactionClient, userId: string, mainId: string) {
+  const linked = await tx.cartItem.findMany({
+    where: { addedWithProductId: mainId, cart: { userId } },
+    select: { id: true, productId: true, cart: { select: { items: { select: { productId: true } } } } },
+  });
+  for (const item of linked) {
+    const inCart = item.cart.items.map((i) => i.productId).filter((id) => id !== mainId && id !== item.productId);
+    const other = await tx.productAddon.findFirst({
+      where: { addonProductId: item.productId, productId: { in: inCart }, product: { addonsEnabled: true, addonOnly: false } },
+      select: { productId: true },
+    });
+    if (other) await tx.cartItem.update({ where: { id: item.id }, data: { addedWithProductId: other.productId } });
+    else await tx.cartItem.delete({ where: { id: item.id } });
+  }
 }

@@ -60,7 +60,8 @@
     "unavailable": "ซ่อนอยู่",
     "soldOut": "สินค้าหมด",
     "stock": "เหลือ {left}/{limit}",
-    "fromPrice": "เริ่มต้น"
+    "fromPrice": "เริ่มต้น",
+    "addon": "Add-on"
   },
   "price": {
     "original": "ราคาปกติ",
@@ -113,7 +114,12 @@
     "variantFiles": "ไฟล์ของแบบ {name}",
     "sharedFiles": "ไฟล์สำหรับทุกแบบ",
     "fullSize": "ดูภาพเต็ม",
-    "sold": "ขายแล้ว {count, number} ชิ้น"
+    "sold": "ขายแล้ว {count, number} ชิ้น",
+    "addonOnlyTitle": "สินค้า Add-on",
+    "addonOnlyHint": "ซื้อแยกไม่ได้ เลือกเพิ่มได้ในหน้าสินค้าหลักตอนซื้อ หรือถ้ามีสินค้าหลักอยู่แล้วก็เพิ่มได้จากหน้านั้นเช่นกัน",
+    "addonOnlyMains": "ซื้อคู่กับ",
+    "addonOnlyGoTo": "ไปที่สินค้าหลัก",
+    "addonOnlyNoMain": "ยังไม่มีสินค้าหลักที่ขายคู่กับ Add-on นี้ในขณะนี้"
   },
   "views": {
     "label": "มุมมอง",
