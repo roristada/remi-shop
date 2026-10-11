@@ -69,6 +69,10 @@ enum SlipCheckResult {
   NOT_FOUND
   UNREADABLE
   UNAVAILABLE
+  /// SlipOK 1010: this bank's slips can only be checked some minutes after the transfer.
+  BANK_DELAY
+  /// SlipOK 1009: the bank's data is temporarily unavailable.
+  BANK_DOWN
 }
 
 /// PRODUCT = cart checkout (OrderItems grant downloads). LICENSE = payment for an approved

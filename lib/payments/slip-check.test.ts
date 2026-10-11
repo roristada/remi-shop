@@ -41,7 +41,8 @@ test("service errors map to a reason for the admin", () => {
     [1012, "DUPLICATE"],
     [1013, "AMOUNT_MISMATCH"],
     [1014, "RECEIVER_MISMATCH"],
-    [1009, "UNAVAILABLE"],
+    [1009, "BANK_DOWN"],
+    [1010, "BANK_DELAY"],
     [1003, "UNAVAILABLE"],
     [null, "UNAVAILABLE"],
   ];

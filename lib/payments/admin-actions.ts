@@ -3,11 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma/client";
-import { fail, ok, type ActionResult } from "@/lib/actions/result";
+import { fail, ok, okNotice, type ActionResult } from "@/lib/actions/result";
 import { normalizeRejectReason, REJECT_REASON_MAX } from "@/lib/payments/rules";
 import { idSchema } from "@/lib/validation/product";
 import { notifyUser } from "@/lib/notifications/service";
 import { approvePaymentTx, StaleReview } from "@/lib/payments/approval";
+import { autoCheckSlip } from "@/lib/payments/auto-check";
+import { isSlipOkConfigured } from "@/lib/payments/slipok";
+import { RETRYABLE_RESULTS } from "@/lib/payments/slip-check";
+
+/** Minimum gap between two checks of the same slip, so repeated clicks do not burn SlipOK quota. */
+const RECHECK_COOLDOWN_MS = 30_000;
 
 function revalidatePayments() {
   revalidatePath("/admin/payments");
@@ -70,4 +76,36 @@ export async function rejectPayment(paymentId: string, reasonInput: string): Pro
   console.info("Payment rejected", { paymentId, adminId: admin.id });
   revalidatePayments();
   return ok(undefined, "ปฏิเสธสลิปแล้ว ลูกค้าจะเห็นเหตุผลและแนบสลิปใหม่ได้");
+}
+
+/**
+ * Runs the automatic slip check again, for a slip the first check could not judge (bank not ready
+ * yet, bank or SlipOK down). Approves the order when it now passes, like the first check would.
+ */
+export async function recheckPayment(paymentId: string): Promise<ActionResult> {
+  const admin = await requireAdmin();
+  if (!idSchema.safeParse(paymentId).success) return fail("คำขอไม่ถูกต้อง");
+  if (!isSlipOkConfigured()) return fail("ยังไม่ได้ตั้งค่า SlipOK");
+
+  const payment = await prisma.payment.findUnique({
+    where: { id: paymentId },
+    select: { status: true, autoCheckResult: true, autoCheckedAt: true },
+  });
+  if (!payment || payment.status !== "WAITING") return fail("รายการนี้ถูกตรวจไปแล้ว กรุณารีเฟรชหน้า");
+  if (!payment.autoCheckResult || !RETRYABLE_RESULTS.includes(payment.autoCheckResult)) {
+    return fail("สลิปนี้ตรวจซ้ำไม่ได้ กรุณาตรวจด้วยตนเอง");
+  }
+  if (payment.autoCheckedAt && Date.now() - payment.autoCheckedAt.getTime() < RECHECK_COOLDOWN_MS) {
+    return fail("เพิ่งตรวจไป กรุณารอสักครู่แล้วลองใหม่");
+  }
+
+  const approved = await autoCheckSlip(paymentId).catch((error: unknown) => {
+    console.error("Slip re-check failed", { paymentId, error });
+    return false;
+  });
+  console.info("Payment slip re-checked", { paymentId, adminId: admin.id, approved });
+  revalidatePayments();
+  return approved
+    ? okNotice(undefined, "ตรวจผ่านแล้ว อนุมัติคำสั่งซื้ออัตโนมัติ")
+    : okNotice(undefined, "ตรวจอัตโนมัติยังไม่ผ่าน ดูเหตุผลล่าสุดในรายการ");
 }

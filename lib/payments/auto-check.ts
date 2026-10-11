@@ -12,8 +12,9 @@ import { checkSlipWithSlipOk, isSlipOkConfigured } from "@/lib/payments/slipok";
 /**
  * Checks a freshly submitted slip with SlipOK and approves the order when every check passes.
  * Runs after the payment row is committed, so a failure here only means the slip waits for the
- * admin as before. Called once per payment (SlipOK remembers slips; a second call would say
- * "duplicate"). Returns whether the order was approved.
+ * admin as before. Called once per payment, and again by the admin only for results the service
+ * could not judge (`RETRYABLE_RESULTS`): a slip SlipOK did accept is remembered, and sending it
+ * again would answer "duplicate". Returns whether the order was approved.
  */
 export async function autoCheckSlip(paymentId: string): Promise<boolean> {
   if (!isSlipOkConfigured()) return false;

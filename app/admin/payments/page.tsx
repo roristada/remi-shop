@@ -10,6 +10,8 @@ import { approvePayment, rejectPayment } from "@/lib/payments/admin-actions";
 import { cn } from "@/lib/utils";
 import { OrderNote } from "@/components/admin/order-note";
 import type { SlipCheckResult } from "@/lib/generated/prisma/enums";
+import { RETRYABLE_RESULTS } from "@/lib/payments/slip-check";
+import { RecheckSlipButton } from "@/components/admin/recheck-slip-button";
 
 function one(v: string | string[] | undefined) {
   return typeof v === "string" ? v : undefined;
@@ -85,7 +87,14 @@ const AUTO_CHECK_LABELS: Record<Exclude<SlipCheckResult, "PASSED">, string> = {
   NOT_FOUND: "ไม่พบรายการโอนนี้ที่ธนาคาร",
   UNREADABLE: "อ่าน QR บนสลิปไม่ได้",
   UNAVAILABLE: "ตรวจอัตโนมัติไม่ได้ (ระบบธนาคารหรือ SlipOK ขัดข้อง)",
+  BANK_DELAY: "ธนาคารนี้ต้องรอสักครู่หลังโอนจึงตรวจได้ กด \"ตรวจอีกครั้ง\" ได้",
+  BANK_DOWN: "ระบบธนาคารขัดข้องชั่วคราว ลองตรวจอีกครั้งภายหลัง",
 };
+
+/** Not a verdict on the slip: the check could not run yet. Shown neutral, not as a failure. */
+function isUnjudged(result: SlipCheckResult): boolean {
+  return RETRYABLE_RESULTS.includes(result);
+}
 
 function PaymentCard({ payment: p, tab }: { payment: ReviewPayment; tab: PaymentTab }) {
   const amount = toHundredths(p.amount);
@@ -139,8 +148,22 @@ function PaymentCard({ payment: p, tab }: { payment: ReviewPayment; tab: Payment
           {p.autoCheckResult && (
             <>
               <dt className="text-muted-foreground">ตรวจอัตโนมัติ</dt>
-              <dd className={p.autoCheckResult === "PASSED" ? undefined : "font-medium text-destructive"}>
-                {p.autoCheckResult === "PASSED" ? "ผ่าน" : `ไม่ผ่าน: ${AUTO_CHECK_LABELS[p.autoCheckResult]}`}
+              <dd
+                className={cn(
+                  "flex flex-wrap items-center gap-2",
+                  p.autoCheckResult !== "PASSED" && !isUnjudged(p.autoCheckResult) && "font-medium text-destructive",
+                )}
+              >
+                <span>
+                  {p.autoCheckResult === "PASSED"
+                    ? "ผ่าน"
+                    : isUnjudged(p.autoCheckResult)
+                      ? `ยังตรวจไม่ได้: ${AUTO_CHECK_LABELS[p.autoCheckResult]}`
+                      : `ไม่ผ่าน: ${AUTO_CHECK_LABELS[p.autoCheckResult]}`}
+                </span>
+                {tab === "pending" && p.status === "WAITING" && isUnjudged(p.autoCheckResult) && (
+                  <RecheckSlipButton paymentId={p.id} />
+                )}
               </dd>
             </>
           )}

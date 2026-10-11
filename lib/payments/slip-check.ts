@@ -18,11 +18,16 @@ const ERROR_RESULTS: Record<number, SlipCheckResult> = {
   1006: "UNREADABLE",
   1007: "UNREADABLE",
   1008: "UNREADABLE",
+  1009: "BANK_DOWN",
+  1010: "BANK_DELAY",
   1011: "NOT_FOUND",
   1012: "DUPLICATE",
   1013: "AMOUNT_MISMATCH",
   1014: "RECEIVER_MISMATCH",
 };
+
+/** Results that may pass when the check is simply run again later (the slip itself was not judged). */
+export const RETRYABLE_RESULTS: readonly SlipCheckResult[] = ["UNAVAILABLE", "BANK_DELAY", "BANK_DOWN"];
 
 /**
  * Decides whether a slip pays the order. The service already checks the receiving account and
