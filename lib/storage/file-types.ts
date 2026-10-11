@@ -20,7 +20,7 @@ const FONT: Signature[] = [
   { bytes: ascii("ttcf") },
 ];
 
-type FileRule = { mime: string; signatures?: Signature[] };
+export type FileRule = { mime: string; signatures?: Signature[] };
 
 /**
  * Allowed digital product file types. Types without a signature are proprietary
@@ -77,6 +77,12 @@ export const IMAGE_FILE_TYPES: Record<string, FileRule> = {
 export const PRODUCT_IMAGE_FILE_TYPES: Record<string, FileRule> = {
   ...IMAGE_FILE_TYPES,
   gif: { mime: "image/gif", signatures: GIF },
+};
+
+/** Files attached to a license-request form field: images or a PDF (private license-artworks bucket). */
+export const LICENSE_ATTACHMENT_FILE_TYPES: Record<string, FileRule> = {
+  ...IMAGE_FILE_TYPES,
+  pdf: { mime: "application/pdf", signatures: PDF },
 };
 
 /** Rejected regardless of extension: executables, scripts, and HTML. */

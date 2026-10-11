@@ -16,12 +16,20 @@ import {
   OPEN_LICENSE_STATUSES,
   pickLicenseLines,
 } from "@/lib/licenses/rules";
-import { ARTWORK_FIELD_ID, diffAnswers, legacyColumns, resolveAnswers, type ResolvedAnswer } from "@/lib/licenses/form-fields";
+import {
+  ARTWORK_FIELD_ID,
+  diffAnswers,
+  isFileAnswer,
+  legacyColumns,
+  resolveAnswers,
+  type FileAnswer,
+  type ResolvedAnswer,
+} from "@/lib/licenses/form-fields";
 import { listActiveFormFields } from "@/lib/licenses/form-queries";
 import { BUCKETS } from "@/lib/storage/buckets";
-import { checkFileMeta, getExtension, IMAGE_FILE_TYPES, type FileTypeError } from "@/lib/storage/file-types";
+import { checkFileMeta, getExtension, IMAGE_FILE_TYPES, LICENSE_ATTACHMENT_FILE_TYPES, type FileTypeError } from "@/lib/storage/file-types";
 import { createSignedUpload, removeObjects, verifyUploadedObject, type SignedUpload } from "@/lib/storage/product-storage";
-import { isArtworkPath, newArtworkPath } from "@/lib/storage/payment-storage";
+import { isArtworkPath, isLicenseAttachmentPath, newArtworkPath } from "@/lib/storage/payment-storage";
 import { notifyAdmins } from "@/lib/notifications/service";
 
 /** Codes map to `shop.license.errors.*` translation keys. */
@@ -89,8 +97,41 @@ function answerRows(answers: ResolvedAnswer[]): Prisma.LicenseRequestAnswerCreat
     type: a.type,
     values: a.values,
     valuesEN: a.valuesEN,
+    filePath: a.filePath,
     sortOrder: a.sortOrder,
   }));
+}
+
+/** FILE answers in the raw input whose key was issued to this customer (anything else fails resolveAnswers). */
+function sentFiles(input: unknown, userId: string): FileAnswer[] {
+  const answers = typeof input === "object" && input !== null && "answers" in input ? input.answers : null;
+  if (!answers || typeof answers !== "object") return [];
+  return Object.values(answers).filter((v): v is FileAnswer => isFileAnswer(v) && isLicenseAttachmentPath(v.path, userId));
+}
+
+/** Checks newly uploaded form files (real type and size); verify deletes a bad object itself. */
+async function verifyFiles(files: FileAnswer[]): Promise<LicenseErrorCode | null> {
+  for (const f of files) {
+    if (getExtension(f.path) !== getExtension(f.name)) return "unsupported_type";
+    const verified = await verifyUploadedObject(BUCKETS.licenseArtworks, f.path, f.name, LICENSE_ATTACHMENT_FILE_TYPES);
+    if (!verified.ok) return verified.error;
+  }
+  return null;
+}
+
+const usedFilePaths = (answers: ResolvedAnswer[]) => new Set(answers.flatMap((a) => (a.filePath ? [a.filePath] : [])));
+
+/** One-time token for a file answering a FILE question (image or PDF), under a key scoped to the caller. */
+export async function requestLicenseFileUpload(input: { fileName: string; size: number }): Promise<LicenseResult<SignedUpload>> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, code: "LOGIN_REQUIRED" };
+  const parsed = uploadRequestSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, code: "unsupported_type" };
+  const typeError = checkFileMeta(LICENSE_ATTACHMENT_FILE_TYPES, parsed.data.fileName, parsed.data.size);
+  if (typeError) return { ok: false, code: typeError };
+
+  const upload = await createSignedUpload(BUCKETS.licenseArtworks, newArtworkPath(user.id, parsed.data.fileName));
+  return upload ? { ok: true, data: upload } : { ok: false, code: "ERROR" };
 }
 
 /** One-time token for the artwork image, under a key scoped to the caller. */
@@ -117,8 +158,10 @@ export async function submitLicenseRequest(input: unknown): Promise<LicenseResul
   if (!user) return { ok: false, code: "LOGIN_REQUIRED" };
 
   const ownPath = ownArtworkPath(input, user.id);
+  const files = sentFiles(input, user.id);
+  const uploaded = [...(ownPath ? [ownPath] : []), ...files.map((f) => f.path)];
   const discard = async () => {
-    if (ownPath) await removeObjects(BUCKETS.licenseArtworks, [ownPath]);
+    if (uploaded.length > 0) await removeObjects(BUCKETS.licenseArtworks, uploaded);
   };
 
   const parsed = licenseSubmitSchema.safeParse(input);
@@ -127,12 +170,17 @@ export async function submitLicenseRequest(input: unknown): Promise<LicenseResul
     return { ok: false, code: "INVALID", fieldErrors: zodFieldErrors(parsed.error) };
   }
   const data = parsed.data;
-  // The artwork is optional; when one is sent it must be a verified object we issued.
-  const artworkCode = await checkArtwork(ownPath, data.artworkPath, data.artworkFileName);
-  if (artworkCode) return { ok: false, code: artworkCode };
+  const usageTypeId = data.usageTypeIds[0];
+  // The artwork and form files are optional; anything sent must be a verified object we issued.
+  const fileCode = (await checkArtwork(ownPath, data.artworkPath, data.artworkFileName)) ?? (await verifyFiles(files));
+  if (fileCode) {
+    await discard();
+    return { ok: false, code: fileCode };
+  }
 
   const now = new Date();
   let requestId = "";
+  let keptFiles = new Set<string>();
   try {
     await prisma.$transaction(async (tx) => {
       // One submission at a time per customer, so the open-request limit cannot be raced past.
@@ -140,9 +188,11 @@ export async function submitLicenseRequest(input: unknown): Promise<LicenseResul
       const open = await tx.licenseRequest.count({ where: { userId: user.id, status: { in: [...OPEN_LICENSE_STATUSES] } } });
       if (open >= MAX_OPEN_LICENSE_REQUESTS) throw new RequestError("TOO_MANY");
 
-      const fields = await listActiveFormFields(tx);
-      const resolved = resolveAnswers(fields, data.answers);
+      // Only the questions shown for the chosen usage type.
+      const fields = await listActiveFormFields(tx, usageTypeId);
+      const resolved = resolveAnswers(fields, data.answers, (p) => isLicenseAttachmentPath(p, user.id));
       if (!resolved.ok) throw new RequestError("INVALID", resolved.errors);
+      keptFiles = usedFilePaths(resolved.answers);
 
       const product = await tx.product.findUnique({
         where: { id: data.productId },
@@ -207,6 +257,10 @@ export async function submitLicenseRequest(input: unknown): Promise<LicenseResul
     return { ok: false, code: "ERROR" };
   }
 
+  // Files sent for questions the chosen usage type does not ask are not referenced anywhere.
+  const unused = files.map((f) => f.path).filter((p) => !keptFiles.has(p));
+  if (unused.length > 0) await removeObjects(BUCKETS.licenseArtworks, unused);
+
   console.info("License request created", { requestId, userId: user.id, productId: data.productId });
   revalidateRequests();
   return { ok: true, data: undefined };
@@ -245,8 +299,16 @@ export async function updateLicenseRequest(requestId: string, input: unknown): P
   if (!idSchema.safeParse(requestId).success) return { ok: false, code: "NOT_ALLOWED" };
 
   const ownPath = ownArtworkPath(input, user.id);
+  // Files already on this request come back unchanged; only the others are new uploads.
+  const stored = await prisma.licenseRequestAnswer.findMany({
+    where: { requestId, request: { userId: user.id }, filePath: { not: null } },
+    select: { filePath: true },
+  });
+  const storedPaths = new Set(stored.map((a) => a.filePath!));
+  const newFiles = sentFiles(input, user.id).filter((f) => !storedPaths.has(f.path));
+  const uploaded = [...(ownPath ? [ownPath] : []), ...newFiles.map((f) => f.path)];
   const discard = async () => {
-    if (ownPath) await removeObjects(BUCKETS.licenseArtworks, [ownPath]);
+    if (uploaded.length > 0) await removeObjects(BUCKETS.licenseArtworks, uploaded);
   };
 
   const parsed = licenseEditSchema.safeParse(input);
@@ -256,10 +318,14 @@ export async function updateLicenseRequest(requestId: string, input: unknown): P
   }
   const data = parsed.data;
 
-  const artworkCode = await checkArtwork(ownPath, data.artworkPath, data.artworkFileName);
-  if (artworkCode) return { ok: false, code: artworkCode };
+  const fileCode = (await checkArtwork(ownPath, data.artworkPath, data.artworkFileName)) ?? (await verifyFiles(newFiles));
+  if (fileCode) {
+    await discard();
+    return { ok: false, code: fileCode };
+  }
 
   let previousArtwork: string | null = null;
+  let droppedFiles: string[] = [];
   let responded = false;
   let productName = { productNameTH: "", productNameEN: "" };
   try {
@@ -278,15 +344,16 @@ export async function updateLicenseRequest(requestId: string, input: unknown): P
           infoRequestFields: true,
           productNameTHSnapshot: true,
           productNameENSnapshot: true,
-          answers: { select: { fieldId: true, labelTHSnapshot: true, labelENSnapshot: true, values: true } },
+          items: { take: 1, orderBy: { id: "asc" }, select: { usageTypeId: true } },
+          answers: { select: { fieldId: true, labelTHSnapshot: true, labelENSnapshot: true, values: true, filePath: true } },
         },
       });
       if (!existing || !canEditLicenseRequest(existing.status, existing.createdAt)) throw new RequestError("EDIT_CLOSED");
       responded = existing.status === "NEEDS_INFO";
       productName = { productNameTH: existing.productNameTHSnapshot, productNameEN: existing.productNameENSnapshot };
 
-      const fields = await listActiveFormFields(tx);
-      const resolved = resolveAnswers(fields, data.answers);
+      const fields = await listActiveFormFields(tx, existing.items[0]?.usageTypeId);
+      const resolved = resolveAnswers(fields, data.answers, (p) => isLicenseAttachmentPath(p, user.id));
       if (!resolved.ok) throw new RequestError("INVALID", resolved.errors);
       if (responded && existing.infoRequestFields.includes(ARTWORK_FIELD_ID) && !ownPath) {
         throw new RequestError("INVALID", { artwork: "artwork_required" });
@@ -302,6 +369,11 @@ export async function updateLicenseRequest(requestId: string, input: unknown): P
       const changes = diffAnswers(before, after);
       if (ownPath) changes.push({ labelTH: "รูปผลงาน", labelEN: "Artwork", before: existing.artworkPath ? "✓" : "", after: "✓ (ใหม่)" });
 
+      const kept = usedFilePaths(resolved.answers);
+      droppedFiles = [
+        ...existing.answers.filter((a) => a.fieldId && activeIds.includes(a.fieldId) && a.filePath).map((a) => a.filePath!),
+        ...newFiles.map((f) => f.path),
+      ].filter((p) => !kept.has(p));
       await tx.licenseRequestAnswer.deleteMany({ where: { requestId, fieldId: { in: activeIds } } });
       await tx.licenseRequestAnswer.createMany({ data: answerRows(resolved.answers).map((r) => ({ ...r, requestId })) });
 
@@ -345,10 +417,9 @@ export async function updateLicenseRequest(requestId: string, input: unknown): P
     return { ok: false, code: "ERROR" };
   }
 
-  // The replaced artwork is no longer referenced.
-  if (ownPath && previousArtwork && previousArtwork !== ownPath) {
-    await removeObjects(BUCKETS.licenseArtworks, [previousArtwork]);
-  }
+  // The replaced artwork and files are no longer referenced.
+  const unreferenced = [...(ownPath && previousArtwork && previousArtwork !== ownPath ? [previousArtwork] : []), ...droppedFiles];
+  if (unreferenced.length > 0) await removeObjects(BUCKETS.licenseArtworks, unreferenced);
 
   console.info(responded ? "License request answered by customer" : "License request edited by customer", {
     requestId,

@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/guards";
-import { listAllFormFields } from "@/lib/licenses/form-queries";
+import { listAllFormFields, listUsageTypeChoices } from "@/lib/licenses/form-queries";
 import { LicenseFormBuilder } from "@/components/admin/license-form-builder";
 
 export default async function AdminLicenseFormPage() {
   await requireAdmin();
-  const fields = await listAllFormFields();
+  const [fields, usageTypes] = await Promise.all([listAllFormFields(), listUsageTypeChoices()]);
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -16,8 +16,8 @@ export default async function AdminLicenseFormPage() {
       <div>
         <h1 className="text-2xl font-bold">แบบฟอร์มคำขอ Commercial license</h1>
         <p className="text-sm text-muted-foreground">
-          คำถามที่ลูกค้าตอบตอนขอ License เรียงตามลำดับนี้ ช่องพื้นฐาน (ชื่อผู้ซื้อ ศิลปิน ฯลฯ) ลบไม่ได้แต่ปิดใช้งานได้ ประเภทการใช้งานและเงื่อนไขของแต่ละประเภท
-          ตั้งได้ที่{" "}
+          คลังคำถามกลางที่ลูกค้าตอบตอนขอ License เรียงตามลำดับนี้ ลูกค้าจะเห็นเฉพาะคำถามที่เปิดไว้ในฟอร์มของประเภทที่เลือก ช่องพื้นฐาน (ชื่อผู้ซื้อ ศิลปิน
+          ฯลฯ) ถามทุกประเภท ลบไม่ได้แต่ปิดใช้งานได้ เลือกคำถามของแต่ละประเภทและตั้งเงื่อนไขได้ที่{" "}
           <Link href="/admin/licenses/types" className="underline underline-offset-4">
             ประเภทการใช้งาน
           </Link>
@@ -29,6 +29,7 @@ export default async function AdminLicenseFormPage() {
           descriptionTH: f.descriptionTH ?? "",
           descriptionEN: f.descriptionEN ?? "",
         }))}
+        usageTypes={usageTypes}
       />
     </div>
   );

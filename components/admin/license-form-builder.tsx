@@ -25,8 +25,12 @@ export type BuilderField = {
   isRequired: boolean;
   isActive: boolean;
   options: FieldOption[];
+  /** null = shown for every usage type. */
+  usageTypeIds: string[] | null;
   answerCount: number;
 };
+
+export type BuilderUsageType = { id: string; nameTH: string; isActive: boolean };
 
 export const FIELD_TYPE_LABEL: Record<LicenseFieldType, string> = {
   TEXT: "ข้อความสั้น",
@@ -35,8 +39,10 @@ export const FIELD_TYPE_LABEL: Record<LicenseFieldType, string> = {
   RADIO: "ตัวเลือก (เลือกได้ 1)",
   CHECKBOX: "Checkbox (เลือกได้หลายข้อ)",
   DROPDOWN: "Dropdown (เลือกได้ 1)",
+  URL: "ลิงก์ (URL)",
+  FILE: "แนบไฟล์ (รูป / PDF ไม่เกิน 5 MB)",
 };
-const TEXT_TYPES: LicenseFieldType[] = ["TEXT", "TEXTAREA", "EMAIL"];
+const TEXT_TYPES: LicenseFieldType[] = ["TEXT", "TEXTAREA", "EMAIL", "URL"];
 
 const EMPTY: BuilderField = {
   id: "",
@@ -49,6 +55,7 @@ const EMPTY: BuilderField = {
   isRequired: false,
   isActive: true,
   options: [],
+  usageTypeIds: null,
   answerCount: 0,
 };
 
@@ -56,7 +63,10 @@ const iconButton =
   "grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30";
 
 /** Admin editor for the commercial-license request form: questions, kinds, choices, order. */
-export function LicenseFormBuilder({ fields }: { fields: BuilderField[] }) {
+export function LicenseFormBuilder({ fields, usageTypes }: { fields: BuilderField[]; usageTypes: BuilderUsageType[] }) {
+  const typeName = new Map(usageTypes.map((t) => [t.id, t.nameTH]));
+  const scopeText = (f: BuilderField) =>
+    f.usageTypeIds === null ? "ทุกประเภท" : f.usageTypeIds.map((id) => typeName.get(id)).filter(Boolean).join(", ") || "ยังไม่ได้เลือกประเภท";
   const router = useRouter();
   const [editing, setEditing] = useState<BuilderField | null>(null);
   const [pending, startTransition] = useTransition();
@@ -85,6 +95,7 @@ export function LicenseFormBuilder({ fields }: { fields: BuilderField[] }) {
                 {FIELD_TYPE_LABEL[f.type]}
                 {isChoiceType(f.type) && ` · ${f.options.length} ตัวเลือก`}
                 {f.key && " · ช่องพื้นฐาน"}
+                {` · แสดงใน: ${scopeText(f)}`}
                 {!f.isActive && " · ปิดใช้งาน"}
                 {f.answerCount > 0 && ` · ตอบแล้ว ${f.answerCount} คำขอ`}
               </p>
@@ -131,12 +142,12 @@ export function LicenseFormBuilder({ fields }: { fields: BuilderField[] }) {
         ))}
       </ol>
 
-      {editing && <FieldDialog key={editing.id || "new"} field={editing} onClose={() => setEditing(null)} />}
+      {editing && <FieldDialog key={editing.id || "new"} field={editing} scopeText={scopeText(editing)} onClose={() => setEditing(null)} />}
     </div>
   );
 }
 
-function FieldDialog({ field, onClose }: { field: BuilderField; onClose: () => void }) {
+function FieldDialog({ field, scopeText, onClose }: { field: BuilderField; scopeText: string; onClose: () => void }) {
   const router = useRouter();
   const [type, setType] = useState<LicenseFieldType>(field.type);
   const [options, setOptions] = useState<FieldOption[]>(field.options.length > 0 ? field.options : []);
@@ -252,6 +263,14 @@ function FieldDialog({ field, onClose }: { field: BuilderField; onClose: () => v
                 ))}
             </fieldset>
           )}
+
+          <p className="rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+            {field.key
+              ? "ช่องพื้นฐานถามในทุกประเภทการใช้งานเสมอ"
+              : isNew
+                ? "ช่องใหม่จะแสดงในฟอร์มของทุกประเภท ถ้าต้องการปิดบางประเภท ไปตั้งได้ที่หน้าประเภทการใช้งาน (ปุ่มตั้งค่าฟอร์ม)"
+                : `แสดงใน: ${scopeText}  · เปลี่ยนได้ที่หน้าประเภทการใช้งาน (ปุ่มตั้งค่าฟอร์ม)`}
+          </p>
 
           <div className="flex flex-wrap gap-x-6 gap-y-2">
             <label className="flex cursor-pointer items-center gap-2 text-sm">

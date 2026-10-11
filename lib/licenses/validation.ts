@@ -5,15 +5,15 @@ import { FIELD_LIMITS } from "@/lib/licenses/form-fields";
 // the admin-defined form with `resolveAnswers` (lib/licenses/form-fields.ts). Messages are error
 // codes that map to `shop.license.errors.*` translation keys.
 
-export const LICENSE_LIMITS = {
-  usageTypes: 20,
-} as const;
-
-/** fieldId → text, or the chosen option ids. Sizes are capped before any per-field check. */
+/** fieldId → text, the chosen option ids, or an attached file. Sizes are capped before any per-field check. */
 const answersSchema = z
   .record(
     z.string().max(64),
-    z.union([z.string().max(FIELD_LIMITS.TEXTAREA * 2), z.array(z.string().max(64)).max(FIELD_LIMITS.options)]),
+    z.union([
+      z.string().max(FIELD_LIMITS.TEXTAREA * 2),
+      z.array(z.string().max(64)).max(FIELD_LIMITS.options),
+      z.object({ path: z.string().max(FIELD_LIMITS.filePath), name: z.string().max(FIELD_LIMITS.fileName) }),
+    ]),
   )
   .refine((r) => Object.keys(r).length <= FIELD_LIMITS.fields * 2, "too_long");
 
@@ -25,7 +25,8 @@ const artworkFields = {
 
 export const licenseSubmitSchema = z.object({
   productId: z.uuid(),
-  usageTypeIds: z.array(z.uuid("pick_usage")).min(1, "pick_usage").max(LICENSE_LIMITS.usageTypes, "pick_usage"),
+  /** One usage type per request: each type has its own questions. */
+  usageTypeIds: z.array(z.uuid("pick_usage")).length(1, "pick_usage"),
   answers: answersSchema,
   /** Total the customer saw (satang); only compared, never charged. */
   expectedTotal: z.number().int().nonnegative(),

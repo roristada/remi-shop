@@ -16,6 +16,7 @@ import {
   checkFileSignature,
   getExtension,
   SIGNATURE_BYTES,
+  type FileRule,
   type FileTypeError,
   DIGITAL_FILE_TYPES,
   IMAGE_FILE_TYPES,
@@ -97,13 +98,16 @@ export async function verifyUploadedObject(
   bucket: BucketName,
   path: string,
   fileName: string,
+  /** Overrides the bucket's default allowed types. */
+  allowed?: Record<string, FileRule>,
 ): Promise<{ ok: true; object: VerifiedObject } | { ok: false; error: FileTypeError | "not_found" }> {
   const rules =
-    bucket === BUCKETS.digitalFiles
+    allowed ??
+    (bucket === BUCKETS.digitalFiles
       ? DIGITAL_FILE_TYPES
       : bucket === BUCKETS.productPreviews
         ? PRODUCT_IMAGE_FILE_TYPES
-        : IMAGE_FILE_TYPES;
+        : IMAGE_FILE_TYPES);
 
   // Both requests at once; the leading bytes are only judged once the size is known to be fine.
   const [info, head] = await Promise.all([objectInfo(bucket, path), readHead(bucket, path)]);

@@ -30,6 +30,11 @@ export function isArtworkPath(path: string, userId: string): boolean {
   return new RegExp(`^${userId}/${UUID}\\.(jpe?g|png|webp)$`).test(path);
 }
 
+/** Same key scheme for files attached to a license-form field, which may also be PDFs. */
+export function isLicenseAttachmentPath(path: string, userId: string): boolean {
+  return new RegExp(`^${userId}/${UUID}\\.(jpe?g|png|webp|pdf)$`).test(path);
+}
+
 export function newQrImagePath(fileName: string): string {
   return `settings/promptpay-qr/${crypto.randomUUID()}.${getExtension(fileName)}`;
 }

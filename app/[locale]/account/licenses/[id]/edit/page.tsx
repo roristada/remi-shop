@@ -28,8 +28,10 @@ export default async function EditLicenseRequestPage({ params }: PageProps<"/[lo
   await connection(); // The edit window depends on the current time.
   if (!idSchema.safeParse(id).success) notFound();
 
-  const [request, fields] = await Promise.all([getLicenseRequestForEdit(user.id, id), listActiveFormFields()]);
+  const request = await getLicenseRequestForEdit(user.id, id);
   if (!request) notFound();
+  // Only the questions asked for this request's usage type.
+  const fields = await listActiveFormFields(undefined, request.items[0]?.usageTypeId);
 
   const t = await getTranslations("shop.license");
   const name = localized(locale, request.productNameTHSnapshot, request.productNameENSnapshot);

@@ -13,6 +13,9 @@ export const FIELD_LIMITS = {
   TEXT: 200,
   EMAIL: 254,
   TEXTAREA: 1000,
+  URL: 500,
+  fileName: 255,
+  filePath: 300,
   label: 120,
   description: 300,
   option: 100,
@@ -43,6 +46,35 @@ export function parseFieldOptions(value: unknown): FieldOption[] {
   return parsed.success ? parsed.data : [];
 }
 
+/** A FILE answer: the private object key we issued plus the customer's original file name. */
+export type FileAnswer = { path: string; name: string };
+
+/** fieldId → text, chosen option ids, or an attached file. */
+export type AnswerValue = string | string[] | FileAnswer;
+
+export function isFileAnswer(v: unknown): v is FileAnswer {
+  return typeof v === "object" && v !== null && !Array.isArray(v) && typeof (v as FileAnswer).path === "string" && typeof (v as FileAnswer).name === "string";
+}
+
+/** Usage types a field is shown for; null = every type. */
+export type FieldUsageScope = { usageTypeIds: string[] | null };
+
+export function appliesToUsageType(field: FieldUsageScope, usageTypeId: string | null): boolean {
+  return field.usageTypeIds === null || (usageTypeId !== null && field.usageTypeIds.includes(usageTypeId));
+}
+
+/**
+ * A field's new scope after switching it on or off for one usage type (`allTypeIds` = every type
+ * that exists). Covering every type collapses back to null ("all types"), so types added later
+ * get the field too; switching it off everywhere leaves an empty list (asked nowhere).
+ */
+export function scopeWithUsageType(current: string[] | null, allTypeIds: string[], usageTypeId: string, on: boolean): string[] | null {
+  const ids = new Set(current ?? allTypeIds);
+  if (on) ids.add(usageTypeId);
+  else ids.delete(usageTypeId);
+  return allTypeIds.every((id) => ids.has(id)) ? null : allTypeIds.filter((id) => ids.has(id));
+}
+
 export type FormFieldDef = {
   id: string;
   key: string | null;
@@ -61,15 +93,18 @@ export type ResolvedAnswer = {
   type: LicenseFieldType;
   values: string[];
   valuesEN: string[];
+  /** FILE answers only. */
+  filePath: string | null;
   sortOrder: number;
 };
 
 /** Error codes map to `shop.license.errors.*`. Keys are `answers.<fieldId>`. */
-export type AnswerErrors = Record<string, "required" | "too_long" | "invalid_email" | "invalid_choice">;
+export type AnswerErrors = Record<string, "required" | "too_long" | "invalid_email" | "invalid_choice" | "invalid_url" | "invalid_file">;
 
 export const answerErrorKey = (fieldId: string) => `answers.${fieldId}`;
 
 const emailSchema = z.email();
+const urlSchema = z.url({ protocol: /^https?$/, hostname: z.regexes.domain });
 
 function readRaw(input: unknown, fieldId: string): unknown {
   if (!input || typeof input !== "object" || Array.isArray(input)) return undefined;
@@ -79,10 +114,12 @@ function readRaw(input: unknown, fieldId: string): unknown {
 /**
  * Validates the customer's answers against the form as it is now (fields in display order).
  * Text is trimmed; choices must be options of that field. Unknown keys in `input` are ignored.
+ * `isOwnFile` (server only) says whether a FILE answer's object key is one issued to this customer.
  */
 export function resolveAnswers(
   fields: FormFieldDef[],
   input: unknown,
+  isOwnFile?: (path: string) => boolean,
 ): { ok: true; answers: ResolvedAnswer[] } | { ok: false; errors: AnswerErrors } {
   const errors: AnswerErrors = {};
   const answers: ResolvedAnswer[] = [];
@@ -90,7 +127,22 @@ export function resolveAnswers(
   fields.forEach((field, index) => {
     const raw = readRaw(input, field.id);
     const errKey = answerErrorKey(field.id);
-    const base = { fieldId: field.id, key: field.key, labelTH: field.labelTH, labelEN: field.labelEN, type: field.type, sortOrder: index };
+    const base = { fieldId: field.id, key: field.key, labelTH: field.labelTH, labelEN: field.labelEN, type: field.type, filePath: null, sortOrder: index };
+
+    if (field.type === "FILE") {
+      if (raw === undefined || raw === null || raw === "") {
+        if (field.isRequired) errors[errKey] = "required";
+        return;
+      }
+      if (!isFileAnswer(raw)) return void (errors[errKey] = "invalid_file");
+      const name = raw.name.trim();
+      if (!name || name.length > FIELD_LIMITS.fileName || !raw.path || raw.path.length > FIELD_LIMITS.filePath) {
+        return void (errors[errKey] = "invalid_file");
+      }
+      if (isOwnFile && !isOwnFile(raw.path)) return void (errors[errKey] = "invalid_file");
+      answers.push({ ...base, values: [name], valuesEN: [], filePath: raw.path });
+      return;
+    }
 
     if (isChoiceType(field.type)) {
       const picked = (Array.isArray(raw) ? raw : typeof raw === "string" && raw !== "" ? [raw] : []).filter(
@@ -116,9 +168,15 @@ export function resolveAnswers(
       if (field.isRequired) errors[errKey] = "required";
       return;
     }
-    const max = FIELD_LIMITS[field.type as "TEXT" | "EMAIL" | "TEXTAREA"];
+    const max = FIELD_LIMITS[field.type as "TEXT" | "EMAIL" | "TEXTAREA" | "URL"];
     if (text.length > max) return void (errors[errKey] = "too_long");
     if (field.type === "EMAIL" && !emailSchema.safeParse(text).success) return void (errors[errKey] = "invalid_email");
+    if (field.type === "URL") {
+      // "example.com/page" is fine: assume https when no scheme is typed.
+      const url = /^[a-z][a-z0-9+.-]*:\/\//i.test(text) ? text : `https://${text}`;
+      if (url.length > max || !urlSchema.safeParse(url).success) return void (errors[errKey] = "invalid_url");
+      return void answers.push({ ...base, values: [url], valuesEN: [] });
+    }
     answers.push({ ...base, values: [text], valuesEN: [] });
   });
 
@@ -169,13 +227,18 @@ export function parseAnswerChanges(value: unknown): AnswerChange[] {
  */
 export function answerValuesFor(
   fields: FormFieldDef[],
-  answers: { fieldId: string | null; values: string[] }[],
-): Record<string, string | string[]> {
-  const byField = new Map(answers.filter((a) => a.fieldId).map((a) => [a.fieldId!, a.values]));
-  const out: Record<string, string | string[]> = {};
+  answers: { fieldId: string | null; values: string[]; filePath?: string | null }[],
+): Record<string, AnswerValue> {
+  const byField = new Map(answers.filter((a) => a.fieldId).map((a) => [a.fieldId!, a]));
+  const out: Record<string, AnswerValue> = {};
   for (const f of fields) {
-    const values = byField.get(f.id);
+    const answer = byField.get(f.id);
+    const values = answer?.values;
     if (!values || values.length === 0) continue;
+    if (f.type === "FILE") {
+      if (answer.filePath) out[f.id] = { path: answer.filePath, name: values[0] };
+      continue;
+    }
     if (!isChoiceType(f.type)) {
       out[f.id] = values[0];
       continue;

@@ -81,8 +81,8 @@ export function getLicenseRequestForEdit(userId: string, requestId: string) {
       infoRequestFields: true,
       status: true,
       createdAt: true,
-      items: { orderBy: { id: "asc" }, select: { id: true, nameTHSnapshot: true, nameENSnapshot: true, price: true } },
-      answers: { select: { fieldId: true, values: true } },
+      items: { orderBy: { id: "asc" }, select: { id: true, usageTypeId: true, nameTHSnapshot: true, nameENSnapshot: true, price: true } },
+      answers: { select: { fieldId: true, values: true, filePath: true } },
     },
   });
 }

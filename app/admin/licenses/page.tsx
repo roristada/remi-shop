@@ -15,7 +15,7 @@ import { ReviewActions } from "@/components/admin/review-actions";
 import { approveLicenseRequest, rejectLicenseRequest } from "@/lib/licenses/admin-actions";
 import { LICENSE_REJECT_REASONS, LICENSE_STATUS_TH, ORDER_STATUS_TH } from "@/lib/licenses/admin-labels";
 import { listActiveFormFields } from "@/lib/licenses/form-queries";
-import { ARTWORK_FIELD_ID } from "@/lib/licenses/form-fields";
+import { appliesToUsageType, ARTWORK_FIELD_ID } from "@/lib/licenses/form-fields";
 import { LicenseSendBackDialog } from "@/components/admin/license-send-back-dialog";
 import { cn } from "@/lib/utils";
 
@@ -32,7 +32,11 @@ export default async function AdminLicensesPage({ searchParams }: PageProps<"/ad
     listLicenseRequestsForReview(tab, page),
     listActiveFormFields(),
   ]);
-  const flaggable = [...fields.map((f) => ({ id: f.id, label: f.labelTH })), { id: ARTWORK_FIELD_ID, label: "รูปผลงาน" }];
+  // Only the questions each request's usage type asks can be flagged for changes.
+  const flaggableFor = (usageTypeId: string | null) => [
+    ...fields.filter((f) => appliesToUsageType(f, usageTypeId)).map((f) => ({ id: f.id, label: f.labelTH })),
+    { id: ARTWORK_FIELD_ID, label: "รูปผลงาน" },
+  ];
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -79,7 +83,7 @@ export default async function AdminLicensesPage({ searchParams }: PageProps<"/ad
       ) : (
         <ul className="space-y-4">
           {items.map((r) => (
-            <LicenseCard key={r.id} request={r} flaggable={flaggable} />
+            <LicenseCard key={r.id} request={r} flaggable={flaggableFor(r.items[0]?.usageTypeId ?? null)} />
           ))}
         </ul>
       )}
@@ -208,7 +212,10 @@ function LicenseCard({ request: r, flaggable }: { request: ReviewLicenseRequest;
               rejectLabel="ปฏิเสธคำขอ"
               quickReasons={LICENSE_REJECT_REASONS}
               extra={
+                // Keyed: an element made inside the page's map and handed to a client component is
+                // otherwise flagged by React's dev key check.
                 <LicenseSendBackDialog
+                  key={r.id}
                   requestId={r.id}
                   currentTotal={r.total.toString().replace(/\.00$/, "")}
                   currentTotalLabel={total}

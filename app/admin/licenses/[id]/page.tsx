@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, ExternalLink, ImageOff } from "lucide-react";
+import { ChevronLeft, ExternalLink, ImageOff, Paperclip } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/guards";
 import { formatBangkokDateTime } from "@/lib/datetime";
 import { formatTHB, toHundredths } from "@/lib/pricing/calculate";
 import { idSchema } from "@/lib/validation/product";
-import { getLicenseRequestForReview } from "@/lib/licenses/admin-queries";
+import { getLicenseRequestForReview, type ReviewLicenseRequestDetail } from "@/lib/licenses/admin-queries";
 import { listActiveFormFields } from "@/lib/licenses/form-queries";
 import { ARTWORK_FIELD_ID } from "@/lib/licenses/form-fields";
 import { buildHistory } from "@/lib/licenses/history";
@@ -31,8 +31,10 @@ export default async function AdminLicenseRequestPage({ params }: PageProps<"/ad
   await requireAdmin();
   const { id } = await params;
   if (!idSchema.safeParse(id).success) notFound();
-  const [r, fields] = await Promise.all([getLicenseRequestForReview(id), listActiveFormFields()]);
+  const r = await getLicenseRequestForReview(id);
   if (!r) notFound();
+  // The questions this request's usage type asks (what can be flagged for changes).
+  const fields = await listActiveFormFields(undefined, r.items[0]?.usageTypeId);
 
   const money = (v: { toString(): string }) => formatTHB(toHundredths(v));
   const account = r.user.displayName ? `${r.user.displayName} (${r.user.email})` : r.user.email;
@@ -165,7 +167,9 @@ export default async function AdminLicenseRequestPage({ params }: PageProps<"/ad
                   <dt className={cn("text-muted-foreground", a.fieldId && flagged.has(a.fieldId) && "font-medium text-warning")}>
                     {a.labelTHSnapshot}
                   </dt>
-                  <dd className="break-words whitespace-pre-line">{a.values.join(", ")}</dd>
+                  <dd className="break-words whitespace-pre-line">
+                    <AnswerValue answer={a} />
+                  </dd>
                 </div>
               ))}
             </dl>
@@ -203,4 +207,26 @@ export default async function AdminLicenseRequestPage({ params }: PageProps<"/ad
       <LicenseHistory title="ประวัติการดำเนินการ" entries={history} />
     </div>
   );
+}
+
+/** Links are clickable; attached files open through a short-lived signed URL. */
+function AnswerValue({ answer: a }: { answer: ReviewLicenseRequestDetail["answers"][number] }) {
+  const text = a.values.join(", ");
+  if (a.type === "FILE" && a.hasFile) {
+    return a.fileUrl ? (
+      <a href={a.fileUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline underline-offset-4">
+        <Paperclip className="size-3.5 shrink-0" aria-hidden /> {text}
+      </a>
+    ) : (
+      <span className="text-muted-foreground">{text} (เปิดไฟล์ไม่ได้)</span>
+    );
+  }
+  if (a.type === "URL" && /^https?:\/\//i.test(text)) {
+    return (
+      <a href={text} target="_blank" rel="noopener noreferrer nofollow" className="underline underline-offset-4">
+        {text}
+      </a>
+    );
+  }
+  return text;
 }

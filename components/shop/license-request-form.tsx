@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { ImageUp, Loader2, MessageSquareWarning } from "lucide-react";
+import { FileUp, ImageUp, Loader2, MessageSquareWarning, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -14,20 +14,33 @@ import { intlLocale, localized } from "@/i18n/localize";
 import { putSignedUpload } from "@/lib/storage/upload-client";
 import type { FieldErrors } from "@/lib/validation/auth";
 import { formatTHB } from "@/lib/pricing/calculate";
-import { ARTWORK_FIELD_ID, answerErrorKey, FIELD_LIMITS, isChoiceType, resolveAnswers, type FormFieldDef } from "@/lib/licenses/form-fields";
-import { requestArtworkUpload, submitLicenseRequest, updateLicenseRequest } from "@/lib/licenses/customer-actions";
+import {
+  appliesToUsageType,
+  ARTWORK_FIELD_ID,
+  answerErrorKey,
+  FIELD_LIMITS,
+  isChoiceType,
+  isFileAnswer,
+  resolveAnswers,
+  type AnswerValue,
+  type FieldUsageScope,
+  type FormFieldDef,
+} from "@/lib/licenses/form-fields";
+import { requestArtworkUpload, requestLicenseFileUpload, submitLicenseRequest, updateLicenseRequest } from "@/lib/licenses/customer-actions";
 import { MAX_FILE_SIZE } from "@/lib/storage/buckets";
 import { cn } from "@/lib/utils";
 
 const ACCEPT = ".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp";
 const EXTENSIONS = /\.(jpe?g|png|webp)$/i;
+const FILE_ACCEPT = ".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf";
+const FILE_EXTENSIONS = /\.(jpe?g|png|webp|pdf)$/i;
 
 export type LicenseFormOffer = { usageTypeId: string; name: string; description: string | null; conditions: string | null; price: number };
 
-export type LicenseFormField = FormFieldDef & { descriptionTH: string | null; descriptionEN: string | null };
+export type LicenseFormField = FormFieldDef & FieldUsageScope & { descriptionTH: string | null; descriptionEN: string | null };
 
-/** fieldId → text, or chosen option ids. */
-export type AnswerValues = Record<string, string | string[]>;
+/** fieldId → text, chosen option ids, or an already uploaded file. */
+export type AnswerValues = Record<string, AnswerValue>;
 
 /** Editing a submitted request (or answering the store's request for changes). */
 export type LicenseFormEdit = {
@@ -76,8 +89,11 @@ export function LicenseRequestForm({ productId, offers, fields, defaults, edit }
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const artworkId = useId();
-  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  // One usage type per request; a single offer is picked for the customer.
+  const [selected, setSelected] = useState<string | null>(() => (offers.length === 1 ? offers[0].usageTypeId : null));
   const [answers, setAnswers] = useState<AnswerValues>(() => edit?.answers ?? initialAnswers(fields, defaults));
+  /** Files picked for FILE questions, uploaded on submit. */
+  const [pendingFiles, setPendingFiles] = useState<Record<string, File>>({});
   const [acceptPrice, setAcceptPrice] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -92,7 +108,10 @@ export function LicenseRequestForm({ productId, offers, fields, defaults, edit }
 
   const respond = edit?.respond;
   const flagged = new Set(respond?.flagged ?? []);
-  const total = edit ? edit.total : offers.filter((o) => selected.has(o.usageTypeId)).reduce((sum, o) => sum + o.price, 0);
+  const total = edit ? edit.total : (offers.find((o) => o.usageTypeId === selected)?.price ?? 0);
+  // When editing, the page already passes only the questions of the request's usage type.
+  const visibleFields = edit ? fields : fields.filter((f) => appliesToUsageType(f, selected));
+  const hiddenByType = !edit && selected === null && visibleFields.length < fields.length;
   const money = (satang: number) => formatTHB(satang, intlLocale(locale).number);
   const errorText = (key: string) => (fieldErrors[key] ? t(`errors.${fieldErrors[key]}`) : undefined);
 
@@ -110,14 +129,30 @@ export function LicenseRequestForm({ productId, offers, fields, defaults, edit }
     clearError(answerErrorKey(fieldId));
   }
 
-  function toggleUsage(id: string, on: boolean) {
-    setSelected((s) => {
-      const next = new Set(s);
-      if (on) next.add(id);
-      else next.delete(id);
-      return next;
-    });
+  function pickUsage(id: string) {
+    setSelected(id);
     clearError("usageTypeIds");
+  }
+
+  /** A FILE question's file: picked now (uploaded on submit) or cleared. */
+  function pickAnswerFile(fieldId: string, next: File | null) {
+    const key = answerErrorKey(fieldId);
+    clearError(key);
+    setPendingFiles((files) => {
+      const rest = { ...files };
+      delete rest[fieldId];
+      return next ? { ...rest, [fieldId]: next } : rest;
+    });
+    if (!next) {
+      return setAnswers((a) => {
+        const rest = { ...a };
+        delete rest[fieldId];
+        return rest;
+      });
+    }
+    // Quick client-side feedback only; the server repeats every check.
+    if (!FILE_EXTENSIONS.test(next.name)) return setFieldErrors((e) => ({ ...e, [key]: "file_unsupported_type" }));
+    if (next.size > MAX_FILE_SIZE) return setFieldErrors((e) => ({ ...e, [key]: "too_large" }));
   }
 
   function pickFile(next: File | undefined) {
@@ -144,9 +179,16 @@ export function LicenseRequestForm({ productId, offers, fields, defaults, edit }
     e.preventDefault();
     setFormError(null);
     const errors: FieldErrors = {};
-    const checked = resolveAnswers(fields, answers);
+    // Picked files stand in for their upload until submit.
+    const pendingAnswers: AnswerValues = { ...answers };
+    for (const [id, f] of Object.entries(pendingFiles)) pendingAnswers[id] = { path: "pending", name: f.name };
+    const checked = resolveAnswers(visibleFields, pendingAnswers);
     if (!checked.ok) Object.assign(errors, checked.errors);
-    if (!edit && selected.size === 0) errors.usageTypeIds = "pick_usage";
+    for (const [id, f] of Object.entries(pendingFiles)) {
+      if (!FILE_EXTENSIONS.test(f.name)) errors[answerErrorKey(id)] = "file_unsupported_type";
+      else if (f.size > MAX_FILE_SIZE) errors[answerErrorKey(id)] = "too_large";
+    }
+    if (!edit && selected === null) errors.usageTypeIds = "pick_usage";
     if (respond && flagged.has(ARTWORK_FIELD_ID) && !file) errors.artwork = "artwork_required";
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) return focusFirstError(errors);
@@ -162,9 +204,27 @@ export function LicenseRequestForm({ productId, offers, fields, defaults, edit }
         artwork = { artworkPath: target.data.path, artworkFileName: file.name };
       }
 
+      // Only the visible questions are sent; files go straight to private storage first.
+      const sent: AnswerValues = {};
+      for (const f of visibleFields) {
+        const picked = pendingFiles[f.id];
+        if (picked) {
+          const target = await requestLicenseFileUpload({ fileName: picked.name, size: picked.size });
+          if (!target.ok) {
+            setFieldErrors({ [answerErrorKey(f.id)]: target.code === "unsupported_type" ? "file_unsupported_type" : target.code });
+            return setFormError(t("errors.INVALID"));
+          }
+          if (!(await putSignedUpload(target.data, picked, picked.type || "application/octet-stream"))) return setFormError(t("errors.ERROR"));
+          // Kept as a pending file: a failed submit deletes the upload, so a retry uploads again.
+          sent[f.id] = { path: target.data.path, name: picked.name };
+        } else if (answers[f.id] !== undefined) {
+          sent[f.id] = answers[f.id];
+        }
+      }
+
       const result = edit
-        ? await updateLicenseRequest(edit.requestId, { answers, acceptPrice: respond ? acceptPrice : undefined, ...artwork })
-        : await submitLicenseRequest({ productId, usageTypeIds: [...selected], answers, expectedTotal: total, ...artwork });
+        ? await updateLicenseRequest(edit.requestId, { answers: sent, acceptPrice: respond ? acceptPrice : undefined, ...artwork })
+        : await submitLicenseRequest({ productId, usageTypeIds: selected ? [selected] : [], answers: sent, expectedTotal: total, ...artwork });
       if (!result.ok) {
         if (result.fieldErrors) {
           setFieldErrors(result.fieldErrors);
@@ -213,25 +273,29 @@ export function LicenseRequestForm({ productId, offers, fields, defaults, edit }
           <legend className="mb-1 text-lg font-semibold">{t("usageTitle")}</legend>
           <p className="text-sm text-foreground/70">{t("usageHint")}</p>
           <ul
-            className={cn("divide-y rounded-2xl border", fieldErrors.usageTypeIds && "border-destructive")}
+            role="radiogroup"
+            aria-label={t("usageTitle")}
+            className={cn("divide-y overflow-hidden rounded-2xl border", fieldErrors.usageTypeIds && "border-destructive")}
             aria-describedby={fieldErrors.usageTypeIds ? "usage-error" : undefined}
           >
             {offers.map((o, i) => {
               const id = `usage-${o.usageTypeId}`;
               return (
-                <li key={o.usageTypeId} className="flex items-start gap-3 px-4 py-3">
-                  <Checkbox
+                <li key={o.usageTypeId} className="flex items-start gap-3 px-4 py-3 has-[:checked]:bg-accent/40">
+                  <input
                     id={id}
+                    type="radio"
+                    name="usageType"
                     data-field={i === 0 ? "usageTypeIds" : undefined}
-                    checked={selected.has(o.usageTypeId)}
-                    onCheckedChange={(v) => toggleUsage(o.usageTypeId, v === true)}
-                    className="mt-0.5"
+                    checked={selected === o.usageTypeId}
+                    onChange={() => pickUsage(o.usageTypeId)}
+                    className="mt-1 size-4 shrink-0 accent-brand-strong"
                   />
                   <label htmlFor={id} className="min-w-0 flex-1 cursor-pointer space-y-1">
                     <span className="block font-medium">{o.name}</span>
                     {o.description && <span className="block text-sm text-foreground/70">{o.description}</span>}
                     {o.conditions && (
-                      <span className="block rounded-lg bg-muted/70 px-2.5 py-1.5 text-xs whitespace-pre-line text-foreground/75">
+                      <span className="block rounded-lg bg-muted/70 px-2.5 py-1.5 text-xs break-words whitespace-pre-line text-foreground/75">
                         <span className="font-medium">{t("conditions")}</span> {o.conditions}
                       </span>
                     )}
@@ -251,19 +315,28 @@ export function LicenseRequestForm({ productId, offers, fields, defaults, edit }
 
       <fieldset className="grid gap-4 sm:grid-cols-2">
         <legend className="mb-3 text-lg font-semibold">{t("detailsTitle")}</legend>
-        {fields.map((f) => (
+        {visibleFields.map((f) => (
           <AnswerField
             key={f.id}
             field={f}
             locale={locale}
             value={answers[f.id]}
+            pendingFile={pendingFiles[f.id] ?? null}
             onChange={(v) => setAnswer(f.id, v)}
+            onFile={(file) => pickAnswerFile(f.id, file)}
             error={errorText(answerErrorKey(f.id))}
             flagged={flagged.has(f.id)}
-            optionalLabel={t("optional")}
-            flaggedLabel={t("flagged")}
+            labels={{
+              optional: t("optional"),
+              flagged: t("flagged"),
+              fileHint: t("fileHint"),
+              fileChoose: t("fileChoose"),
+              fileChange: t("fileChange"),
+              fileRemove: t("fileRemove"),
+            }}
           />
         ))}
+        {hiddenByType && <p className="text-sm text-muted-foreground sm:col-span-2">{t("pickUsageFirst")}</p>}
       </fieldset>
 
       <div className={cn("space-y-1.5", artworkFlagged && "rounded-2xl border border-warning/50 bg-warning/5 p-3")}>
@@ -389,46 +462,100 @@ export function PriceChange({
   );
 }
 
+type AnswerFieldLabels = {
+  optional: string;
+  flagged: string;
+  fileHint: string;
+  fileChoose: string;
+  fileChange: string;
+  fileRemove: string;
+};
+
 function AnswerField({
   field,
   locale,
   value,
+  pendingFile,
   onChange,
+  onFile,
   error,
   flagged,
-  optionalLabel,
-  flaggedLabel,
+  labels,
 }: {
   field: LicenseFormField;
   locale: string;
-  value: string | string[] | undefined;
+  value: AnswerValue | undefined;
+  pendingFile: File | null;
   onChange: (v: string | string[]) => void;
+  onFile: (file: File | null) => void;
   error?: string;
   flagged: boolean;
-  optionalLabel: string;
-  flaggedLabel: string;
+  labels: AnswerFieldLabels;
 }) {
   const id = useId();
   const label = localized(locale, field.labelTH, field.labelEN);
-  const description = localized(locale, field.descriptionTH, field.descriptionEN);
+  const description = localized(locale, field.descriptionTH, field.descriptionEN) ?? (field.type === "FILE" ? labels.fileHint : null);
   const describedBy = error ? `${id}-error` : description ? `${id}-hint` : undefined;
-  const wide = field.type === "TEXTAREA" || isChoiceType(field.type);
+  const wide = field.type === "TEXTAREA" || field.type === "FILE" || isChoiceType(field.type);
   const text = typeof value === "string" ? value : "";
   const picked = Array.isArray(value) ? value : typeof value === "string" && value ? [value] : [];
   const optionLabel = (o: { th: string; en: string }) => localized(locale, o.th, o.en);
   const a11y = { "aria-invalid": error ? true : undefined, "aria-describedby": describedBy } as const;
 
   let control: ReactNode;
-  if (field.type === "TEXTAREA") {
+  if (field.type === "FILE") {
+    const fileName = pendingFile?.name ?? (isFileAnswer(value) ? value.name : null);
+    control = (
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          id={id}
+          data-field={answerErrorKey(field.id)}
+          type="file"
+          accept={FILE_ACCEPT}
+          className="sr-only"
+          {...a11y}
+          onChange={(e) => {
+            onFile(e.target.files?.[0] ?? null);
+            e.target.value = "";
+          }}
+        />
+        <label
+          htmlFor={id}
+          className={cn(
+            "inline-flex h-11 cursor-pointer items-center gap-2 rounded-xl border border-dashed px-4 text-sm font-medium transition-colors focus-within:ring-2 focus-within:ring-ring hover:bg-secondary/30",
+            error ? "border-destructive" : "border-foreground/20",
+          )}
+        >
+          <FileUp className="size-4 text-muted-foreground" aria-hidden />
+          {fileName ? labels.fileChange : labels.fileChoose}
+        </label>
+        {fileName && (
+          <span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-muted px-3 py-1 text-sm">
+            <span className="truncate">{fileName}</span>
+            <button
+              type="button"
+              className="grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground hover:text-foreground"
+              aria-label={`${labels.fileRemove}: ${fileName}`}
+              onClick={() => onFile(null)}
+            >
+              <X className="size-3.5" aria-hidden />
+            </button>
+          </span>
+        )}
+      </div>
+    );
+  } else if (field.type === "TEXTAREA") {
     control = (
       <Textarea id={id} data-field={answerErrorKey(field.id)} rows={3} maxLength={FIELD_LIMITS.TEXTAREA} value={text} onChange={(e) => onChange(e.target.value)} className="min-h-24 rounded-xl" {...a11y} />
     );
-  } else if (field.type === "TEXT" || field.type === "EMAIL") {
+  } else if (field.type === "TEXT" || field.type === "EMAIL" || field.type === "URL") {
     control = (
       <Input
         id={id}
         data-field={answerErrorKey(field.id)}
-        type={field.type === "EMAIL" ? "email" : "text"}
+        type={field.type === "EMAIL" ? "email" : field.type === "URL" ? "url" : "text"}
+        inputMode={field.type === "URL" ? "url" : undefined}
+        placeholder={field.type === "URL" ? "https://" : undefined}
         maxLength={FIELD_LIMITS[field.type]}
         autoComplete={field.type === "EMAIL" ? "email" : field.key === "buyerName" ? "name" : undefined}
         value={text}
@@ -486,9 +613,9 @@ function AnswerField({
       <Label id={`${id}-label`} htmlFor={isChoiceType(field.type) && field.type !== "DROPDOWN" ? undefined : id}>
         {label}{" "}
         {flagged ? (
-          <span className="font-normal text-warning">{flaggedLabel}</span>
+          <span className="font-normal text-warning">{labels.flagged}</span>
         ) : (
-          !field.isRequired && <span className="font-normal text-muted-foreground">{optionalLabel}</span>
+          !field.isRequired && <span className="font-normal text-muted-foreground">{labels.optional}</span>
         )}
       </Label>
       {control}

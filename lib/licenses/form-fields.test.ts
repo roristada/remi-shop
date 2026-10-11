@@ -95,3 +95,53 @@ test("stored answers map back to form values", async () => {
     { t: "hi", c: ["a", "c"] },
   );
 });
+
+test("URL answers need an http(s) link; a missing scheme means https", async () => {
+  const { resolveAnswers: resolve } = await import("./form-fields");
+  const url = field({ id: "u", type: "URL" });
+  const r = resolve([url], { u: " example.com/shop " });
+  assert.equal(r.ok, true);
+  if (r.ok) assert.deepEqual(r.answers[0].values, ["https://example.com/shop"]);
+  for (const bad of ["javascript:alert(1)", "ftp://example.com", "not a link", "https://localhost"]) {
+    assert.deepEqual(resolve([url], { u: bad }), { ok: false, errors: { "answers.u": "invalid_url" } }, bad);
+  }
+});
+
+test("FILE answers keep the key separately and must be the customer's own upload", async () => {
+  const { resolveAnswers: resolve } = await import("./form-fields");
+  const file = field({ id: "f", type: "FILE", isRequired: true });
+  const own = (p: string) => p.startsWith("me/");
+  assert.deepEqual(resolve([file], {}, own), { ok: false, errors: { "answers.f": "required" } });
+  assert.deepEqual(resolve([file], { f: "me/x.pdf" }, own), { ok: false, errors: { "answers.f": "invalid_file" } });
+  assert.deepEqual(resolve([file], { f: { path: "other/x.pdf", name: "x.pdf" } }, own), { ok: false, errors: { "answers.f": "invalid_file" } });
+  const r = resolve([file], { f: { path: "me/x.pdf", name: " plan.pdf " } }, own);
+  assert.equal(r.ok, true);
+  if (r.ok) assert.deepEqual([r.answers[0].values, r.answers[0].filePath], [["plan.pdf"], "me/x.pdf"]);
+});
+
+test("a field shows for every usage type or only the ones picked", async () => {
+  const { appliesToUsageType } = await import("./form-fields");
+  assert.equal(appliesToUsageType({ usageTypeIds: null }, null), true);
+  assert.equal(appliesToUsageType({ usageTypeIds: null }, "a"), true);
+  assert.equal(appliesToUsageType({ usageTypeIds: ["a"] }, "a"), true);
+  assert.equal(appliesToUsageType({ usageTypeIds: ["a"] }, "b"), false);
+  assert.equal(appliesToUsageType({ usageTypeIds: ["a"] }, null), false);
+});
+
+test("stored FILE answers come back as path + name for editing", async () => {
+  const { answerValuesFor } = await import("./form-fields");
+  const file = field({ id: "f", type: "FILE" });
+  assert.deepEqual(answerValuesFor([file], [{ fieldId: "f", values: ["a.pdf"], filePath: "me/a.pdf" }]), { f: { path: "me/a.pdf", name: "a.pdf" } });
+});
+
+test("switching a field per usage type keeps 'all types' when nothing is left out", async () => {
+  const { scopeWithUsageType } = await import("./form-fields");
+  const all = ["a", "b", "c"];
+  assert.deepEqual(scopeWithUsageType(null, all, "b", false), ["a", "c"]);
+  assert.equal(scopeWithUsageType(null, all, "b", true), null);
+  assert.equal(scopeWithUsageType(["a", "c"], all, "b", true), null);
+  assert.deepEqual(scopeWithUsageType(["a"], all, "c", true), ["a", "c"]);
+  assert.deepEqual(scopeWithUsageType(["a"], all, "a", false), []);
+  // A link to a type that no longer exists is dropped.
+  assert.deepEqual(scopeWithUsageType(["a", "gone"], all, "b", true), ["a", "b"]);
+});

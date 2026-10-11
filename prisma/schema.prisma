@@ -105,6 +105,10 @@ enum LicenseFieldType {
   CHECKBOX
   /// One choice from a select list.
   DROPDOWN
+  /// An http(s) link.
+  URL
+  /// One uploaded file (private `license-artworks` bucket).
+  FILE
 }
 
 /// Append-only history of a license request.
@@ -687,6 +691,7 @@ model LicenseUsageType {
 
   prices       ProductLicensePrice[]
   requestItems LicenseRequestItem[]
+  formFields   LicenseFormFieldUsageType[]
 
   @@index([isActive, sortOrder])
   @@map("license_usage_types")
@@ -779,25 +784,41 @@ model LicenseRequestItem {
 /// `key` marks the original built-in fields (buyerName, artistName, ...): their answers are also
 /// copied to the matching legacy LicenseRequest columns, which other screens still show.
 model LicenseFormField {
-  id            String           @id @default(uuid(7)) @db.Uuid
-  key           String?          @unique
-  labelTH       String           @map("label_th")
-  labelEN       String           @map("label_en")
-  descriptionTH String?          @map("description_th")
-  descriptionEN String?          @map("description_en")
-  type          LicenseFieldType
-  isRequired    Boolean          @default(false) @map("is_required")
-  isActive      Boolean          @default(true) @map("is_active")
-  sortOrder     Int              @default(0) @map("sort_order")
+  id                String           @id @default(uuid(7)) @db.Uuid
+  key               String?          @unique
+  labelTH           String           @map("label_th")
+  labelEN           String           @map("label_en")
+  descriptionTH     String?          @map("description_th")
+  descriptionEN     String?          @map("description_en")
+  type              LicenseFieldType
+  isRequired        Boolean          @default(false) @map("is_required")
+  isActive          Boolean          @default(true) @map("is_active")
+  sortOrder         Int              @default(0) @map("sort_order")
   /// RADIO / CHECKBOX / DROPDOWN choices: [{ "id", "th", "en" }] (validated in lib/licenses/form-fields.ts).
-  options       Json             @default("[]")
-  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  options           Json             @default("[]")
+  /// true = asked for every usage type; false = only for the types in `usageTypes`. Built-in fields are always true.
+  appliesToAllTypes Boolean          @default(true) @map("applies_to_all_types")
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  answers LicenseRequestAnswer[]
+  answers    LicenseRequestAnswer[]
+  usageTypes LicenseFormFieldUsageType[]
 
   @@index([isActive, sortOrder])
   @@map("license_form_fields")
+}
+
+/// The usage types a form field is shown for (only read when the field's appliesToAllTypes is false).
+model LicenseFormFieldUsageType {
+  fieldId     String @map("field_id") @db.Uuid
+  usageTypeId String @map("usage_type_id") @db.Uuid
+
+  field     LicenseFormField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  usageType LicenseUsageType @relation(fields: [usageTypeId], references: [id], onDelete: Cascade)
+
+  @@id([fieldId, usageTypeId])
+  @@index([usageTypeId])
+  @@map("license_form_field_usage_types")
 }
 
 /// A customer's answer to one form field, with the question as it read at the time.
@@ -812,6 +833,8 @@ model LicenseRequestAnswer {
   /// Text answers: one entry. Choice answers: the chosen options' Thai / English labels.
   values          String[]         @default([])
   valuesEN        String[]         @default([]) @map("values_en")
+  /// FILE answers: object key in the private `license-artworks` bucket (`values` holds the file name).
+  filePath        String?          @map("file_path")
   sortOrder       Int              @default(0) @map("sort_order")
 
   request LicenseRequest    @relation(fields: [requestId], references: [id], onDelete: Cascade)

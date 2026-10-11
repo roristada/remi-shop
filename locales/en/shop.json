@@ -135,7 +135,7 @@
     "formIntro": "For {product}. Fill in every field; the store will review it and post the result on My licenses.",
     "notOffered": "This product does not offer a commercial license right now.",
     "usageTitle": "Type of use",
-    "usageHint": "Pick one or more. The total is the sum of every type you pick.",
+    "usageHint": "Pick one. The questions below depend on the type you pick.",
     "buyerTitle": "License buyer",
     "buyerName": "Buyer name",
     "buyerEmail": "Buyer email",
@@ -163,7 +163,7 @@
       "required": "Please fill in this field",
       "too_long": "This is too long",
       "invalid_email": "Enter a valid email",
-      "pick_usage": "Pick at least one type of use",
+      "pick_usage": "Please pick a type of use",
       "artwork_required": "Attach an image of your artwork",
       "LOGIN_REQUIRED": "Please sign in first",
       "INVALID": "Please check the details you entered",
@@ -177,10 +177,13 @@
       "unsupported_type": "Only JPG, PNG or WEBP",
       "too_large": "Files must be 5 MB or smaller",
       "empty": "The file is empty",
-      "signature_mismatch": "This file is not a valid image",
+      "signature_mismatch": "The file is damaged or does not match its extension",
       "EDIT_CLOSED": "This request can no longer be edited (over 30 days, or the store has decided on it).",
       "invalid_choice": "Please choose one of the options",
-      "PRICE_NOT_ACCEPTED": "Please confirm you accept the new price first"
+      "PRICE_NOT_ACCEPTED": "Please confirm you accept the new price first",
+      "invalid_url": "Invalid link, e.g. https://example.com",
+      "invalid_file": "Invalid file. Please choose it again",
+      "file_unsupported_type": "Only JPG, PNG, WEBP or PDF"
     },
     "optional": "(optional)",
     "artworkAttached": "An image is attached. Choose a new one to replace it.",
@@ -204,7 +207,12 @@
     "sendBack": "Send back to the store",
     "sendBackHint": "The store reviews it once more before approving. Earlier details stay in the request history.",
     "respondTitle": "Send more details",
-    "respondIntro": "The store needs more details for your {product} request. Update them and send them back."
+    "respondIntro": "The store needs more details for your {product} request. Update them and send them back.",
+    "fileHint": "JPG, PNG, WEBP or PDF up to 5 MB. Only the store can see it.",
+    "fileChoose": "Choose file",
+    "fileChange": "Change file",
+    "fileRemove": "Remove file",
+    "pickUsageFirst": "Pick a type of use first; its questions will appear here."
   },
   "rating": {
     "count": "{count, plural, one {# review} other {# reviews}}",

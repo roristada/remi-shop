@@ -45,7 +45,7 @@ export async function listLicenseRequestsForReview(tab: LicenseTab, page: number
         reviewedBy: { select: { email: true, displayName: true } },
         user: { select: { email: true, displayName: true } },
         product: { select: { id: true } },
-        items: { orderBy: { id: "asc" }, select: { id: true, nameTHSnapshot: true, price: true } },
+        items: { orderBy: { id: "asc" }, select: { id: true, usageTypeId: true, nameTHSnapshot: true, price: true } },
         answers: { orderBy: { sortOrder: "asc" }, select: { id: true, labelTHSnapshot: true, values: true } },
         order: { select: { orderNumber: true, status: true, expiresAt: true } },
       },
@@ -106,10 +106,10 @@ export async function getLicenseRequestForReview(requestId: string) {
       reviewedBy: { select: { email: true, displayName: true } },
       user: { select: { id: true, email: true, displayName: true } },
       product: { select: { id: true, slug: true } },
-      items: { orderBy: { id: "asc" }, select: { id: true, nameTHSnapshot: true, price: true } },
+      items: { orderBy: { id: "asc" }, select: { id: true, usageTypeId: true, nameTHSnapshot: true, price: true } },
       answers: {
         orderBy: { sortOrder: "asc" },
-        select: { id: true, fieldId: true, labelTHSnapshot: true, type: true, values: true },
+        select: { id: true, fieldId: true, labelTHSnapshot: true, type: true, values: true, filePath: true },
       },
       events: {
         orderBy: { createdAt: "asc" },
@@ -129,8 +129,14 @@ export async function getLicenseRequestForReview(requestId: string) {
     },
   });
   if (!r) return null;
-  const urls = r.artworkPath ? await createSignedViewUrls(BUCKETS.licenseArtworks, [r.artworkPath]) : new Map<string, string>();
-  return { ...r, artworkUrl: r.artworkPath ? (urls.get(r.artworkPath) ?? null) : null };
+  // Artwork and files attached to FILE questions share the private bucket; one batch of short-lived URLs.
+  const paths = [...(r.artworkPath ? [r.artworkPath] : []), ...r.answers.flatMap((a) => (a.filePath ? [a.filePath] : []))];
+  const urls = await createSignedViewUrls(BUCKETS.licenseArtworks, paths);
+  return {
+    ...r,
+    artworkUrl: r.artworkPath ? (urls.get(r.artworkPath) ?? null) : null,
+    answers: r.answers.map(({ filePath, ...a }) => ({ ...a, hasFile: filePath !== null, fileUrl: filePath ? (urls.get(filePath) ?? null) : null })),
+  };
 }
 
 export type ReviewLicenseRequestDetail = NonNullable<Awaited<ReturnType<typeof getLicenseRequestForReview>>>;
