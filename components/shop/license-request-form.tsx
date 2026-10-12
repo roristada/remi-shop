@@ -72,7 +72,7 @@ type Props = {
 function initialAnswers(fields: LicenseFormField[], defaults: Props["defaults"]): AnswerValues {
   const out: AnswerValues = {};
   for (const f of fields) {
-    if (f.key === "buyerName" && defaults.name) out[f.id] = defaults.name;
+    if (f.key === "buyerName" && f.type === "TEXT" && defaults.name) out[f.id] = defaults.name;
     else if (f.type === "EMAIL" && defaults.email) out[f.id] = defaults.email;
   }
   return out;

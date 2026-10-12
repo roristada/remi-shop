@@ -10,9 +10,6 @@ import { idSchema } from "@/lib/validation/product";
 import { LicenseFieldType } from "@/lib/generated/prisma/enums";
 import { FIELD_LIMITS, fieldOptionsSchema, isChoiceType } from "@/lib/licenses/form-fields";
 
-/** Kinds a built-in field may use: its answer is copied to a legacy text column. */
-const BUILT_IN_TYPES: readonly LicenseFieldType[] = ["TEXT", "TEXTAREA", "EMAIL", "URL"];
-
 const optionalText = (max: number) =>
   z
     .string()
@@ -102,26 +99,20 @@ export async function updateFormField(fieldId: string, input: unknown): Promise<
   const parsed = parseField(input);
   if (!parsed.success) return invalid(parsed.error);
 
-  const existing = await prisma.licenseFormField.findUnique({ where: { id: fieldId }, select: { key: true } });
+  const existing = await prisma.licenseFormField.findUnique({ where: { id: fieldId }, select: { id: true } });
   if (!existing) return fail("ไม่พบช่องข้อมูลนี้ อาจถูกลบไปแล้ว");
-  // Built-in fields feed the legacy columns as text.
-  if (existing.key && !BUILT_IN_TYPES.includes(parsed.data.type)) {
-    return fail("ช่องพื้นฐานใช้ได้เฉพาะแบบข้อความ", { type: "ใช้ข้อความ, ข้อความยาว, อีเมล หรือลิงก์" });
-  }
   await prisma.licenseFormField.update({ where: { id: fieldId }, data: parsed.data });
   console.info("[licenses] form field saved", { fieldId });
   revalidateForm();
   return ok(undefined, "บันทึกช่องข้อมูลแล้ว");
 }
 
-/** Built-in fields can only be switched off; others are deleted (past answers keep their own label). */
+/** Deletes one question (past answers keep their own label). */
 export async function deleteFormField(fieldId: string): Promise<ActionResult> {
   await requireAdmin();
   if (!idSchema.safeParse(fieldId).success) return fail("ไม่พบช่องข้อมูลนี้");
-  const field = await prisma.licenseFormField.findUnique({ where: { id: fieldId }, select: { key: true } });
-  if (!field) return ok(undefined);
-  if (field.key) return fail("ช่องพื้นฐานลบไม่ได้ ใช้ “ปิดใช้งาน” แทน");
-  await prisma.licenseFormField.delete({ where: { id: fieldId } });
+  const { count } = await prisma.licenseFormField.deleteMany({ where: { id: fieldId } });
+  if (count === 0) return ok(undefined);
   console.info("[licenses] form field deleted", { fieldId });
   revalidateForm();
   return ok(undefined, "ลบช่องข้อมูลแล้ว");

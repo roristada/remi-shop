@@ -58,7 +58,7 @@ export function isFileAnswer(v: unknown): v is FileAnswer {
 
 /**
  * The questions every new usage type's form starts with (`key` = legacy LicenseRequest column).
- * Each form keeps its own copy: they can be reworded or switched off there, never deleted.
+ * Each form keeps its own copy, edited, retyped or deleted there like any other question.
  */
 export const BUILT_IN_FIELDS: readonly {
   key: LegacyFieldKey;
@@ -132,7 +132,7 @@ export function carryAnswers(
   for (const target of to) {
     if (out[target.id] !== undefined || target.type === "FILE") continue;
     const source = from.find((f) =>
-      target.key ? f.key === target.key : f.key === null && f.type === target.type && f.labelTH === target.labelTH,
+      f.type === target.type && (target.key ? f.key === target.key : f.key === null && f.labelTH === target.labelTH),
     );
     const value = source ? answers[source.id] : undefined;
     if (value !== undefined && !isFileAnswer(value)) out[target.id] = value;
@@ -248,11 +248,14 @@ export function resolveAnswers(
   return Object.keys(errors).length > 0 ? { ok: false, errors } : { ok: true, answers };
 }
 
-/** Answers of built-in fields, for the legacy columns other screens still read (null = not answered). */
-export function legacyColumns(answers: Pick<ResolvedAnswer, "key" | "values">[]): Record<LegacyFieldKey, string | null> {
+/**
+ * Answers of built-in fields, for the legacy columns other screens still read (null = not answered,
+ * or the field was deleted or turned into a file upload).
+ */
+export function legacyColumns(answers: Pick<ResolvedAnswer, "key" | "type" | "values">[]): Record<LegacyFieldKey, string | null> {
   const out = Object.fromEntries(LEGACY_FIELD_KEYS.map((k) => [k, null])) as Record<LegacyFieldKey, string | null>;
   for (const a of answers) {
-    if (a.key && (LEGACY_FIELD_KEYS as readonly string[]).includes(a.key) && a.values.length > 0) {
+    if (a.key && a.type !== "FILE" && (LEGACY_FIELD_KEYS as readonly string[]).includes(a.key) && a.values.length > 0) {
       out[a.key as LegacyFieldKey] = a.values.join(", ");
     }
   }

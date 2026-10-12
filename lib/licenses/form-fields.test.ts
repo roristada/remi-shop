@@ -52,12 +52,14 @@ test("non-object input and unknown keys are ignored", () => {
 
 test("legacy columns come from built-in keys only", () => {
   const cols = legacyColumns([
-    { key: "artistName", values: ["Mei"] },
-    { key: "platform", values: ["Etsy", "Shopee"] },
-    { key: null, values: ["custom"] },
+    { key: "artistName", type: "TEXT", values: ["Mei"] },
+    { key: "platform", type: "CHECKBOX", values: ["Etsy", "Shopee"] },
+    { key: "buyerContact", type: "FILE", values: ["card.png"] },
+    { key: null, type: "TEXT", values: ["custom"] },
   ]);
   assert.equal(cols.artistName, "Mei");
   assert.equal(cols.platform, "Etsy, Shopee");
+  assert.equal(cols.buyerContact, null);
   assert.equal(cols.buyerName, null);
 });
 

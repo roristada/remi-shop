@@ -95,6 +95,8 @@ export default async function AdminLicensesPage({ searchParams }: PageProps<"/ad
 function LicenseCard({ request: r, flaggable }: { request: ReviewLicenseRequest; flaggable: { id: string; label: string }[] }) {
   const account = r.user.displayName ? `${r.user.displayName} (${r.user.email})` : r.user.email;
   const total = formatTHB(toHundredths(r.total));
+  // The artist question may have been deleted from the form.
+  const who = r.artistName ?? r.user.displayName ?? r.user.email;
 
   return (
     <li className="grid gap-5 rounded-2xl border bg-card p-4 shadow-soft md:grid-cols-[16rem_1fr] md:p-5">
@@ -108,7 +110,7 @@ function LicenseCard({ request: r, flaggable }: { request: ReviewLicenseRequest;
             className="group relative block overflow-hidden rounded-xl border bg-muted"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={r.artworkUrl} alt={`ผลงานที่แนบมากับคำขอของ ${r.artistName}`} className="max-h-96 w-full object-contain" />
+            <img src={r.artworkUrl} alt={`ผลงานที่แนบมากับคำขอของ ${who}`} className="max-h-96 w-full object-contain" />
             <span className="absolute right-2 bottom-2 inline-flex items-center gap-1 rounded-full bg-background/90 px-2 py-1 text-xs opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
               <ExternalLink className="size-3" aria-hidden /> เปิดรูปเต็ม
             </span>
@@ -196,7 +198,7 @@ function LicenseCard({ request: r, flaggable }: { request: ReviewLicenseRequest;
             <ReviewActions
               approve={approveLicenseRequest.bind(null, r.id)}
               reject={rejectLicenseRequest.bind(null, r.id)}
-              approveTitle={`อนุมัติ License ของ ${r.artistName}?`}
+              approveTitle={`อนุมัติ License ของ ${who}?`}
               approveDescription={
                 <p>ระบบจะสร้างคำสั่งซื้อยอด {total} ให้ลูกค้าชำระเงินผ่าน QR แล้วแนบสลิป สิทธิ์จะมีผลเมื่อยืนยันสลิปแล้ว</p>
               }

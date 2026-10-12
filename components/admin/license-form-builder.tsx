@@ -51,7 +51,6 @@ export const FIELD_TYPE_LABEL: Record<LicenseFieldType, string> = {
   URL: "ลิงก์ (URL)",
   FILE: "แนบไฟล์ (รูป / PDF ไม่เกิน 5 MB)",
 };
-const TEXT_TYPES: LicenseFieldType[] = ["TEXT", "TEXTAREA", "EMAIL", "URL"];
 
 const EMPTY: BuilderField = {
   id: "",
@@ -273,32 +272,29 @@ function SortableQuestion({
           {!f.isActive && <span className="mr-1 rounded-full bg-muted px-2 py-0.5 font-medium text-foreground">ปิดใช้งาน</span>}
           {FIELD_TYPE_LABEL[f.type]}
           {f.isRequired && " · บังคับตอบ"}
-          {f.key && " · ช่องพื้นฐาน"}
           {f.answerCount > 0 && ` · ตอบแล้ว ${f.answerCount} คำขอ`}
         </p>
         <button type="button" className={iconButton} aria-label={`แก้ไข ${f.labelTH}`} title="แก้ไข" onClick={onEdit}>
           <Pencil className="size-4" aria-hidden />
         </button>
-        {!f.key && (
-          <ConfirmDialog
-            title="ลบช่องข้อมูลนี้?"
-            description={
-              f.answerCount > 0
-                ? `คำขอเดิม ${f.answerCount} รายการยังเก็บคำตอบของ "${f.labelTH}" ไว้ในประวัติ แต่ฟอร์มจะไม่ถามอีก`
-                : `"${f.labelTH}" จะหายจากฟอร์มขอ License`
-            }
-            confirmLabel="ลบ"
-            destructive
-            onConfirm={async () => {
-              if (await runWithToast(() => deleteFormField(f.id))) router.refresh();
-            }}
-            trigger={
-              <button type="button" className={cn(iconButton, "hover:text-destructive")} aria-label={`ลบ ${f.labelTH}`} title="ลบ">
-                <Trash2 className="size-4" aria-hidden />
-              </button>
-            }
-          />
-        )}
+        <ConfirmDialog
+          title="ลบช่องข้อมูลนี้?"
+          description={
+            f.answerCount > 0
+              ? `คำขอเดิม ${f.answerCount} รายการยังเก็บคำตอบของ "${f.labelTH}" ไว้ในประวัติ แต่ฟอร์มจะไม่ถามอีก`
+              : `"${f.labelTH}" จะหายจากฟอร์มขอ License`
+          }
+          confirmLabel="ลบ"
+          destructive
+          onConfirm={async () => {
+            if (await runWithToast(() => deleteFormField(f.id))) router.refresh();
+          }}
+          trigger={
+            <button type="button" className={cn(iconButton, "hover:text-destructive")} aria-label={`ลบ ${f.labelTH}`} title="ลบ">
+              <Trash2 className="size-4" aria-hidden />
+            </button>
+          }
+        />
       </div>
     </li>
   );
@@ -313,7 +309,7 @@ function FieldDialog({ usageTypeId, field, onClose }: { usageTypeId: string; fie
   const [pending, startTransition] = useTransition();
   const isNew = field.id === "";
   const choice = isChoiceType(type);
-  const typeOptions = (field.key ? TEXT_TYPES : (Object.keys(FIELD_TYPE_LABEL) as LicenseFieldType[])).map((t) => ({
+  const typeOptions = (Object.keys(FIELD_TYPE_LABEL) as LicenseFieldType[]).map((t) => ({
     value: t,
     label: FIELD_TYPE_LABEL[t],
   }));
@@ -372,7 +368,6 @@ function FieldDialog({ usageTypeId, field, onClose }: { usageTypeId: string; fie
             options={typeOptions}
             value={type}
             onValueChange={(v) => setType(v as LicenseFieldType)}
-            hint={field.key ? "ช่องพื้นฐานใช้ได้เฉพาะแบบข้อความ" : undefined}
             error={errors.type}
           />
 
@@ -422,8 +417,6 @@ function FieldDialog({ usageTypeId, field, onClose }: { usageTypeId: string; fie
                 ))}
             </fieldset>
           )}
-
-          {field.key && <p className="rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">ช่องพื้นฐาน ลบไม่ได้ แต่ปิด “แสดงในฟอร์ม” ได้</p>}
 
           <div className="flex flex-wrap gap-x-6 gap-y-2">
             <label className="flex cursor-pointer items-center gap-2 text-sm">
