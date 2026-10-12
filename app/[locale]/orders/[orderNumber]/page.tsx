@@ -136,7 +136,7 @@ export default async function OrderPage({ params }: PageProps<"/[locale]/orders/
             {order.licenseRequest ? t("order.licenseItems") : t("order.items")}
           </h2>
           {order.licenseRequest ? (
-            <LicenseSummary license={order.licenseRequest} locale={locale} t={t} />
+            <LicenseSummary license={order.licenseRequest} locale={locale} />
           ) : (
             <BulkDownloadProvider
               items={[...bulkFiles].map(([id, fileIds]): BulkItem => ({ id, fileIds }))}
@@ -243,11 +243,9 @@ function fileDelivery(hasFiles: boolean[]): Delivery {
 function LicenseSummary({
   license,
   locale,
-  t,
 }: {
   license: NonNullable<CustomerOrder["licenseRequest"]>;
   locale: string;
-  t: T;
 }) {
   const fmt = intlLocale(locale);
   return (
@@ -256,12 +254,6 @@ function LicenseSummary({
         <Link href={`/product/${license.product.slug}`} className="font-semibold hover:underline">
           {localized(locale, license.productNameTHSnapshot, license.productNameENSnapshot)}
         </Link>
-        {/* Artist and platform are form questions the admin can switch off. */}
-        {license.artistName && license.platform && (
-          <p className="text-xs text-muted-foreground">
-            {t("order.licenseFor", { artist: license.artistName, platform: license.platform })}
-          </p>
-        )}
       </div>
       <ul>
         {license.items.map((item) => (

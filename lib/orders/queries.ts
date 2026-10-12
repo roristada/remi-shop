@@ -60,8 +60,6 @@ export async function getOrderForUser(userId: string, orderNumber: string, now: 
         select: {
           productNameTHSnapshot: true,
           productNameENSnapshot: true,
-          artistName: true,
-          platform: true,
           product: { select: { slug: true } },
           items: { orderBy: { id: "asc" }, select: { id: true, nameTHSnapshot: true, nameENSnapshot: true, price: true } },
         },
