@@ -4,9 +4,6 @@ import type { LineProblem } from "@/lib/orders/rules";
 /** Add-ons one product can offer. */
 export const MAX_ADDONS = 12;
 
-/** Main products one add-on-only product can be sold with. */
-export const MAX_ADDON_MAINS = 50;
-
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Distinct, well-formed ids, never the product itself, at most `max`, in the given order. */

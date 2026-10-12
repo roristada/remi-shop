@@ -9,7 +9,6 @@ import { PreviewImage } from "@/components/shared/preview-image";
 import { FormSection } from "@/components/admin/form-controls";
 import { useEditorSection } from "@/components/admin/product-editor";
 import { saveProductAddons } from "@/lib/addons/actions";
-import { MAX_ADDON_MAINS } from "@/lib/addons/rules";
 import type { AddonCandidate } from "@/lib/addons/queries";
 import { formatTHB } from "@/lib/pricing/calculate";
 import { cn } from "@/lib/utils";
@@ -116,7 +115,6 @@ function MainPicker({
   const [query, setQuery] = useState("");
   const byId = useMemo(() => new Map(candidates.map((c) => [c.id, c])), [candidates]);
   const chosen = new Set(ids);
-  const full = ids.length >= MAX_ADDON_MAINS;
 
   const counts = useMemo(() => {
     const m = new Map<string | null, number>();
@@ -138,7 +136,7 @@ function MainPicker({
 
   const toggle = (id: string) => {
     if (chosen.has(id)) onChange(ids.filter((x) => x !== id));
-    else if (!full) onChange([...ids, id]);
+    else onChange([...ids, id]);
   };
   const toggleVisible = () => {
     if (allVisibleChosen) {
@@ -146,7 +144,7 @@ function MainPicker({
       onChange(ids.filter((x) => !drop.has(x)));
     } else {
       const add = visible.filter((c) => !chosen.has(c.id)).map((c) => c.id);
-      onChange([...ids, ...add].slice(0, MAX_ADDON_MAINS));
+      onChange([...ids, ...add]);
     }
   };
 
@@ -154,7 +152,7 @@ function MainPicker({
     <div className="space-y-4">
       <div className="space-y-2">
         <p className="text-sm font-medium">
-          ขายคู่กับสินค้าหลัก <span className="text-muted-foreground">({ids.length}/{MAX_ADDON_MAINS})</span>
+          ขายคู่กับสินค้าหลัก <span className="text-muted-foreground">({ids.length})</span>
         </p>
         {ids.length === 0 ? (
           <p className="rounded-xl bg-muted px-4 py-4 text-center text-sm text-muted-foreground">ยังไม่ได้เลือกสินค้าหลัก ลูกค้าจะซื้อ Add-on นี้ไม่ได้</p>
@@ -208,7 +206,6 @@ function MainPicker({
               <button
                 type="button"
                 onClick={toggleVisible}
-                disabled={!allVisibleChosen && full}
                 className="shrink-0 rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40"
               >
                 {allVisibleChosen ? "ไม่เลือกทั้งหมด" : "เลือกทั้งหมด"}
@@ -223,11 +220,10 @@ function MainPicker({
                 const on = chosen.has(c.id);
                 return (
                   <li key={c.id}>
-                    <label className={cn("flex items-center gap-3 px-3 py-2", !on && full ? "opacity-50" : "cursor-pointer hover:bg-muted/60")}>
+                    <label className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-muted/60">
                       <input
                         type="checkbox"
                         checked={on}
-                        disabled={!on && full}
                         onChange={() => toggle(c.id)}
                         className="size-4 shrink-0 accent-brand-strong"
                       />

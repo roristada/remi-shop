@@ -5,7 +5,7 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma/client";
 import { fail, ok, type ActionResult } from "@/lib/actions/result";
 import { idSchema } from "@/lib/validation/product";
-import { cleanAddonIds, MAX_ADDON_MAINS, MAX_ADDONS } from "@/lib/addons/rules";
+import { cleanAddonIds, MAX_ADDONS } from "@/lib/addons/rules";
 import { revalidateCatalog } from "@/lib/products/revalidate";
 
 export type AddonEditorInput = { addonOnly: boolean; mainIds: string[] };
@@ -45,7 +45,7 @@ function revalidateAddons(productId: string) {
 
 /** Marks the product add-on-only and sets the main products that sell it (replacing the previous ones). */
 async function saveAddonOnly(productId: string, mainInput: unknown): Promise<ActionResult> {
-  const mainIds = cleanAddonIds(productId, mainInput, MAX_ADDON_MAINS);
+  const mainIds = cleanAddonIds(productId, mainInput, Infinity);
   if (!mainIds) return fail("รายการสินค้าหลักไม่ถูกต้อง");
   if (mainIds.length === 0) return fail("เลือกสินค้าหลักอย่างน้อย 1 รายการ ไม่เช่นนั้นลูกค้าจะซื้อ Add-on นี้ไม่ได้เลย");
 
@@ -61,21 +61,30 @@ async function saveAddonOnly(productId: string, mainInput: unknown): Promise<Act
   const full = mains.find((m) => m._count.addons >= MAX_ADDONS);
   if (full) return fail(`"${full.nameTH}" มี Add-on ครบ ${MAX_ADDONS} รายการแล้ว`);
 
+  // Read everything up front and write in one batched transaction: a per-main query loop inside an
+  // interactive transaction ran past its timeout with a few dozen mains (DB is far from the functions).
+  const existing = new Set(
+    (await prisma.productAddon.findMany({ where: { addonProductId: productId }, select: { productId: true } })).map((l) => l.productId),
+  );
+  const newMainIds = mainIds.filter((id) => !existing.has(id));
+  const lastSort = new Map(
+    (
+      await prisma.productAddon.groupBy({ by: ["productId"], where: { productId: { in: newMainIds } }, _max: { sortOrder: true } })
+    ).map((g) => [g.productId, g._max.sortOrder ?? -1]),
+  );
+
   try {
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction([
       // An add-on-only product does not offer add-ons of its own.
-      await tx.product.update({ where: { id: productId }, data: { addonOnly: true, addonsEnabled: false } });
-      await tx.productAddon.deleteMany({ where: { addonProductId: productId, productId: { notIn: mainIds } } });
-      const existing = new Set(
-        (await tx.productAddon.findMany({ where: { addonProductId: productId }, select: { productId: true } })).map((l) => l.productId),
-      );
-      for (const mainId of mainIds.filter((id) => !existing.has(id))) {
-        const last = await tx.productAddon.aggregate({ where: { productId: mainId }, _max: { sortOrder: true } });
-        await tx.productAddon.create({ data: { productId: mainId, addonProductId: productId, sortOrder: (last._max.sortOrder ?? -1) + 1 } });
-      }
+      prisma.product.update({ where: { id: productId }, data: { addonOnly: true, addonsEnabled: false } }),
+      prisma.productAddon.deleteMany({ where: { addonProductId: productId, productId: { notIn: mainIds } } }),
+      prisma.productAddon.createMany({
+        data: newMainIds.map((mainId) => ({ productId: mainId, addonProductId: productId, sortOrder: (lastSort.get(mainId) ?? -1) + 1 })),
+        skipDuplicates: true,
+      }),
       // The mains' add-on box must be on, or the customer could never pick it.
-      await tx.product.updateMany({ where: { id: { in: mainIds } }, data: { addonsEnabled: true } });
-    });
+      prisma.product.updateMany({ where: { id: { in: mainIds } }, data: { addonsEnabled: true } }),
+    ]);
   } catch (error) {
     console.error("[addons] add-on-only save failed", { productId, message: (error as Error).message });
     return fail("บันทึก Add-on ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
