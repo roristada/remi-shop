@@ -2,7 +2,7 @@
 import type { LineProblem } from "@/lib/orders/rules";
 
 /** Add-ons one product can offer. */
-export const MAX_ADDONS = 12;
+export const MAX_ADDONS = 20;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
