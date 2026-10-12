@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { PreviewImage } from "@/components/shared/preview-image";
 import {
@@ -110,6 +110,8 @@ export function ImageManager({ images }: { images: ManagedImage[] }) {
     dirty,
   );
 
+  // Stable id: dnd-kit's own counter differs between server and client (hydration mismatch).
+  const dndId = useId();
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -160,7 +162,7 @@ export function ImageManager({ images }: { images: ManagedImage[] }) {
           input.value = "";
         }}
       />
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd} accessibility={DND_A11Y}>
+      <DndContext id={dndId} sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd} accessibility={DND_A11Y}>
         <SortableContext items={items.map((i) => i.key)} strategy={rectSortingStrategy}>
           <ul className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-7">
             {items.map((item, i) => (
