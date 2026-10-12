@@ -136,7 +136,7 @@
     "title": "Commercial use",
     "intro": "Want to sell or commercially use work made with this product? Request a commercial license for your type of use.",
     "cta": "Request a commercial license",
-    "ctaHint": "The store reviews each request first; you pay only after approval. Files are not included and are bought separately.",
+    "ctaHint": "Approval comes before payment. (This price covers the license only; the files are bought separately.)",
     "formTitle": "Request a commercial license",
     "formIntro": "For {product}. Fill in every field; the store will review it and post the result on My licenses.",
     "notOffered": "This product does not offer a commercial license right now.",
@@ -164,7 +164,7 @@
     "total": "Total",
     "submit": "Send request",
     "submitting": "Sending request...",
-    "submitHint": "No payment yet. The price is locked at this total; if approved you can pay by QR.",
+    "submitHint": "This is an estimate and may change with the scale of your project. No payment yet; once approved, a QR code will appear for you to scan.",
     "errors": {
       "required": "Please fill in this field",
       "too_long": "This is too long",
@@ -309,7 +309,7 @@
   },
   "addons": {
     "title": "Add to your order",
-    "hint": "Optional extras. Each is charged at its own normal price.",
+    "hint": "Optional extras.",
     "extra": "{count, plural, one {# add-on} other {# add-ons}} selected",
     "total": "Total with this product",
     "addedWithMain": "Added to your cart together with this product",
