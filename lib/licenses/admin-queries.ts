@@ -68,7 +68,7 @@ export type ReviewLicenseRequest = Awaited<ReturnType<typeof listLicenseRequests
 export function listUsageTypes() {
   return prisma.licenseUsageType.findMany({
     orderBy: [{ sortOrder: "asc" }, { nameTH: "asc" }],
-    include: { _count: { select: { prices: true, requestItems: true } } },
+    include: { _count: { select: { prices: true, requestItems: true, formFields: { where: { isActive: true } } } } },
   });
 }
 

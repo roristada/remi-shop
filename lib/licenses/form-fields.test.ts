@@ -119,29 +119,28 @@ test("FILE answers keep the key separately and must be the customer's own upload
   if (r.ok) assert.deepEqual([r.answers[0].values, r.answers[0].filePath], [["plan.pdf"], "me/x.pdf"]);
 });
 
-test("a field shows for every usage type or only the ones picked", async () => {
-  const { appliesToUsageType } = await import("./form-fields");
-  assert.equal(appliesToUsageType({ usageTypeIds: null }, null), true);
-  assert.equal(appliesToUsageType({ usageTypeIds: null }, "a"), true);
-  assert.equal(appliesToUsageType({ usageTypeIds: ["a"] }, "a"), true);
-  assert.equal(appliesToUsageType({ usageTypeIds: ["a"] }, "b"), false);
-  assert.equal(appliesToUsageType({ usageTypeIds: ["a"] }, null), false);
-});
-
 test("stored FILE answers come back as path + name for editing", async () => {
   const { answerValuesFor } = await import("./form-fields");
   const file = field({ id: "f", type: "FILE" });
   assert.deepEqual(answerValuesFor([file], [{ fieldId: "f", values: ["a.pdf"], filePath: "me/a.pdf" }]), { f: { path: "me/a.pdf", name: "a.pdf" } });
 });
 
-test("switching a field per usage type keeps 'all types' when nothing is left out", async () => {
-  const { scopeWithUsageType } = await import("./form-fields");
-  const all = ["a", "b", "c"];
-  assert.deepEqual(scopeWithUsageType(null, all, "b", false), ["a", "c"]);
-  assert.equal(scopeWithUsageType(null, all, "b", true), null);
-  assert.equal(scopeWithUsageType(["a", "c"], all, "b", true), null);
-  assert.deepEqual(scopeWithUsageType(["a"], all, "c", true), ["a", "c"]);
-  assert.deepEqual(scopeWithUsageType(["a"], all, "a", false), []);
-  // A link to a type that no longer exists is dropped.
-  assert.deepEqual(scopeWithUsageType(["a", "gone"], all, "b", true), ["a", "b"]);
+test("answers move to the other usage type's form by built-in key or same question", async () => {
+  const { carryAnswers } = await import("./form-fields");
+  const from = [
+    { id: "a1", key: "buyerName", labelTH: "ชื่อ", type: "TEXT" as const },
+    { id: "a2", key: null, labelTH: "จำนวนผลิต", type: "TEXT" as const },
+    { id: "a3", key: null, labelTH: "ไฟล์", type: "FILE" as const },
+  ];
+  const to = [
+    { id: "b1", key: "buyerName", labelTH: "ชื่อผู้ซื้อ", type: "TEXT" as const },
+    { id: "b2", key: null, labelTH: "จำนวนผลิต", type: "TEXT" as const },
+    { id: "b3", key: null, labelTH: "ไฟล์", type: "FILE" as const },
+    { id: "b4", key: null, labelTH: "อื่น", type: "TEXT" as const },
+  ];
+  const out = carryAnswers(from, to, { a1: "Mali", a2: "100", a3: { path: "me/x.pdf", name: "x.pdf" }, b4: "kept" });
+  assert.equal(out.b1, "Mali");
+  assert.equal(out.b2, "100");
+  assert.equal(out.b3, undefined);
+  assert.equal(out.b4, "kept");
 });

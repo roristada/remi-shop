@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma/client";
 import { fail, invalid, ok, type ActionResult } from "@/lib/actions/result";
 import { idSchema } from "@/lib/validation/product";
 import { LicenseFieldType } from "@/lib/generated/prisma/enums";
-import { FIELD_LIMITS, fieldOptionsSchema, isChoiceType, scopeWithUsageType } from "@/lib/licenses/form-fields";
+import { FIELD_LIMITS, fieldOptionsSchema, isChoiceType } from "@/lib/licenses/form-fields";
 
 /** Kinds a built-in field may use: its answer is copied to a legacy text column. */
 const BUILT_IN_TYPES: readonly LicenseFieldType[] = ["TEXT", "TEXTAREA", "EMAIL", "URL"];
@@ -61,39 +61,57 @@ function withOptionIds(input: unknown): unknown {
   };
 }
 
-/**
- * Creates (id null) or updates a form question. Past requests keep the question as they saw it.
- * Which usage types ask it is set per type (saveUsageTypeFormFields); a new question starts in every type.
- */
-export async function saveFormField(fieldId: string | null, input: unknown): Promise<ActionResult> {
-  await requireAdmin();
-  if (fieldId !== null && !idSchema.safeParse(fieldId).success) return fail("ไม่พบช่องข้อมูลนี้");
+function parseField(input: unknown) {
   const parsed = fieldSchema.safeParse(withOptionIds(input));
-  if (!parsed.success) return invalid(parsed.error);
-  const data = {
-    ...parsed.data,
-    labelEN: parsed.data.labelEN || parsed.data.labelTH,
-    // Text fields never keep stale choices.
-    options: isChoiceType(parsed.data.type) ? parsed.data.options : [],
+  if (!parsed.success) return parsed;
+  return {
+    success: true as const,
+    data: {
+      ...parsed.data,
+      labelEN: parsed.data.labelEN || parsed.data.labelTH,
+      // Text fields never keep stale choices.
+      options: isChoiceType(parsed.data.type) ? parsed.data.options : [],
+    },
   };
+}
 
-  if (fieldId) {
-    const existing = await prisma.licenseFormField.findUnique({ where: { id: fieldId }, select: { key: true } });
-    if (!existing) return fail("ไม่พบช่องข้อมูลนี้ อาจถูกลบไปแล้ว");
-    // Built-in fields feed the legacy columns as text and are asked for every usage type.
-    if (existing.key && !BUILT_IN_TYPES.includes(data.type)) {
-      return fail("ช่องพื้นฐานใช้ได้เฉพาะแบบข้อความ", { type: "ใช้ข้อความ, ข้อความยาว, อีเมล หรือลิงก์" });
-    }
-    await prisma.licenseFormField.update({ where: { id: fieldId }, data });
-  } else {
-    const count = await prisma.licenseFormField.count();
-    if (count >= FIELD_LIMITS.fields) return fail(`มีช่องข้อมูลได้ไม่เกิน ${FIELD_LIMITS.fields} ช่อง`);
-    const last = await prisma.licenseFormField.aggregate({ _max: { sortOrder: true } });
-    await prisma.licenseFormField.create({ data: { ...data, sortOrder: (last._max.sortOrder ?? 0) + 10 } });
-  }
-  console.info("[licenses] form field saved", { fieldId: fieldId ?? "new" });
+/** Adds a question to the end of one usage type's form. */
+export async function createFormField(usageTypeId: string, input: unknown): Promise<ActionResult> {
+  await requireAdmin();
+  if (!idSchema.safeParse(usageTypeId).success) return fail("ไม่พบประเภทการใช้งานนี้");
+  const parsed = parseField(input);
+  if (!parsed.success) return invalid(parsed.error);
+
+  const [type, count, last] = await Promise.all([
+    prisma.licenseUsageType.findUnique({ where: { id: usageTypeId }, select: { id: true } }),
+    prisma.licenseFormField.count({ where: { usageTypeId } }),
+    prisma.licenseFormField.aggregate({ where: { usageTypeId }, _max: { sortOrder: true } }),
+  ]);
+  if (!type) return fail("ไม่พบประเภทการใช้งานนี้ อาจถูกลบไปแล้ว");
+  if (count >= FIELD_LIMITS.fields) return fail(`ฟอร์มหนึ่งมีช่องข้อมูลได้ไม่เกิน ${FIELD_LIMITS.fields} ช่อง`);
+  await prisma.licenseFormField.create({ data: { ...parsed.data, usageTypeId, sortOrder: (last._max.sortOrder ?? 0) + 10 } });
+  console.info("[licenses] form field added", { usageTypeId });
   revalidateForm();
-  return ok(undefined, fieldId ? "บันทึกช่องข้อมูลแล้ว" : "เพิ่มช่องข้อมูลแล้ว แสดงในทุกประเภท ปิดบางประเภทได้ที่หน้าประเภทการใช้งาน");
+  return ok(undefined, "เพิ่มช่องข้อมูลแล้ว");
+}
+
+/** Updates one question of one form; other usage types' forms are not touched. Past requests keep the question as they saw it. */
+export async function updateFormField(fieldId: string, input: unknown): Promise<ActionResult> {
+  await requireAdmin();
+  if (!idSchema.safeParse(fieldId).success) return fail("ไม่พบช่องข้อมูลนี้");
+  const parsed = parseField(input);
+  if (!parsed.success) return invalid(parsed.error);
+
+  const existing = await prisma.licenseFormField.findUnique({ where: { id: fieldId }, select: { key: true } });
+  if (!existing) return fail("ไม่พบช่องข้อมูลนี้ อาจถูกลบไปแล้ว");
+  // Built-in fields feed the legacy columns as text.
+  if (existing.key && !BUILT_IN_TYPES.includes(parsed.data.type)) {
+    return fail("ช่องพื้นฐานใช้ได้เฉพาะแบบข้อความ", { type: "ใช้ข้อความ, ข้อความยาว, อีเมล หรือลิงก์" });
+  }
+  await prisma.licenseFormField.update({ where: { id: fieldId }, data: parsed.data });
+  console.info("[licenses] form field saved", { fieldId });
+  revalidateForm();
+  return ok(undefined, "บันทึกช่องข้อมูลแล้ว");
 }
 
 /** Built-in fields can only be switched off; others are deleted (past answers keep their own label). */
@@ -109,12 +127,21 @@ export async function deleteFormField(fieldId: string): Promise<ActionResult> {
   return ok(undefined, "ลบช่องข้อมูลแล้ว");
 }
 
-/** Swaps the field with its neighbour, renumbering all fields so equal sort orders cannot stall a move. */
+/**
+ * Swaps the field with its neighbour in the same form, renumbering that form so equal sort
+ * orders cannot stall a move.
+ */
 export async function moveFormField(fieldId: string, direction: "up" | "down"): Promise<ActionResult> {
   await requireAdmin();
   if (!idSchema.safeParse(fieldId).success || (direction !== "up" && direction !== "down")) return fail("คำขอไม่ถูกต้อง");
   await prisma.$transaction(async (tx) => {
-    const all = await tx.licenseFormField.findMany({ orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true } });
+    const field = await tx.licenseFormField.findUnique({ where: { id: fieldId }, select: { usageTypeId: true } });
+    if (!field) return;
+    const all = await tx.licenseFormField.findMany({
+      where: { usageTypeId: field.usageTypeId },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      select: { id: true },
+    });
     const from = all.findIndex((f) => f.id === fieldId);
     const to = direction === "up" ? from - 1 : from + 1;
     if (from === -1 || to < 0 || to >= all.length) return;
@@ -123,48 +150,4 @@ export async function moveFormField(fieldId: string, direction: "up" | "down"): 
   });
   revalidateForm();
   return ok(undefined);
-}
-
-const usageFormSchema = z.object({ enabledFieldIds: z.array(z.uuid()).max(FIELD_LIMITS.fields * 2) });
-
-/**
- * Sets which questions one usage type's form asks, seen from the usage type: every non-built-in
- * field is switched on or off for it (same data as each field's "แสดงในประเภท" setting).
- */
-export async function saveUsageTypeFormFields(usageTypeId: string, input: unknown): Promise<ActionResult> {
-  await requireAdmin();
-  if (!idSchema.safeParse(usageTypeId).success) return fail("ไม่พบประเภทการใช้งานนี้");
-  const parsed = usageFormSchema.safeParse(input);
-  if (!parsed.success) return fail("ข้อมูลไม่ถูกต้อง");
-  const enabled = new Set(parsed.data.enabledFieldIds);
-
-  const changed = await prisma.$transaction(async (tx) => {
-    const types = await tx.licenseUsageType.findMany({ orderBy: [{ sortOrder: "asc" }, { nameTH: "asc" }], select: { id: true } });
-    const allTypeIds = types.map((t) => t.id);
-    if (!allTypeIds.includes(usageTypeId)) return null;
-    const fields = await tx.licenseFormField.findMany({
-      where: { key: null },
-      select: { id: true, appliesToAllTypes: true, usageTypes: { select: { usageTypeId: true } } },
-    });
-
-    let count = 0;
-    for (const f of fields) {
-      const current = f.appliesToAllTypes ? null : f.usageTypes.map((u) => u.usageTypeId);
-      const on = enabled.has(f.id);
-      if ((current === null || current.includes(usageTypeId)) === on) continue;
-      const next = scopeWithUsageType(current, allTypeIds, usageTypeId, on);
-      await tx.licenseFormField.update({ where: { id: f.id }, data: { appliesToAllTypes: next === null } });
-      await tx.licenseFormFieldUsageType.deleteMany({ where: { fieldId: f.id } });
-      if (next && next.length > 0) {
-        await tx.licenseFormFieldUsageType.createMany({ data: next.map((id) => ({ fieldId: f.id, usageTypeId: id })) });
-      }
-      count++;
-    }
-    return count;
-  });
-  if (changed === null) return fail("ไม่พบประเภทการใช้งานนี้ อาจถูกลบไปแล้ว");
-
-  console.info("[licenses] usage type form saved", { usageTypeId, changed });
-  revalidateForm();
-  return ok(undefined, changed > 0 ? "บันทึกฟอร์มของประเภทนี้แล้ว" : "ไม่มีการเปลี่ยนแปลง");
 }

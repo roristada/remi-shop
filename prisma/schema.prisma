@@ -696,7 +696,8 @@ model LicenseUsageType {
 
   prices       ProductLicensePrice[]
   requestItems LicenseRequestItem[]
-  formFields   LicenseFormFieldUsageType[]
+  /// This usage type's own request form (each type owns its questions).
+  formFields   LicenseFormField[]
 
   @@index([isActive, sortOrder])
   @@map("license_usage_types")
@@ -785,45 +786,35 @@ model LicenseRequestItem {
   @@map("license_request_items")
 }
 
-/// One question on the commercial-license request form, defined by the admin in Settings.
+/// One question on one usage type's commercial-license request form, defined by the admin.
 /// `key` marks the original built-in fields (buyerName, artistName, ...): their answers are also
 /// copied to the matching legacy LicenseRequest columns, which other screens still show.
 model LicenseFormField {
-  id                String           @id @default(uuid(7)) @db.Uuid
-  key               String?          @unique
-  labelTH           String           @map("label_th")
-  labelEN           String           @map("label_en")
-  descriptionTH     String?          @map("description_th")
-  descriptionEN     String?          @map("description_en")
-  type              LicenseFieldType
-  isRequired        Boolean          @default(false) @map("is_required")
-  isActive          Boolean          @default(true) @map("is_active")
-  sortOrder         Int              @default(0) @map("sort_order")
+  id            String           @id @default(uuid(7)) @db.Uuid
+  /// The usage type whose form asks this question.
+  usageTypeId   String           @map("usage_type_id") @db.Uuid
+  /// Built-in fields (legacy column name); unique within one usage type's form.
+  key           String?
+  labelTH       String           @map("label_th")
+  labelEN       String           @map("label_en")
+  descriptionTH String?          @map("description_th")
+  descriptionEN String?          @map("description_en")
+  type          LicenseFieldType
+  isRequired    Boolean          @default(false) @map("is_required")
+  isActive      Boolean          @default(true) @map("is_active")
+  sortOrder     Int              @default(0) @map("sort_order")
   /// RADIO / CHECKBOX / DROPDOWN choices: [{ "id", "th", "en" }] (validated in lib/licenses/form-fields.ts).
-  options           Json             @default("[]")
-  /// true = asked for every usage type; false = only for the types in `usageTypes`. Built-in fields are always true.
-  appliesToAllTypes Boolean          @default(true) @map("applies_to_all_types")
-  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  options       Json             @default("[]")
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  answers    LicenseRequestAnswer[]
-  usageTypes LicenseFormFieldUsageType[]
+  /// Cascade: only types never requested can be deleted, so no answer loses a live request's question.
+  usageType LicenseUsageType       @relation(fields: [usageTypeId], references: [id], onDelete: Cascade)
+  answers   LicenseRequestAnswer[]
 
-  @@index([isActive, sortOrder])
+  @@unique([usageTypeId, key])
+  @@index([usageTypeId, isActive, sortOrder])
   @@map("license_form_fields")
-}
-
-/// The usage types a form field is shown for (only read when the field's appliesToAllTypes is false).
-model LicenseFormFieldUsageType {
-  fieldId     String @map("field_id") @db.Uuid
-  usageTypeId String @map("usage_type_id") @db.Uuid
-
-  field     LicenseFormField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
-  usageType LicenseUsageType @relation(fields: [usageTypeId], references: [id], onDelete: Cascade)
-
-  @@id([fieldId, usageTypeId])
-  @@index([usageTypeId])
-  @@map("license_form_field_usage_types")
 }
 
 /// A customer's answer to one form field, with the question as it read at the time.

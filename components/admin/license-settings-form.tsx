@@ -27,10 +27,7 @@ export function LicenseSettingsForm({ licensePaymentDays }: { licensePaymentDays
     >
       <div className="flex flex-wrap gap-2">
         <Button asChild variant="outline" className="h-9 rounded-full px-4">
-          <Link href="/admin/licenses/form">แก้ไขแบบฟอร์มคำขอ</Link>
-        </Button>
-        <Button asChild variant="outline" className="h-9 rounded-full px-4">
-          <Link href="/admin/licenses/types">ประเภทการใช้งานและเงื่อนไข</Link>
+          <Link href="/admin/licenses/types">ประเภทการใช้งาน เงื่อนไข และฟอร์มคำขอ</Link>
         </Button>
       </div>
       <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-3" noValidate>

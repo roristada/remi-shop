@@ -56,23 +56,88 @@ export function isFileAnswer(v: unknown): v is FileAnswer {
   return typeof v === "object" && v !== null && !Array.isArray(v) && typeof (v as FileAnswer).path === "string" && typeof (v as FileAnswer).name === "string";
 }
 
-/** Usage types a field is shown for; null = every type. */
-export type FieldUsageScope = { usageTypeIds: string[] | null };
-
-export function appliesToUsageType(field: FieldUsageScope, usageTypeId: string | null): boolean {
-  return field.usageTypeIds === null || (usageTypeId !== null && field.usageTypeIds.includes(usageTypeId));
-}
+/**
+ * The questions every new usage type's form starts with (`key` = legacy LicenseRequest column).
+ * Each form keeps its own copy: they can be reworded or switched off there, never deleted.
+ */
+export const BUILT_IN_FIELDS: readonly {
+  key: LegacyFieldKey;
+  labelTH: string;
+  labelEN: string;
+  descriptionTH: string | null;
+  descriptionEN: string | null;
+  type: LicenseFieldType;
+  isRequired: boolean;
+}[] = [
+  { key: "buyerName", labelTH: "ชื่อผู้ซื้อ", labelEN: "Buyer name", descriptionTH: null, descriptionEN: null, type: "TEXT", isRequired: true },
+  { key: "buyerEmail", labelTH: "อีเมลผู้ซื้อ", labelEN: "Buyer email", descriptionTH: null, descriptionEN: null, type: "EMAIL", isRequired: true },
+  {
+    key: "buyerContact",
+    labelTH: "ช่องทางติดต่อผู้ซื้อ",
+    labelEN: "Buyer contact",
+    descriptionTH: "เช่น เบอร์โทร, LINE ID หรือลิงก์โซเชียล",
+    descriptionEN: "For example a phone number, LINE ID or social link",
+    type: "TEXT",
+    isRequired: true,
+  },
+  {
+    key: "artistName",
+    labelTH: "ชื่อศิลปิน",
+    labelEN: "Artist name",
+    descriptionTH: "ผู้สร้างผลงานที่ใช้สินค้านี้ ถ้าเป็นคนเดียวกับผู้ซื้อ กรอกซ้ำได้เลย",
+    descriptionEN: "Who made the work that uses this product. If it is the buyer, enter the same details.",
+    type: "TEXT",
+    isRequired: true,
+  },
+  {
+    key: "artistContact",
+    labelTH: "ช่องทางติดต่อศิลปิน",
+    labelEN: "Artist contact",
+    descriptionTH: "เช่น เบอร์โทร, LINE ID หรือลิงก์โซเชียล",
+    descriptionEN: "For example a phone number, LINE ID or social link",
+    type: "TEXT",
+    isRequired: true,
+  },
+  {
+    key: "platform",
+    labelTH: "แพลตฟอร์มที่จะใช้งาน",
+    labelEN: "Platform",
+    descriptionTH: "เช่น Etsy, Shopee, YouTube, สำนักพิมพ์",
+    descriptionEN: "For example Etsy, Shopee, YouTube, a publisher",
+    type: "TEXT",
+    isRequired: true,
+  },
+  {
+    key: "note",
+    labelTH: "รายละเอียดเพิ่มเติม",
+    labelEN: "More details",
+    descriptionTH: "เช่น จำนวนที่จะผลิต หรือระยะเวลาที่ใช้งาน",
+    descriptionEN: "For example print run or how long it will be used",
+    type: "TEXTAREA",
+    isRequired: false,
+  },
+];
 
 /**
- * A field's new scope after switching it on or off for one usage type (`allTypeIds` = every type
- * that exists). Covering every type collapses back to null ("all types"), so types added later
- * get the field too; switching it off everywhere leaves an empty list (asked nowhere).
+ * Answers typed into one usage type's form, moved onto another type's form when the customer
+ * switches type: matched by built-in key, else by the same question (Thai label + kind).
+ * Files are not carried over (they belong to the question they were uploaded for).
  */
-export function scopeWithUsageType(current: string[] | null, allTypeIds: string[], usageTypeId: string, on: boolean): string[] | null {
-  const ids = new Set(current ?? allTypeIds);
-  if (on) ids.add(usageTypeId);
-  else ids.delete(usageTypeId);
-  return allTypeIds.every((id) => ids.has(id)) ? null : allTypeIds.filter((id) => ids.has(id));
+export function carryAnswers(
+  from: Pick<FormFieldDef, "id" | "key" | "labelTH" | "type">[],
+  to: Pick<FormFieldDef, "id" | "key" | "labelTH" | "type">[],
+  answers: Record<string, AnswerValue>,
+): Record<string, AnswerValue> {
+  const out = { ...answers };
+  for (const target of to) {
+    if (out[target.id] !== undefined || target.type === "FILE") continue;
+    const source = from.find((f) =>
+      target.key ? f.key === target.key : f.key === null && f.type === target.type && f.labelTH === target.labelTH,
+    );
+    const value = source ? answers[source.id] : undefined;
+    if (value !== undefined && !isFileAnswer(value)) out[target.id] = value;
+  }
+  return out;
 }
 
 export type FormFieldDef = {

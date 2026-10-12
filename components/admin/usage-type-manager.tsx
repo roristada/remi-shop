@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useTransition, type FormEvent, type ReactNode } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ListChecks, Loader2, Lock, Pencil, Plus, Trash2 } from "lucide-react";
+import { Copy, ListChecks, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -17,12 +18,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { runWithToast, SelectInput, TextArea, TextInput } from "@/components/admin/form-controls";
-import { deleteUsageType, saveUsageType } from "@/lib/licenses/admin-actions";
-import { saveUsageTypeFormFields } from "@/lib/licenses/form-actions";
-import { appliesToUsageType } from "@/lib/licenses/form-fields";
-import { FIELD_TYPE_LABEL } from "@/components/admin/license-form-builder";
-import type { LicenseFieldType } from "@/lib/generated/prisma/enums";
-import { cn } from "@/lib/utils";
+import { deleteUsageType, duplicateUsageType, saveUsageType } from "@/lib/licenses/admin-actions";
 import type { ActionResult } from "@/lib/actions/result";
 
 export type ManagedUsageType = {
@@ -37,23 +33,13 @@ export type ManagedUsageType = {
   sortOrder: number;
   productCount: number;
   requestCount: number;
+  /** Questions switched on in this type's own form. */
+  fieldCount: number;
 };
 
-/** A question from the shared form pool, as the per-type form popup shows it. */
-export type UsageFormField = {
-  id: string;
-  key: string | null;
-  labelTH: string;
-  type: LicenseFieldType;
-  isRequired: boolean;
-  isActive: boolean;
-  /** null = every usage type. */
-  usageTypeIds: string[] | null;
-};
-
-export function UsageTypeManager({ types, formFields }: { types: ManagedUsageType[]; formFields: UsageFormField[] }) {
+export function UsageTypeManager({ types }: { types: ManagedUsageType[] }) {
   const router = useRouter();
-  const activeFields = formFields.filter((f) => f.isActive);
+  const [duplicating, startDuplicate] = useTransition();
 
   return (
     <div className="space-y-4">
@@ -96,9 +82,7 @@ export function UsageTypeManager({ types, formFields }: { types: ManagedUsageTyp
                     <p className="text-xs text-muted-foreground">{t.nameEN}</p>
                   </TableCell>
                   <TableCell className="text-right">{t.productCount}</TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {activeFields.filter((f) => appliesToUsageType(f, t.id)).length}/{activeFields.length}
-                  </TableCell>
+                  <TableCell className="text-right tabular-nums">{t.fieldCount}</TableCell>
                   <TableCell>
                     {t.isActive ? (
                       <Badge className="bg-success/10 text-success">เปิดใช้งาน</Badge>
@@ -108,7 +92,25 @@ export function UsageTypeManager({ types, formFields }: { types: ManagedUsageTyp
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
-                      <UsageFormDialog usageType={t} fields={formFields} />
+                      <Button asChild size="icon-sm" variant="ghost" title="แก้ไขฟอร์ม">
+                        <Link href={`/admin/licenses/types/${t.id}/form`} aria-label={`แก้ไขฟอร์มของ ${t.nameTH}`}>
+                          <ListChecks />
+                        </Link>
+                      </Button>
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        title="คัดลอกประเภทพร้อมฟอร์ม"
+                        aria-label={`คัดลอก ${t.nameTH} พร้อมฟอร์ม`}
+                        disabled={duplicating}
+                        onClick={() =>
+                          startDuplicate(async () => {
+                            if (await runWithToast(() => duplicateUsageType(t.id))) router.refresh();
+                          })
+                        }
+                      >
+                        <Copy />
+                      </Button>
                       <UsageTypeDialog
                         title={`แก้ไข ${t.nameTH}`}
                         usageType={t}
@@ -274,133 +276,5 @@ function UsageTypeDialog({
         </form>
       </DialogContent>
     </Dialog>
-  );
-}
-
-/**
- * Which questions this usage type's request form asks: one switch per question in the shared
- * pool. Built-in questions are always asked. Saved in one go when the admin presses save.
- */
-function UsageFormDialog({ usageType, fields }: { usageType: ManagedUsageType; fields: UsageFormField[] }) {
-  const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const [enabled, setEnabled] = useState<ReadonlySet<string>>(new Set());
-  const [pending, startTransition] = useTransition();
-
-  function onOpenChange(next: boolean) {
-    if (pending) return;
-    // Start from what is saved each time the popup opens.
-    if (next) setEnabled(new Set(fields.filter((f) => appliesToUsageType(f, usageType.id)).map((f) => f.id)));
-    setOpen(next);
-  }
-
-  function toggle(id: string, on: boolean) {
-    setEnabled((s) => {
-      const next = new Set(s);
-      if (on) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-  }
-
-  function save() {
-    startTransition(async () => {
-      const enabledFieldIds = fields.filter((f) => !f.key && enabled.has(f.id)).map((f) => f.id);
-      const done = await runWithToast(() => saveUsageTypeFormFields(usageType.id, { enabledFieldIds }));
-      if (!done) return;
-      setOpen(false);
-      router.refresh();
-    });
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
-        <Button size="icon-sm" variant="ghost" aria-label={`ตั้งค่าฟอร์มของ ${usageType.nameTH}`} title="ตั้งค่าฟอร์ม">
-          <ListChecks />
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>ฟอร์มของ {usageType.nameTH}</DialogTitle>
-          <DialogDescription>
-            เปิดคำถามที่ลูกค้าต้องตอบเมื่อขอประเภทนี้ ช่องพื้นฐานถามทุกประเภทเสมอ เพิ่มหรือแก้คำถามได้ที่หน้าแบบฟอร์มคำขอ
-          </DialogDescription>
-        </DialogHeader>
-        {fields.length === 0 ? (
-          <p className="rounded-xl bg-muted px-3 py-2 text-sm text-muted-foreground">ยังไม่มีคำถามในแบบฟอร์ม</p>
-        ) : (
-          <ul className="divide-y rounded-xl border">
-            {fields.map((f) => {
-              const locked = f.key !== null;
-              return (
-                <li key={f.id} className={cn("flex items-center gap-3 px-3 py-2.5", !f.isActive && "bg-muted/50")}>
-                  <div className="min-w-0 flex-1">
-                    <p className={cn("text-sm font-medium", !f.isActive && "text-muted-foreground")}>
-                      {f.labelTH}
-                      {f.isRequired && <span className="text-destructive"> *</span>}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {FIELD_TYPE_LABEL[f.type]}
-                      {locked && " · ช่องพื้นฐาน"}
-                      {!f.isActive && " · ปิดอยู่ทั้งระบบ (ลูกค้าไม่เห็น)"}
-                    </p>
-                  </div>
-                  {locked ? (
-                    <Lock className="size-4 shrink-0 text-muted-foreground" aria-label="เปิดเสมอ" />
-                  ) : (
-                    <ToggleSwitch
-                      checked={enabled.has(f.id)}
-                      disabled={pending}
-                      label={`ถาม ${f.labelTH} ในประเภทนี้`}
-                      onChange={(v) => toggle(f.id, v)}
-                    />
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
-            ยกเลิก
-          </Button>
-          <Button onClick={save} disabled={pending} aria-busy={pending}>
-            {pending && <Loader2 className="animate-spin" aria-hidden />} บันทึก
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function ToggleSwitch({
-  checked,
-  disabled,
-  label,
-  onChange,
-}: {
-  checked: boolean;
-  disabled?: boolean;
-  label: string;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
-      className={cn(
-        "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-50",
-        checked ? "bg-brand-strong" : "bg-foreground/20",
-      )}
-    >
-      <span
-        className={cn("inline-block size-5 rounded-full bg-background shadow transition-transform", checked ? "translate-x-5.5" : "translate-x-0.5")}
-      />
-    </button>
   );
 }

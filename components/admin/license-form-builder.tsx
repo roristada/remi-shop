@@ -2,14 +2,16 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Eye, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { runWithToast, SelectInput, TextArea, TextInput } from "@/components/admin/form-controls";
-import { deleteFormField, moveFormField, saveFormField } from "@/lib/licenses/form-actions";
-import { FIELD_LIMITS, isChoiceType, type FieldOption } from "@/lib/licenses/form-fields";
+import { createFormField, deleteFormField, moveFormField, updateFormField } from "@/lib/licenses/form-actions";
+import { FIELD_LIMITS, isChoiceType, type AnswerValue, type FieldOption } from "@/lib/licenses/form-fields";
+import { AnswerField } from "@/components/shop/license-request-form";
+import shopTH from "@/locales/th/shop.json";
 import type { LicenseFieldType } from "@/lib/generated/prisma/enums";
 import type { FieldErrors } from "@/lib/validation/auth";
 import { cn } from "@/lib/utils";
@@ -25,12 +27,8 @@ export type BuilderField = {
   isRequired: boolean;
   isActive: boolean;
   options: FieldOption[];
-  /** null = shown for every usage type. */
-  usageTypeIds: string[] | null;
   answerCount: number;
 };
-
-export type BuilderUsageType = { id: string; nameTH: string; isActive: boolean };
 
 export const FIELD_TYPE_LABEL: Record<LicenseFieldType, string> = {
   TEXT: "ข้อความสั้น",
@@ -55,20 +53,17 @@ const EMPTY: BuilderField = {
   isRequired: false,
   isActive: true,
   options: [],
-  usageTypeIds: null,
   answerCount: 0,
 };
 
 const iconButton =
   "grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30";
 
-/** Admin editor for the commercial-license request form: questions, kinds, choices, order. */
-export function LicenseFormBuilder({ fields, usageTypes }: { fields: BuilderField[]; usageTypes: BuilderUsageType[] }) {
-  const typeName = new Map(usageTypes.map((t) => [t.id, t.nameTH]));
-  const scopeText = (f: BuilderField) =>
-    f.usageTypeIds === null ? "ทุกประเภท" : f.usageTypeIds.map((id) => typeName.get(id)).filter(Boolean).join(", ") || "ยังไม่ได้เลือกประเภท";
+/** Admin editor for one usage type's commercial-license request form: questions, kinds, choices, order. */
+export function LicenseFormBuilder({ usageTypeId, fields }: { usageTypeId: string; fields: BuilderField[] }) {
   const router = useRouter();
   const [editing, setEditing] = useState<BuilderField | null>(null);
+  const [previewing, setPreviewing] = useState(false);
   const [pending, startTransition] = useTransition();
   const run = (action: () => ReturnType<typeof moveFormField>) =>
     startTransition(async () => {
@@ -77,12 +72,22 @@ export function LicenseFormBuilder({ fields, usageTypes }: { fields: BuilderFiel
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button className="h-10 rounded-full px-5" onClick={() => setEditing(EMPTY)}>
-          <Plus aria-hidden /> เพิ่มช่องข้อมูล
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button variant="outline" className="h-10 rounded-full px-5" aria-pressed={previewing} onClick={() => setPreviewing((v) => !v)}>
+          {previewing ? <Pencil aria-hidden /> : <Eye aria-hidden />} {previewing ? "กลับไปแก้ไข" : "ดูตัวอย่าง"}
         </Button>
+        {!previewing && (
+          <Button className="h-10 rounded-full px-5" onClick={() => setEditing(EMPTY)} disabled={fields.length >= FIELD_LIMITS.fields}>
+            <Plus aria-hidden /> เพิ่มช่องข้อมูล
+          </Button>
+        )}
       </div>
 
+      {previewing ? (
+        <FormPreview fields={fields} />
+      ) : fields.length === 0 ? (
+        <div className="rounded-2xl border border-dashed bg-card p-12 text-center text-sm text-muted-foreground">ฟอร์มนี้ยังไม่มีคำถาม</div>
+      ) : (
       <ol className="divide-y overflow-hidden rounded-2xl border bg-card shadow-soft">
         {fields.map((f, i) => (
           <li key={f.id} className={cn("flex flex-wrap items-center gap-3 px-4 py-3", !f.isActive && "bg-muted/50")}>
@@ -95,7 +100,6 @@ export function LicenseFormBuilder({ fields, usageTypes }: { fields: BuilderFiel
                 {FIELD_TYPE_LABEL[f.type]}
                 {isChoiceType(f.type) && ` · ${f.options.length} ตัวเลือก`}
                 {f.key && " · ช่องพื้นฐาน"}
-                {` · แสดงใน: ${scopeText(f)}`}
                 {!f.isActive && " · ปิดใช้งาน"}
                 {f.answerCount > 0 && ` · ตอบแล้ว ${f.answerCount} คำขอ`}
               </p>
@@ -141,13 +145,54 @@ export function LicenseFormBuilder({ fields, usageTypes }: { fields: BuilderFiel
           </li>
         ))}
       </ol>
+      )}
 
-      {editing && <FieldDialog key={editing.id || "new"} field={editing} scopeText={scopeText(editing)} onClose={() => setEditing(null)} />}
+      {editing && <FieldDialog key={editing.id || "new"} usageTypeId={usageTypeId} field={editing} onClose={() => setEditing(null)} />}
     </div>
   );
 }
 
-function FieldDialog({ field, scopeText, onClose }: { field: BuilderField; scopeText: string; onClose: () => void }) {
+// The customer's own Thai wording, so the preview matches the shop.
+const PREVIEW_LABELS = {
+  optional: shopTH.license.optional,
+  flagged: shopTH.license.flagged,
+  fileHint: shopTH.license.fileHint,
+  fileChoose: shopTH.license.fileChoose,
+  fileChange: shopTH.license.fileChange,
+  fileRemove: shopTH.license.fileRemove,
+};
+
+/** The form as the customer sees it (Thai), with nothing sent anywhere. Switched-off questions are left out. */
+function FormPreview({ fields }: { fields: BuilderField[] }) {
+  const [answers, setAnswers] = useState<Record<string, AnswerValue>>({});
+  const shown = fields.filter((f) => f.isActive);
+  return (
+    <div className="space-y-3 rounded-2xl border bg-card p-4 shadow-soft sm:p-6">
+      <p className="rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">ตัวอย่างฟอร์มที่ลูกค้าเห็น ลองกรอกได้ ไม่มีการบันทึก</p>
+      {shown.length === 0 ? (
+        <p className="text-sm text-muted-foreground">ไม่มีคำถามที่เปิดใช้งาน</p>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {shown.map((f) => (
+            <AnswerField
+              key={f.id}
+              field={{ ...f, usageTypeId: "", descriptionTH: f.descriptionTH || null, descriptionEN: f.descriptionEN || null }}
+              locale="th"
+              value={answers[f.id]}
+              pendingFile={null}
+              onChange={(v) => setAnswers((a) => ({ ...a, [f.id]: v }))}
+              onFile={() => undefined}
+              flagged={false}
+              labels={PREVIEW_LABELS}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FieldDialog({ usageTypeId, field, onClose }: { usageTypeId: string; field: BuilderField; onClose: () => void }) {
   const router = useRouter();
   const [type, setType] = useState<LicenseFieldType>(field.type);
   const [options, setOptions] = useState<FieldOption[]>(field.options.length > 0 ? field.options : []);
@@ -163,7 +208,7 @@ function FieldDialog({ field, scopeText, onClose }: { field: BuilderField; scope
   function submit(form: FormData) {
     const text = (n: string) => String(form.get(n) ?? "");
     startTransition(async () => {
-      const result = await saveFormField(isNew ? null : field.id, {
+      const input = {
         labelTH: text("labelTH"),
         labelEN: text("labelEN"),
         descriptionTH: text("descriptionTH"),
@@ -172,7 +217,8 @@ function FieldDialog({ field, scopeText, onClose }: { field: BuilderField; scope
         isRequired: form.get("isRequired") === "on",
         isActive: form.get("isActive") === "on",
         options: choice ? options : [],
-      });
+      };
+      const result = isNew ? await createFormField(usageTypeId, input) : await updateFormField(field.id, input);
       if (!result.ok) {
         setErrors(result.fieldErrors ?? {});
         toast.error(result.error);
@@ -264,13 +310,7 @@ function FieldDialog({ field, scopeText, onClose }: { field: BuilderField; scope
             </fieldset>
           )}
 
-          <p className="rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
-            {field.key
-              ? "ช่องพื้นฐานถามในทุกประเภทการใช้งานเสมอ"
-              : isNew
-                ? "ช่องใหม่จะแสดงในฟอร์มของทุกประเภท ถ้าต้องการปิดบางประเภท ไปตั้งได้ที่หน้าประเภทการใช้งาน (ปุ่มตั้งค่าฟอร์ม)"
-                : `แสดงใน: ${scopeText}  · เปลี่ยนได้ที่หน้าประเภทการใช้งาน (ปุ่มตั้งค่าฟอร์ม)`}
-          </p>
+          {field.key && <p className="rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">ช่องพื้นฐาน ลบไม่ได้ แต่ปิด “แสดงในฟอร์ม” ได้</p>}
 
           <div className="flex flex-wrap gap-x-6 gap-y-2">
             <label className="flex cursor-pointer items-center gap-2 text-sm">

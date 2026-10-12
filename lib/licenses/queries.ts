@@ -107,7 +107,7 @@ export async function getLicenseRequestDetail(userId: string, requestId: string,
       reviewedAt: true,
       createdAt: true,
       product: { select: { slug: true } },
-      items: { orderBy: { id: "asc" }, select: { id: true, nameTHSnapshot: true, nameENSnapshot: true, price: true } },
+      items: { orderBy: { id: "asc" }, select: { id: true, usageTypeId: true, nameTHSnapshot: true, nameENSnapshot: true, price: true } },
       answers: {
         orderBy: { sortOrder: "asc" },
         select: { id: true, fieldId: true, labelTHSnapshot: true, labelENSnapshot: true, values: true, valuesEN: true },

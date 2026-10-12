@@ -19,7 +19,7 @@ import {
   OPEN_LICENSE_STATUSES,
   planChangeRequest,
 } from "@/lib/licenses/rules";
-import { ARTWORK_FIELD_ID } from "@/lib/licenses/form-fields";
+import { ARTWORK_FIELD_ID, BUILT_IN_FIELDS, parseFieldOptions } from "@/lib/licenses/form-fields";
 import { fromHundredths, toHundredths } from "@/lib/pricing/calculate";
 
 // Admin is Thai-only, so messages are Thai strings.
@@ -82,7 +82,12 @@ export async function saveUsageType(
 
   try {
     if (usageTypeId) await prisma.licenseUsageType.update({ where: { id: usageTypeId }, data: parsed.data });
-    else await prisma.licenseUsageType.create({ data: parsed.data });
+    // A new type's form starts with the built-in questions.
+    else {
+      await prisma.licenseUsageType.create({
+        data: { ...parsed.data, formFields: { create: BUILT_IN_FIELDS.map((f, i) => ({ ...f, sortOrder: (i + 1) * 10 })) } },
+      });
+    }
   } catch (error) {
     if (isNotFound(error)) return fail("ไม่พบประเภทการใช้งาน");
     console.error("[licenses] save usage type failed", { message: (error as Error).message });
@@ -90,6 +95,56 @@ export async function saveUsageType(
   }
   revalidateLicenses();
   return ok(undefined, usageTypeId ? "บันทึกประเภทการใช้งานแล้ว" : "เพิ่มประเภทการใช้งานแล้ว");
+}
+
+/** "ชื่อ" -> "ชื่อ (สำเนา)", cut to fit the 80-character name limit. */
+function copyName(name: string, suffix: string): string {
+  return `${name.slice(0, 80 - suffix.length)}${suffix}`;
+}
+
+/**
+ * Copies a usage type with its whole request form, switched off so the admin can adjust it
+ * before customers see it. Product prices are not copied (set per product as usual).
+ */
+export async function duplicateUsageType(usageTypeId: string): Promise<ActionResult<{ id: string }>> {
+  await requireAdmin();
+  if (!idSchema.safeParse(usageTypeId).success) return fail("ไม่พบประเภทการใช้งาน");
+  const source = await prisma.licenseUsageType.findUnique({
+    where: { id: usageTypeId },
+    include: { formFields: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } },
+  });
+  if (!source) return fail("ไม่พบประเภทการใช้งาน อาจถูกลบไปแล้ว");
+
+  const created = await prisma.licenseUsageType.create({
+    data: {
+      nameTH: copyName(source.nameTH, " (สำเนา)"),
+      nameEN: copyName(source.nameEN, " (copy)"),
+      descriptionTH: source.descriptionTH,
+      descriptionEN: source.descriptionEN,
+      conditionsTH: source.conditionsTH,
+      conditionsEN: source.conditionsEN,
+      isActive: false,
+      sortOrder: source.sortOrder,
+      formFields: {
+        create: source.formFields.map((f, i) => ({
+          key: f.key,
+          labelTH: f.labelTH,
+          labelEN: f.labelEN,
+          descriptionTH: f.descriptionTH,
+          descriptionEN: f.descriptionEN,
+          type: f.type,
+          isRequired: f.isRequired,
+          isActive: f.isActive,
+          sortOrder: (i + 1) * 10,
+          options: parseFieldOptions(f.options),
+        })),
+      },
+    },
+    select: { id: true },
+  });
+  console.info("[licenses] usage type duplicated", { from: usageTypeId, to: created.id });
+  revalidateLicenses();
+  return ok(created, "คัดลอกแล้ว ประเภทใหม่ปิดใช้งานไว้ก่อน แก้ไขแล้วค่อยเปิด");
 }
 
 /** Types already used in a request cannot be deleted (FK Restrict): deactivate them instead. */
@@ -291,8 +346,11 @@ export async function requestLicenseChanges(requestId: string, input: unknown): 
   if (!parsed.success) return invalid(parsed.error);
   const { priceReason, message } = parsed.data;
 
+  // Only questions of this request's usage-type form can be flagged.
   const validFieldIds = new Set(
-    (await prisma.licenseFormField.findMany({ select: { id: true } })).map((f) => f.id).concat(ARTWORK_FIELD_ID),
+    (await prisma.licenseFormField.findMany({ where: { usageType: { requestItems: { some: { requestId } } } }, select: { id: true } }))
+      .map((f) => f.id)
+      .concat(ARTWORK_FIELD_ID),
   );
   const fieldIds = [...new Set(parsed.data.fieldIds)].filter((id) => validFieldIds.has(id));
 

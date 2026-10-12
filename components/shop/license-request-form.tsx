@@ -15,15 +15,14 @@ import { putSignedUpload } from "@/lib/storage/upload-client";
 import type { FieldErrors } from "@/lib/validation/auth";
 import { formatTHB } from "@/lib/pricing/calculate";
 import {
-  appliesToUsageType,
   ARTWORK_FIELD_ID,
   answerErrorKey,
+  carryAnswers,
   FIELD_LIMITS,
   isChoiceType,
   isFileAnswer,
   resolveAnswers,
   type AnswerValue,
-  type FieldUsageScope,
   type FormFieldDef,
 } from "@/lib/licenses/form-fields";
 import { requestArtworkUpload, requestLicenseFileUpload, submitLicenseRequest, updateLicenseRequest } from "@/lib/licenses/customer-actions";
@@ -37,7 +36,8 @@ const FILE_EXTENSIONS = /\.(jpe?g|png|webp|pdf)$/i;
 
 export type LicenseFormOffer = { usageTypeId: string; name: string; description: string | null; conditions: string | null; price: number };
 
-export type LicenseFormField = FormFieldDef & FieldUsageScope & { descriptionTH: string | null; descriptionEN: string | null };
+/** A question of one usage type's form (each type has its own form). */
+export type LicenseFormField = FormFieldDef & { usageTypeId: string; descriptionTH: string | null; descriptionEN: string | null };
 
 /** fieldId → text, chosen option ids, or an already uploaded file. */
 export type AnswerValues = Record<string, AnswerValue>;
@@ -110,7 +110,7 @@ export function LicenseRequestForm({ productId, offers, fields, defaults, edit }
   const flagged = new Set(respond?.flagged ?? []);
   const total = edit ? edit.total : (offers.find((o) => o.usageTypeId === selected)?.price ?? 0);
   // When editing, the page already passes only the questions of the request's usage type.
-  const visibleFields = edit ? fields : fields.filter((f) => appliesToUsageType(f, selected));
+  const visibleFields = edit ? fields : fields.filter((f) => f.usageTypeId === selected);
   const hiddenByType = !edit && selected === null && visibleFields.length < fields.length;
   const money = (satang: number) => formatTHB(satang, intlLocale(locale).number);
   const errorText = (key: string) => (fieldErrors[key] ? t(`errors.${fieldErrors[key]}`) : undefined);
@@ -130,6 +130,11 @@ export function LicenseRequestForm({ productId, offers, fields, defaults, edit }
   }
 
   function pickUsage(id: string) {
+    // Each type has its own form: keep what was typed for the same questions.
+    if (selected !== null && selected !== id) {
+      const from = fields.filter((f) => f.usageTypeId === selected);
+      setAnswers((a) => carryAnswers(from, fields.filter((f) => f.usageTypeId === id), a));
+    }
     setSelected(id);
     clearError("usageTypeIds");
   }
@@ -462,7 +467,7 @@ export function PriceChange({
   );
 }
 
-type AnswerFieldLabels = {
+export type AnswerFieldLabels = {
   optional: string;
   flagged: string;
   fileHint: string;
@@ -471,7 +476,7 @@ type AnswerFieldLabels = {
   fileRemove: string;
 };
 
-function AnswerField({
+export function AnswerField({
   field,
   locale,
   value,

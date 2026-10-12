@@ -53,13 +53,9 @@ export default async function LicenseRequestPage({ params, searchParams }: PageP
   await connection(); // Stage and edit window depend on the current time.
   if (!idSchema.safeParse(id).success) notFound();
 
-  const [r, fields, t, sp] = await Promise.all([
-    getLicenseRequestDetail(user.id, id),
-    listActiveFormFields(),
-    getTranslations("account.licenses"),
-    searchParams,
-  ]);
+  const [r, t, sp] = await Promise.all([getLicenseRequestDetail(user.id, id), getTranslations("account.licenses"), searchParams]);
   if (!r) notFound();
+  const fields = await listActiveFormFields(undefined, r.items[0]?.usageTypeId);
 
   const fmt = intlLocale(locale);
   const money = (v: { toString(): string }) => formatTHB(toHundredths(v), fmt.number);

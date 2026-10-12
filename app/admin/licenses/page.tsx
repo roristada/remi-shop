@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight, ExternalLink, FormInput, ImageOff, ListChecks } from "lucide-react";
+import { ChevronRight, ExternalLink, ImageOff, ListChecks } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/guards";
 import { formatBangkokDateTime } from "@/lib/datetime";
 import { formatTHB, toHundredths } from "@/lib/pricing/calculate";
@@ -15,7 +15,7 @@ import { ReviewActions } from "@/components/admin/review-actions";
 import { approveLicenseRequest, rejectLicenseRequest } from "@/lib/licenses/admin-actions";
 import { LICENSE_REJECT_REASONS, LICENSE_STATUS_TH, ORDER_STATUS_TH } from "@/lib/licenses/admin-labels";
 import { listActiveFormFields } from "@/lib/licenses/form-queries";
-import { appliesToUsageType, ARTWORK_FIELD_ID } from "@/lib/licenses/form-fields";
+import { ARTWORK_FIELD_ID } from "@/lib/licenses/form-fields";
 import { LicenseSendBackDialog } from "@/components/admin/license-send-back-dialog";
 import { cn } from "@/lib/utils";
 
@@ -28,13 +28,11 @@ export default async function AdminLicensesPage({ searchParams }: PageProps<"/ad
   const sp = await searchParams;
   const tab: LicenseTab = (Object.keys(LICENSE_TABS) as LicenseTab[]).find((k) => k === one(sp.tab)) ?? "pending";
   const page = Math.max(1, Math.min(10_000, Number.parseInt(one(sp.page) ?? "1", 10) || 1));
-  const [{ items, total, pendingCount, pageCount }, fields] = await Promise.all([
-    listLicenseRequestsForReview(tab, page),
-    listActiveFormFields(),
-  ]);
-  // Only the questions each request's usage type asks can be flagged for changes.
+  const { items, total, pendingCount, pageCount } = await listLicenseRequestsForReview(tab, page);
+  const fields = await listActiveFormFields(undefined, items.flatMap((r) => r.items[0]?.usageTypeId ?? []));
+  // Only the questions of each request's usage-type form can be flagged for changes.
   const flaggableFor = (usageTypeId: string | null) => [
-    ...fields.filter((f) => appliesToUsageType(f, usageTypeId)).map((f) => ({ id: f.id, label: f.labelTH })),
+    ...fields.filter((f) => f.usageTypeId === usageTypeId).map((f) => ({ id: f.id, label: f.labelTH })),
     { id: ARTWORK_FIELD_ID, label: "รูปผลงาน" },
   ];
 
@@ -47,13 +45,8 @@ export default async function AdminLicensesPage({ searchParams }: PageProps<"/ad
         </div>
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline" className="h-10 rounded-full px-5">
-            <Link href="/admin/licenses/form">
-              <FormInput aria-hidden /> แบบฟอร์มคำขอ
-            </Link>
-          </Button>
-          <Button asChild variant="outline" className="h-10 rounded-full px-5">
             <Link href="/admin/licenses/types">
-              <ListChecks aria-hidden /> ประเภทการใช้งาน
+              <ListChecks aria-hidden /> ประเภทและฟอร์มคำขอ
             </Link>
           </Button>
         </div>

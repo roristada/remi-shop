@@ -35,7 +35,7 @@ export default async function LicenseRequestPage({ params }: PageProps<"/[locale
   const offers = available ? await getLicenseOffers(product.id) : [];
   const [descriptions, fields] = await Promise.all([
     getUsageTypeDescriptions(offers.map((o) => o.usageTypeId)),
-    listActiveFormFields(),
+    listActiveFormFields(undefined, offers.map((o) => o.usageTypeId)),
   ]);
   const descById = new Map(descriptions.map((d) => [d.id, d]));
 
