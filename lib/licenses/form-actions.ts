@@ -127,27 +127,28 @@ export async function deleteFormField(fieldId: string): Promise<ActionResult> {
   return ok(undefined, "ลบช่องข้อมูลแล้ว");
 }
 
-/**
- * Swaps the field with its neighbour in the same form, renumbering that form so equal sort
- * orders cannot stall a move.
- */
-export async function moveFormField(fieldId: string, direction: "up" | "down"): Promise<ActionResult> {
+const orderSchema = z.array(idSchema).min(1).max(FIELD_LIMITS.fields);
+
+/** Saves the dragged order of one form. `orderedIds` must be exactly that form's questions. */
+export async function reorderFormFields(usageTypeId: string, orderedIds: unknown): Promise<ActionResult> {
   await requireAdmin();
-  if (!idSchema.safeParse(fieldId).success || (direction !== "up" && direction !== "down")) return fail("คำขอไม่ถูกต้อง");
-  await prisma.$transaction(async (tx) => {
-    const field = await tx.licenseFormField.findUnique({ where: { id: fieldId }, select: { usageTypeId: true } });
-    if (!field) return;
-    const all = await tx.licenseFormField.findMany({
-      where: { usageTypeId: field.usageTypeId },
-      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-      select: { id: true },
-    });
-    const from = all.findIndex((f) => f.id === fieldId);
-    const to = direction === "up" ? from - 1 : from + 1;
-    if (from === -1 || to < 0 || to >= all.length) return;
-    [all[from], all[to]] = [all[to], all[from]];
-    await Promise.all(all.map((f, i) => tx.licenseFormField.update({ where: { id: f.id }, data: { sortOrder: (i + 1) * 10 } })));
-  });
+  const ids = orderSchema.safeParse(orderedIds);
+  if (!idSchema.safeParse(usageTypeId).success || !ids.success || new Set(ids.data).size !== ids.data.length) {
+    return fail("คำขอไม่ถูกต้อง");
+  }
+
+  const current = await prisma.licenseFormField.findMany({ where: { usageTypeId }, select: { id: true } });
+  const known = new Set(current.map((f) => f.id));
+  if (current.length !== ids.data.length || !ids.data.every((id) => known.has(id))) {
+    return fail("ฟอร์มนี้เปลี่ยนไปแล้ว กรุณาโหลดหน้าใหม่");
+  }
+
+  // `usageTypeId` in the filter guards against a question from another form.
+  await prisma.$transaction(
+    ids.data.map((id, i) =>
+      prisma.licenseFormField.updateMany({ where: { id, usageTypeId }, data: { sortOrder: (i + 1) * 10 } }),
+    ),
+  );
   revalidateForm();
-  return ok(undefined);
+  return ok(undefined, "บันทึกลำดับแล้ว");
 }

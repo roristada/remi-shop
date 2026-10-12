@@ -318,7 +318,7 @@ export function LicenseRequestForm({ productId, offers, fields, defaults, edit }
         </fieldset>
       )}
 
-      <fieldset className="grid gap-4 sm:grid-cols-2">
+      <fieldset className="grid gap-4">
         <legend className="mb-3 text-lg font-semibold">{t("detailsTitle")}</legend>
         {visibleFields.map((f) => (
           <AnswerField
@@ -341,7 +341,7 @@ export function LicenseRequestForm({ productId, offers, fields, defaults, edit }
             }}
           />
         ))}
-        {hiddenByType && <p className="text-sm text-muted-foreground sm:col-span-2">{t("pickUsageFirst")}</p>}
+        {hiddenByType && <p className="text-sm text-muted-foreground">{t("pickUsageFirst")}</p>}
       </fieldset>
 
       <div className={cn("space-y-1.5", artworkFlagged && "rounded-2xl border border-warning/50 bg-warning/5 p-3")}>
@@ -501,7 +501,6 @@ export function AnswerField({
   const label = localized(locale, field.labelTH, field.labelEN);
   const description = localized(locale, field.descriptionTH, field.descriptionEN) ?? (field.type === "FILE" ? labels.fileHint : null);
   const describedBy = error ? `${id}-error` : description ? `${id}-hint` : undefined;
-  const wide = field.type === "TEXTAREA" || field.type === "FILE" || isChoiceType(field.type);
   const text = typeof value === "string" ? value : "";
   const picked = Array.isArray(value) ? value : typeof value === "string" && value ? [value] : [];
   const optionLabel = (o: { th: string; en: string }) => localized(locale, o.th, o.en);
@@ -614,7 +613,7 @@ export function AnswerField({
   }
 
   return (
-    <div className={cn("space-y-1.5", wide && "sm:col-span-2", flagged && "rounded-2xl border border-warning/50 bg-warning/5 p-3")}>
+    <div className={cn("space-y-1.5", flagged && "rounded-2xl border border-warning/50 bg-warning/5 p-3")}>
       <Label id={`${id}-label`} htmlFor={isChoiceType(field.type) && field.type !== "DROPDOWN" ? undefined : id}>
         {label}{" "}
         {flagged ? (
