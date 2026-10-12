@@ -183,8 +183,8 @@ export default async function EditProductPage({ params }: PageProps<"/admin/prod
         },
         {
           value: "addons",
-          label: `Add-on (${addonData.enabled ? addonData.selectedIds.length : "ปิด"})`,
-          content: <AddonEditor {...addonData} />,
+          label: addonData.addonOnly ? `Add-on (${addonData.mainIds.length})` : addonData.offered.length > 0 ? `Add-on (${addonData.offered.length})` : "Add-on",
+          content: <AddonEditor {...addonData} folders={folders} />,
         },
       ]}
     />

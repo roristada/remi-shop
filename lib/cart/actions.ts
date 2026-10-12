@@ -66,7 +66,7 @@ export async function getMiniCart(locale: string): Promise<MiniCart | null> {
 async function addAddonLines(userId: string, cartId: string, productId: string, addonIds: string[], linkToMain: boolean, now: Date): Promise<number> {
   if (addonIds.length === 0) return 0;
   const links = await prisma.productAddon.findMany({
-    where: { productId, addonProductId: { in: addonIds }, product: { addonsEnabled: true, addonOnly: false } },
+    where: { productId, addonProductId: { in: addonIds }, product: { addonsEnabled: true, addonOnly: false }, addonProduct: { addonOnly: true } },
     select: { addonProduct: { select: checkoutProductSelect(now) } },
   });
   const products = links.map((l) => l.addonProduct);

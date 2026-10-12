@@ -29,7 +29,7 @@ export async function listStorefrontAddons(productId: string, userId: string | n
   if (!main?.addonsEnabled) return [];
 
   const links = await prisma.productAddon.findMany({
-    where: { productId },
+    where: { productId, addonProduct: { addonOnly: true } },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     take: MAX_ADDONS,
     select: {
@@ -74,42 +74,22 @@ export async function listStorefrontAddons(productId: string, userId: string | n
   return out;
 }
 
-export type AddonCandidate = { id: string; name: string; imageUrl: string | null; price: number; status: string };
+export type AddonCandidate = { id: string; name: string; imageUrl: string | null; price: number; status: string; folderId: string | null };
 
 /**
- * Admin editor: this product's add-on list and every product that can be one (no variants, not
- * itself), plus, for an add-on-only product, the main products that sell it and every product
- * that can (not add-on-only itself).
+ * Admin editor. Add-ons are set up from the add-on's side: whether this product is add-on-only,
+ * the main products that sell it, and every product that can be a main (not add-on-only itself).
+ * `offered` is the read-only list of add-on-only products this product sells, for main products.
  */
 export async function getAddonEditorData(productId: string, now: Date = new Date()) {
-  const [product, links, mainLinks, candidates, mainCandidates] = await Promise.all([
-    prisma.product.findUnique({
-      where: { id: productId },
-      select: { addonsEnabled: true, addonOnly: true, _count: { select: { variants: true } } },
-    }),
+  const [product, offered, mainLinks, mainCandidates] = await Promise.all([
+    prisma.product.findUnique({ where: { id: productId }, select: { addonOnly: true, _count: { select: { variants: true } } } }),
     prisma.productAddon.findMany({
-      where: { productId },
+      where: { productId, addonProduct: { addonOnly: true } },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-      select: { addonProductId: true },
+      select: { addonProduct: { select: { id: true, nameTH: true } } },
     }),
     prisma.productAddon.findMany({ where: { addonProductId: productId }, orderBy: { createdAt: "asc" }, select: { productId: true } }),
-    prisma.product.findMany({
-      where: { id: { not: productId }, variants: { none: {} } },
-      orderBy: [{ nameTH: "asc" }],
-      take: 1000,
-      select: {
-        id: true,
-        nameTH: true,
-        price: true,
-        discountPercent: true,
-        discountStartAt: true,
-        discountEndAt: true,
-        publishStatus: true,
-        saleStartAt: true,
-        saleEndAt: true,
-        images: { orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }], take: 1, select: { imagePath: true, cardPath: true } },
-      },
-    }),
     // Main products: anything except itself and other add-on-only products (variants are fine).
     prisma.product.findMany({
       where: { id: { not: productId }, addonOnly: false },
@@ -118,6 +98,7 @@ export async function getAddonEditorData(productId: string, now: Date = new Date
       select: {
         id: true,
         nameTH: true,
+        folderId: true,
         price: true,
         discountPercent: true,
         discountStartAt: true,
@@ -130,9 +111,9 @@ export async function getAddonEditorData(productId: string, now: Date = new Date
     }),
   ]);
   return {
-    enabled: product?.addonsEnabled ?? false,
     addonOnly: product?.addonOnly ?? false,
     hasVariants: (product?._count.variants ?? 0) > 0,
+    offered: offered.map((l) => ({ id: l.addonProduct.id, name: l.addonProduct.nameTH })),
     mainIds: mainLinks.map((l) => l.productId),
     mainCandidates: mainCandidates.map(
       (c): AddonCandidate => ({
@@ -141,16 +122,7 @@ export async function getAddonEditorData(productId: string, now: Date = new Date
         imageUrl: c.images[0] ? previewImageSrc(c.images[0], "card") : null,
         price: calculateProductPrice(c, now).finalPrice,
         status: getProductStatus(c, now),
-      }),
-    ),
-    selectedIds: links.map((l) => l.addonProductId),
-    candidates: candidates.map(
-      (c): AddonCandidate => ({
-        id: c.id,
-        name: c.nameTH,
-        imageUrl: c.images[0] ? previewImageSrc(c.images[0], "card") : null,
-        price: calculateProductPrice(c, now).finalPrice,
-        status: getProductStatus(c, now),
+        folderId: c.folderId,
       }),
     ),
   };

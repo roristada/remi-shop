@@ -8,41 +8,32 @@ import { idSchema } from "@/lib/validation/product";
 import { cleanAddonIds, MAX_ADDON_MAINS, MAX_ADDONS } from "@/lib/addons/rules";
 import { revalidateCatalog } from "@/lib/products/revalidate";
 
-export type AddonEditorInput = { enabled: boolean; addonIds: string[]; addonOnly: boolean; mainIds: string[] };
+export type AddonEditorInput = { addonOnly: boolean; mainIds: string[] };
 
 /**
- * Saves the product's add-on tab. A normal product: its add-on list (in the given order) and
- * on/off switch. An add-on-only product: the main products that sell it (rows of the same
- * ProductAddon table, from the other side); those mains get their add-on box switched on.
- * Only products without variants can be add-ons: the add-on box has no option picker.
+ * Saves the product's add-on tab. Add-ons are set up from the add-on's side only: an add-on-only
+ * product lists the main products that sell it (rows of ProductAddon). Switching it off removes
+ * it from every main product. Only products without variants can be add-ons: the add-on box has
+ * no option picker.
  */
 export async function saveProductAddons(productId: string, input: AddonEditorInput): Promise<ActionResult> {
   await requireAdmin();
-  if (!idSchema.safeParse(productId).success || typeof input?.enabled !== "boolean" || typeof input?.addonOnly !== "boolean") {
-    return fail("คำขอไม่ถูกต้อง");
-  }
+  if (!idSchema.safeParse(productId).success || typeof input?.addonOnly !== "boolean") return fail("คำขอไม่ถูกต้อง");
   if (input.addonOnly) return saveAddonOnly(productId, input.mainIds);
-  const addonIds = cleanAddonIds(productId, input.addonIds);
-  if (!addonIds) return fail("รายการ Add-on ไม่ถูกต้อง (สูงสุด 12 รายการ)");
 
-  const found = await prisma.product.findMany({
-    where: { id: { in: addonIds }, variants: { none: {} } },
-    select: { id: true },
-  });
-  if (found.length !== addonIds.length) return fail("สินค้าบางรายการถูกลบหรือมีตัวเลือกแล้ว ใช้เป็น Add-on ไม่ได้ กรุณารีเฟรชหน้า");
-
+  const mains = await prisma.productAddon.findMany({ where: { addonProductId: productId }, select: { productId: true } });
   try {
     await prisma.$transaction([
-      prisma.product.update({ where: { id: productId }, data: { addonsEnabled: input.enabled, addonOnly: false } }),
-      prisma.productAddon.deleteMany({ where: { productId } }),
-      prisma.productAddon.createMany({ data: addonIds.map((addonProductId, i) => ({ productId, addonProductId, sortOrder: i })) }),
+      prisma.product.update({ where: { id: productId }, data: { addonOnly: false } }),
+      prisma.productAddon.deleteMany({ where: { addonProductId: productId } }),
     ]);
   } catch (error) {
     console.error("[addons] save failed", { productId, message: (error as Error).message });
     return fail("บันทึก Add-on ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
   }
-  console.info("[addons] saved", { productId, enabled: input.enabled, count: addonIds.length });
+  console.info("[addons] add-on-only switched off", { productId, mains: mains.length });
   revalidateAddons(productId);
+  for (const m of mains) revalidatePath(`/admin/products/${m.productId}`);
   return ok(undefined);
 }
 
