@@ -60,6 +60,20 @@ enum PaymentStatus {
 }
 
 /// Outcome of the automatic slip check. Anything but PASSED leaves the slip for the admin.
+/// Kind of a store contact channel; decides the icon and how its value becomes a link.
+enum ContactChannelType {
+  LINE
+  FACEBOOK
+  INSTAGRAM
+  X
+  TIKTOK
+  YOUTUBE
+  DISCORD
+  EMAIL
+  PHONE
+  WEBSITE
+}
+
 enum SlipCheckResult {
   PASSED
   AMOUNT_MISMATCH
@@ -921,6 +935,22 @@ model PaymentSetting {
   updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("payment_settings")
+}
+
+/// Store contact channels, managed by the admin and shown in the footer and on /contact.
+model ContactChannel {
+  id        String             @id @default(uuid(7)) @db.Uuid
+  type      ContactChannelType
+  /// Text shown to customers, e.g. "@remii.shop".
+  label     String
+  /// A URL, or an email address / phone number for EMAIL / PHONE.
+  value     String
+  sortOrder Int                @default(0) @map("sort_order")
+  createdAt DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([sortOrder])
+  @@map("contact_channels")
 }
 
 model StoreSetting {

@@ -1,8 +1,15 @@
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
+import { listContactChannels } from "@/lib/contacts/queries";
+import { ContactLinksCompact } from "@/components/shop/contact-links";
 
 export async function SiteFooter() {
   const t = await getTranslations("common");
+  // Renders on every page: a database hiccup hides the contact column instead of failing the page.
+  const channels = await listContactChannels().catch((error: unknown) => {
+    console.error("Footer contact channels failed", { error });
+    return [];
+  });
   const year = new Date().getFullYear();
 
   const groups = [
@@ -13,7 +20,7 @@ export async function SiteFooter() {
         { href: "/category", label: t("nav.categories") },
       ],
     },
-    // Help (FAQ, contact, about) and legal (terms, privacy, refund) columns return
+    // Help (FAQ, about) and legal (terms, privacy, refund) columns return
     // once those pages exist; linking them now leads to 404s.
   ];
 
@@ -38,6 +45,16 @@ export async function SiteFooter() {
             </ul>
           </div>
         ))}
+        {channels.length > 0 && (
+          <div className="space-y-3">
+            <p className="text-sm font-semibold">
+              <Link href="/contact" className="hover:underline">
+                {t("footer.contact")}
+              </Link>
+            </p>
+            <ContactLinksCompact channels={channels} />
+          </div>
+        )}
       </div>
       <div className="border-t py-4 text-center text-xs text-muted-foreground">
         © {year} {t("brand")}. {t("footer.rights")}.

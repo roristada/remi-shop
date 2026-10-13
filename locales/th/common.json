@@ -33,7 +33,8 @@
     "terms": "ข้อกำหนดการใช้งาน",
     "privacy": "นโยบายความเป็นส่วนตัว",
     "refund": "นโยบายการคืนเงิน",
-    "rights": "สงวนลิขสิทธิ์"
+    "rights": "สงวนลิขสิทธิ์",
+    "contact": "ติดต่อเรา"
   },
   "state": {
     "loading": "กำลังโหลด...",
@@ -54,5 +55,24 @@
     "light": "สว่าง",
     "dark": "มืด",
     "system": "ตามระบบ"
+  },
+  "contact": {
+    "title": "ติดต่อเรา",
+    "subtitle": "สอบถามสินค้า แจ้งปัญหาการชำระเงินหรือดาวน์โหลด ติดต่อร้านได้ทางช่องทางด้านล่าง",
+    "empty": "ยังไม่มีช่องทางติดต่อ",
+    "metaDescription": "ช่องทางติดต่อร้าน",
+    "opensInNewTab": "(เปิดในแท็บใหม่)",
+    "types": {
+      "LINE": "LINE",
+      "FACEBOOK": "Facebook",
+      "INSTAGRAM": "Instagram",
+      "X": "X (Twitter)",
+      "TIKTOK": "TikTok",
+      "YOUTUBE": "YouTube",
+      "DISCORD": "Discord",
+      "EMAIL": "อีเมล",
+      "PHONE": "โทรศัพท์",
+      "WEBSITE": "เว็บไซต์"
+    }
   }
 }
