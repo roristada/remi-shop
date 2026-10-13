@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { canCustomerCancel, canUploadSlip, normalizeRejectReason, REJECT_REASON_MAX } from "./rules";
+import { canCustomerCancel, canUploadSlip, normalizeRejectReason, REJECT_REASON_MAX, slipResubmitDeadline } from "./rules";
 
 const now = new Date("2026-09-26T10:00:00+07:00");
 const future = new Date("2026-09-26T11:00:00+07:00");
@@ -29,4 +29,14 @@ test("normalizeRejectReason", () => {
   assert.equal(normalizeRejectReason("   "), null);
   assert.equal(normalizeRejectReason(undefined), null);
   assert.equal(normalizeRejectReason("x".repeat(REJECT_REASON_MAX + 1)), null);
+});
+
+test("a slip asked again reopens the order for 24 hours", () => {
+  const deadline = slipResubmitDeadline(now);
+  assert.equal(deadline.getTime() - now.getTime(), 24 * 60 * 60 * 1000);
+  // The reopened order is a plain unpaid order again: slip upload and cancel work until the deadline.
+  const reopened = { status: "PENDING_PAYMENT", paymentStatus: null, expiresAt: deadline, kind: "PRODUCT" } as const;
+  assert.equal(canUploadSlip(reopened, now), true);
+  assert.equal(canCustomerCancel(reopened, now), true);
+  assert.equal(canUploadSlip(reopened, new Date(deadline.getTime() + 1)), false);
 });

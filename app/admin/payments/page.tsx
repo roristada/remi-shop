@@ -7,7 +7,7 @@ import { formatTHB, toHundredths } from "@/lib/pricing/calculate";
 import { listPaymentsForReview, PAYMENT_TABS, type PaymentTab, type ReviewPayment } from "@/lib/payments/admin-queries";
 import { Pagination } from "@/components/shared/pagination";
 import { ReviewActions } from "@/components/admin/review-actions";
-import { approvePayment, rejectPayment } from "@/lib/payments/admin-actions";
+import { approvePayment, rejectPayment, requestNewSlip } from "@/lib/payments/admin-actions";
 import { cn } from "@/lib/utils";
 import { OrderNote } from "@/components/admin/order-note";
 import type { SlipCheckResult } from "@/lib/generated/prisma/enums";
@@ -242,8 +242,17 @@ function PaymentCard({ payment: p, tab }: { payment: ReviewPayment; tab: Payment
                 </p>
               }
               rejectTitle={`ปฏิเสธสลิป ${p.order.orderNumber}`}
-              rejectDescription="ลูกค้าจะเห็นเหตุผลนี้และแนบสลิปใหม่ได้"
+              rejectDescription={
+                p.order.kind === "LICENSE"
+                  ? "ลูกค้าจะเห็นเหตุผลนี้และแนบสลิปใหม่ได้"
+                  : "ลูกค้าจะเห็นเหตุผลนี้ \"ขอสลิปใหม่\" ให้ลูกค้าแนบสลิปใหม่ในคำสั่งซื้อเดิมได้ภายใน 24 ชั่วโมง ส่วน \"ปฏิเสธสลิป\" จะปิดคำสั่งซื้อ ลูกค้าต้องสั่งซื้อใหม่"
+              }
               rejectLabel="ปฏิเสธสลิป"
+              sendBack={
+                p.order.kind === "PRODUCT"
+                  ? { action: requestNewSlip.bind(null, p.id), label: "ขอสลิปใหม่" }
+                  : undefined
+              }
               quickReasons={SLIP_REJECT_REASONS}
             />
           </div>

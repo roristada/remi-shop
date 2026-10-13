@@ -2,7 +2,7 @@
 
 import { useId, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Loader2, X } from "lucide-react";
+import { Check, Loader2, RotateCcw, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +24,8 @@ type Props = {
   /** Server actions already bound to the record under review. Without `approve`, only reject is offered. */
   approve?: () => Promise<ActionResult>;
   reject: (reason: string) => Promise<ActionResult>;
+  /** Optional second outcome of the reject dialog: send back with the same reason (e.g. ask for a new slip). */
+  sendBack?: { action: (reason: string) => Promise<ActionResult>; label: string };
   approveTitle: string;
   approveDescription: ReactNode;
   rejectTitle: string;
@@ -46,6 +48,7 @@ export function ReviewActions({
   rejectLabel,
   quickReasons,
   extra,
+  sendBack,
 }: Props) {
   const router = useRouter();
   const reasonId = useId();
@@ -53,10 +56,13 @@ export function ReviewActions({
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string>();
   const [pending, startTransition] = useTransition();
+  /** Which dialog button is running, so only that one shows the spinner. */
+  const [busy, setBusy] = useState<"reject" | "sendBack">("reject");
 
-  function submitReject() {
+  function submit(which: "reject" | "sendBack", action: (reason: string) => Promise<ActionResult>) {
+    setBusy(which);
     startTransition(async () => {
-      const result = await reject(reason);
+      const result = await action(reason);
       if (!result.ok) {
         setError(result.fieldErrors?.reason ?? result.error);
         if (!result.fieldErrors) toast.error(result.error);
@@ -132,8 +138,14 @@ export function ReviewActions({
             <Button variant="outline" onClick={() => setOpen(false)} disabled={pending}>
               ยกเลิก
             </Button>
-            <Button variant="destructive" onClick={submitReject} disabled={pending} aria-busy={pending}>
-              {pending && <Loader2 className="animate-spin" aria-hidden />} {rejectLabel}
+            {sendBack && (
+              <Button variant="secondary" onClick={() => submit("sendBack", sendBack.action)} disabled={pending} aria-busy={pending && busy === "sendBack"}>
+                {pending && busy === "sendBack" ? <Loader2 className="animate-spin" aria-hidden /> : <RotateCcw aria-hidden />}{" "}
+                {sendBack.label}
+              </Button>
+            )}
+            <Button variant="destructive" onClick={() => submit("reject", reject)} disabled={pending} aria-busy={pending && busy === "reject"}>
+              {pending && busy === "reject" && <Loader2 className="animate-spin" aria-hidden />} {rejectLabel}
             </Button>
           </DialogFooter>
         </DialogContent>

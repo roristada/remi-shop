@@ -314,6 +314,9 @@ async function PaymentPanel({ order, locale, now }: { order: CustomerOrder; loca
     getPaymentSettings(),
   ]);
   const rejected = order.status === "PAYMENT_REJECTED" ? order.payments[0] : undefined;
+  // Unpaid again with a rejected slip: the admin asked for a new slip on this same order.
+  const resubmit =
+    order.status === "PENDING_PAYMENT" && order.payments[0]?.status === "REJECTED" ? order.payments[0] : undefined;
   const fmt = intlLocale(locale);
   // A QR with the amount built in when the PromptPay number is set; else the QR image the admin uploaded.
   const amountQr = settings?.promptPayNumber
@@ -336,6 +339,13 @@ async function PaymentPanel({ order, locale, now }: { order: CustomerOrder; loca
         </div>
       ) : (
         <>
+          {resubmit && (
+            <div role="alert" className="space-y-1 rounded-2xl bg-destructive/10 px-4 py-3 text-sm">
+              <p className="font-semibold text-destructive">{tSlip("resubmitTitle")}</p>
+              {resubmit.rejectReason && <p>{tSlip("rejectedReason", { reason: resubmit.rejectReason })}</p>}
+              <p className="text-foreground/70">{tSlip("resubmitHint")}</p>
+            </div>
+          )}
           <CountdownTimer
             endsAt={order.expiresAt.toISOString()}
             serverNow={now.toISOString()}

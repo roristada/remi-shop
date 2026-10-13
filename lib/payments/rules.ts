@@ -17,6 +17,14 @@ export function canCustomerCancel(order: OrderStateInput, now: Date): boolean {
 
 export const REJECT_REASON_MAX = 500;
 
+/** How long a customer has to attach a new slip after the admin asks for one. */
+export const SLIP_RESUBMIT_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/** New unpaid deadline when the admin asks for a new slip; past it the order is cancelled as usual. */
+export function slipResubmitDeadline(now: Date): Date {
+  return new Date(now.getTime() + SLIP_RESUBMIT_WINDOW_MS);
+}
+
 /** Trimmed reason, or null when empty/too long. A rejection always needs a reason. */
 export function normalizeRejectReason(input: unknown): string | null {
   if (typeof input !== "string") return null;

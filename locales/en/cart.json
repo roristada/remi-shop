@@ -168,6 +168,8 @@
     "rejectedTitle": "Your slip was not accepted",
     "rejectedReason": "Reason: {reason}",
     "rejectedHint": "Attach a new slip, or cancel the order.",
+    "resubmitTitle": "The store asked for a new slip",
+    "resubmitHint": "Please attach a new slip before the time below. If you have already transferred, there is no need to pay again.",
     "errors": {
       "LOGIN_REQUIRED": "Please sign in first.",
       "NOT_ALLOWED": "A slip can no longer be attached to this order. Please refresh the page.",
