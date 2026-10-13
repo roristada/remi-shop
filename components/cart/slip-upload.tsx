@@ -26,6 +26,36 @@ function slipFileName(file: File): string | null {
   return ext ? `slip.${ext}` : null;
 }
 
+/** Max edge of a redrawn slip; plenty for the bank QR, keeps the JPEG well under the size limit. */
+const REDRAW_MAX_EDGE = 2000;
+
+/**
+ * Fallback when the file's bytes cannot be read but the browser can still display it: decode it
+ * as an image, draw it on a canvas and re-encode as JPEG. Returns null when that fails too.
+ */
+async function redrawImage(source: File): Promise<Blob | null> {
+  const url = URL.createObjectURL(source);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    const scale = Math.min(1, REDRAW_MAX_EDGE / Math.max(img.naturalWidth, img.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(img.naturalWidth * scale);
+    canvas.height = Math.round(img.naturalHeight * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.fillStyle = "#fff"; // transparent PNG areas would turn black in JPEG
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    return await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
+  } catch {
+    return null;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 /** Extra tries for the direct upload; mobile connections drop the body now and then. */
 const UPLOAD_RETRIES = 2;
 const RETRY_DELAY_MS = 1500;
@@ -60,6 +90,8 @@ export function SlipUpload({ orderNumber }: { orderNumber: string }) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
+  /** In-memory copy of the picked file; this is what gets previewed and uploaded. */
+  const [body, setBody] = useState<Blob | null>(null);
   const [fileName, setFileName] = useState("");
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -72,63 +104,66 @@ export function SlipUpload({ orderNumber }: { orderNumber: string }) {
     if (previewRef.current) URL.revokeObjectURL(previewRef.current);
   }, []);
 
-  function pick(next: File | undefined) {
+  /** Diagnostics for failures the server never sees (file read, direct storage upload, dropped requests). */
+  function report(source: File, stage: string, reason: string) {
+    void reportSlipClientFailure(orderNumber, {
+      stage,
+      reason,
+      size: source.size,
+      type: source.type,
+      ext: source.name.split(".").pop() ?? "",
+    }).catch(() => undefined);
+  }
+
+  async function pick(next: File | undefined) {
     setError(null);
     if (!next) return;
     // Quick client-side feedback only; the server repeats every check.
-    const reject = (code: "unsupported_type" | "too_large") => {
-      setError(t(`errors.${code}`));
-      void reportSlipClientFailure(orderNumber, {
-        stage: "pick",
-        reason: code,
-        size: next.size,
-        type: next.type,
-        ext: next.name.split(".").pop() ?? "",
-      }).catch(() => undefined);
-    };
     const name = slipFileName(next);
-    if (!name) return reject("unsupported_type");
-    if (next.size > MAX_FILE_SIZE) return reject("too_large");
+    if (!name) {
+      setError(t("errors.unsupported_type"));
+      return report(next, "pick", "unsupported_type");
+    }
+    if (next.size > MAX_FILE_SIZE) {
+      setError(t("errors.too_large"));
+      return report(next, "pick", "too_large");
+    }
+    // Copy the bytes right away. Android Chrome can revoke access to a picked file (photo picker,
+    // cloud gallery) shortly after the choice, so reading it later at send time fails with
+    // NotReadableError even though the preview showed.
+    let copy: Blob | null;
+    let uploadName = name;
+    try {
+      copy = new Blob([await next.arrayBuffer()], { type: next.type || "image/jpeg" });
+    } catch (e) {
+      report(next, "read", e instanceof Error ? `${e.name}: ${e.message}` : String(e));
+      // The preview still renders in that case, so redraw the image and upload the redrawn copy.
+      copy = await redrawImage(next);
+      if (!copy) {
+        setError(t("errors.unreadable"));
+        return report(next, "redraw", "failed");
+      }
+      uploadName = "slip.jpg";
+    }
     if (previewRef.current) URL.revokeObjectURL(previewRef.current);
-    previewRef.current = URL.createObjectURL(next);
+    previewRef.current = URL.createObjectURL(copy);
     setPreview(previewRef.current);
     setFile(next);
-    setFileName(name);
+    setBody(copy);
+    setFileName(uploadName);
   }
 
   function send() {
-    if (!file) return;
-    // Failures the server never sees (direct storage upload, dropped requests) are reported for diagnostics.
-    const report = (stage: string, reason: string) =>
-      reportSlipClientFailure(orderNumber, {
-        stage,
-        reason,
-        size: file.size,
-        type: file.type,
-        ext: file.name.split(".").pop() ?? "",
-      }).catch(() => undefined);
-
+    if (!file || !body) return;
     startTransition(async () => {
       let stage = "request";
       try {
-        const target = await requestSlipUpload(orderNumber, { fileName, size: file.size });
+        const target = await requestSlipUpload(orderNumber, { fileName, size: body.size });
         if (!target.ok) return setError(t(`errors.${target.code}`));
-
-        // Read the bytes up front: an Android photo-picker file that is not really on the device
-        // fails here with a clear message instead of as a silent network error mid-upload.
-        stage = "read";
-        const contentType = file.type || "image/jpeg";
-        let body: Blob;
-        try {
-          body = new Blob([await file.arrayBuffer()], { type: contentType });
-        } catch (e) {
-          void report("read", e instanceof Error ? `${e.name}: ${e.message}` : String(e));
-          return setError(t("errors.unreadable"));
-        }
 
         stage = "upload";
         const { path } = target.data;
-        if (!(await uploadWithRetry(target.data, body, contentType, (reason) => report("upload", reason)))) {
+        if (!(await uploadWithRetry(target.data, body, body.type, (reason) => report(file, "upload", reason)))) {
           return setError(t("errors.ERROR"));
         }
 
@@ -143,7 +178,7 @@ export function SlipUpload({ orderNumber }: { orderNumber: string }) {
       } catch (e) {
         // A server action that never answered (network drop, function timeout) used to fail silently.
         setError(t("errors.ERROR"));
-        void report(stage, `exception: ${e instanceof Error ? e.message : String(e)}`);
+        report(file, stage, `exception: ${e instanceof Error ? e.message : String(e)}`);
       } finally {
         setChecking(false);
       }
@@ -162,8 +197,9 @@ export function SlipUpload({ orderNumber }: { orderNumber: string }) {
         accept={ACCEPT}
         className="sr-only"
         onChange={(e) => {
-          pick(e.target.files?.[0]);
-          e.target.value = "";
+          const input = e.currentTarget;
+          // Clear the input only after the bytes are copied, so the browser keeps the file handle meanwhile.
+          void pick(input.files?.[0]).finally(() => (input.value = ""));
         }}
       />
 
