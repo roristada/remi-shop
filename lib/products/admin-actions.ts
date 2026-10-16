@@ -473,7 +473,13 @@ const PER_OPTION_FIELDS: readonly BulkEditField[] = ["stock", "price", "discount
 /** Rich text appended after what a product has (both already sanitized HTML). */
 const appendHtml = (current: string | null, added: string) => (current ? `${current}${added}` : added);
 
-/** The writes for one validated field; `eligible` are the products it applies to. */
+/**
+ * The parsed value of one field. bulkEditProducts already validated it; parsing again would fail,
+ * because the schemas turn form strings into Dates and numbers.
+ */
+const bulkValue = <F extends BulkEditField>(_field: F, data: unknown) => data as z.output<(typeof bulkEditSchemas)[F]>;
+
+/** The writes for one validated field (the schema's output); `eligible` are the products it applies to. */
 function bulkWrites(
   field: BulkEditField,
   data: unknown,
@@ -482,7 +488,7 @@ function bulkWrites(
   const where = { id: { in: eligible.map((p) => p.id) } };
   switch (field) {
     case "description": {
-      const d = bulkEditSchemas.description.parse(data);
+      const d = bulkValue("description", data);
       const th = d.descriptionTH ? sanitizeRichText(d.descriptionTH) : null;
       const en = d.descriptionEN ? sanitizeRichText(d.descriptionEN) : null;
       if (d.mode === "replace") {
@@ -500,19 +506,19 @@ function bulkWrites(
       );
     }
     case "stock":
-      return [prisma.product.updateMany({ where, data: bulkEditSchemas.stock.parse(data) })];
+      return [prisma.product.updateMany({ where, data: bulkValue("stock", data) })];
     case "price":
-      return [prisma.product.updateMany({ where, data: bulkEditSchemas.price.parse(data) })];
+      return [prisma.product.updateMany({ where, data: bulkValue("price", data) })];
     case "discount": {
-      const d = bulkEditSchemas.discount.parse(data);
+      const d = bulkValue("discount", data);
       // No percent clears the whole discount, dates included.
       const values = d.discountPercent === null ? { discountPercent: null, discountStartAt: null, discountEndAt: null } : d;
       return [prisma.product.updateMany({ where, data: values })];
     }
     case "category":
-      return [prisma.product.updateMany({ where, data: bulkEditSchemas.category.parse(data) })];
+      return [prisma.product.updateMany({ where, data: bulkValue("category", data) })];
     case "software": {
-      const { mode, softwareTagIds } = bulkEditSchemas.software.parse(data);
+      const { mode, softwareTagIds } = bulkValue("software", data);
       const add = prisma.productSoftwareTag.createMany({
         data: eligible.flatMap((p) => softwareTagIds.map((softwareTagId) => ({ productId: p.id, softwareTagId }))),
         skipDuplicates: true,
@@ -521,7 +527,7 @@ function bulkWrites(
       return [prisma.productSoftwareTag.deleteMany({ where: { productId: where.id, softwareTagId: { notIn: softwareTagIds } } }), add];
     }
     case "salePeriod":
-      return [prisma.product.updateMany({ where, data: bulkEditSchemas.salePeriod.parse(data) })];
+      return [prisma.product.updateMany({ where, data: bulkValue("salePeriod", data) })];
   }
 }
 
@@ -548,7 +554,7 @@ export async function bulkEditProducts(productIds: string[], field: BulkEditFiel
     return fail(withOptions > 0 ? "สินค้าที่เลือกมีตัวเลือกทั้งหมด — ตั้งค่านี้แยกตามตัวเลือกในหน้าแก้ไขสินค้า" : "ไม่พบสินค้า");
   }
   if (field === "category") {
-    const { categoryId } = bulkEditSchemas.category.parse(parsed.data);
+    const { categoryId } = bulkValue("category", parsed.data);
     if (!(await categoryExists(categoryId))) return fail("ไม่พบหมวดหมู่", { categoryId: "ไม่พบหมวดหมู่" });
   }
 

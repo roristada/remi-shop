@@ -170,8 +170,11 @@ function BulkEditDialog({
           <DialogTitle>{title}</DialogTitle>
           {hint && <DialogDescription>{hint}</DialogDescription>}
         </DialogHeader>
-        <form onSubmit={onSubmit} className="max-h-[70vh] space-y-4 overflow-y-auto" noValidate>
-          <BulkFields field={field} options={options} errors={errors} />
+        <form onSubmit={onSubmit} className="space-y-4" noValidate>
+          {/* Only the fields scroll: the footer's negative margins inside a scroller add stray scrollbars. */}
+          <div className="max-h-[65vh] space-y-4 overflow-y-auto p-0.5">
+            <BulkFields field={field} options={options} errors={errors} />
+          </div>
           <DialogFooter>
             <Button type="button" variant="ghost" disabled={pending} onClick={onClose}>
               ยกเลิก
