@@ -35,6 +35,7 @@ export function HeaderCartButton({ hasSession }: { hasSession: boolean }) {
   const [added, setAdded] = useState<CartAddedDetail | null>(null);
   const [mode, setMode] = useState<Mode>("cart");
   const [open, setOpen] = useState(false);
+  const [bump, setBump] = useState(0);
   const [mini, setMini] = useState<MiniCart | null | undefined>(undefined);
   const [failed, setFailed] = useState(false);
   const timer = useRef<number | undefined>(undefined);
@@ -50,6 +51,7 @@ export function HeaderCartButton({ hasSession }: { hasSession: boolean }) {
       onCartAdded((detail) => {
         setAdded(detail);
         patchHeaderState({ cartCount: detail.count });
+        setBump((b) => b + 1);
         setMode("added");
         setOpen(true);
         window.clearTimeout(timer.current);
@@ -91,8 +93,10 @@ export function HeaderCartButton({ hasSession }: { hasSession: boolean }) {
           <ShoppingBag />
           {count > 0 && (
             <span
+              // Remounted after each add so the count pops (not on page load).
+              key={bump}
               aria-hidden
-              className="absolute top-1 right-1 grid h-4.5 min-w-4.5 place-items-center rounded-full bg-brand-strong px-1 text-[0.6875rem] leading-none font-semibold text-brand-strong-foreground tabular-nums"
+              className={`${bump > 0 ? "motion-pop " : ""}absolute top-1 right-1 grid h-4.5 min-w-4.5 place-items-center rounded-full bg-brand-strong px-1 text-[0.6875rem] leading-none font-semibold text-brand-strong-foreground tabular-nums`}
             >
               {count > 99 ? "99+" : count}
             </span>

@@ -186,7 +186,7 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
       />
 
       {banners.length === 0 && (
-        <section className="mx-auto max-w-6xl px-4 pt-14 pb-20">
+        <section className="motion-reveal mx-auto max-w-6xl px-4 pt-14 pb-20">
           <BannerSlot fallbackProducts={products} />
         </section>
       )}
@@ -213,7 +213,7 @@ function Shelf({
 }) {
   if (products.length === 0 && !always) return null;
   return (
-    <section aria-labelledby={id} className="mx-auto max-w-6xl space-y-5 px-4 pt-14">
+    <section aria-labelledby={id} className="motion-reveal mx-auto max-w-6xl space-y-5 px-4 pt-14">
       <div className="flex items-end justify-between gap-3">
         <div className="space-y-1">
           <h2 id={id} className="text-2xl sm:text-[1.75rem]">

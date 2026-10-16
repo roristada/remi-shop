@@ -24,6 +24,8 @@ export function WishlistButton({ productId, productSlug, initialWishlisted, size
   const router = useRouter();
   const [wishlisted, setWishlisted] = useState(initialWishlisted);
   const [pending, startTransition] = useTransition();
+  // Bumped when the heart turns on, so its pop animation runs again (remount via key).
+  const [popKey, setPopKey] = useState(0);
 
   function onToggle() {
     startTransition(async () => {
@@ -37,6 +39,7 @@ export function WishlistButton({ productId, productSlug, initialWishlisted, size
         return;
       }
       setWishlisted(result.wishlisted);
+      if (result.wishlisted) setPopKey((k) => k + 1);
       toast.success(result.wishlisted ? t("added") : t("removed"));
     });
   }
@@ -50,12 +53,19 @@ export function WishlistButton({ productId, productSlug, initialWishlisted, size
       disabled={pending}
       aria-pressed={wishlisted}
       aria-label={wishlisted ? t("remove") : t("add")}
-      className={cn("shrink-0 rounded-full", className)}
+      className={cn("relative shrink-0 rounded-full", className)}
     >
       {pending ? (
         <Loader2 className="animate-spin" aria-hidden />
       ) : (
-        <Heart className={wishlisted ? "fill-brand-strong text-brand-strong" : ""} aria-hidden />
+        <Heart
+          key={popKey}
+          className={cn(wishlisted && "fill-brand-strong text-brand-strong", popKey > 0 && wishlisted && "motion-pop")}
+          aria-hidden
+        />
+      )}
+      {popKey > 0 && wishlisted && !pending && (
+        <span key={`burst-${popKey}`} aria-hidden className="motion-burst pointer-events-none absolute inset-0 rounded-full ring-2 ring-brand-strong/60" />
       )}
     </Button>
   );

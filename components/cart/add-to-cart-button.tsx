@@ -60,7 +60,7 @@ export function AddToCartButton({ productId, variantId = null, productSlug, init
     return (
       <div className="space-y-1.5">
         <p className="flex items-center justify-center gap-1.5 text-sm font-medium" role="status">
-          <Check className="size-4 text-success" aria-hidden /> {t("add.inCart")}
+          <Check className="motion-pop size-4 text-success" aria-hidden /> {t("add.inCart")}
         </p>
         <Button asChild variant="outline" size="lg" className={`${BUTTON} bg-background`}>
           <Link href="/cart">{t("add.viewCart")}</Link>

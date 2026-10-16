@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { CircleCheck, Gift, ImageOff, Loader2, PartyPopper, Search } from "lucide-react";
 import { toast } from "sonner";
@@ -36,6 +36,7 @@ export function ClaimPanel({ winnerId, state, block, prizeValue, claimDeadline, 
   const money = (satang: number) => formatTHB(satang, intlLocale(locale).number);
   const [pending, startTransition] = useTransition();
   const [pendingKey, setPendingKey] = useState<string | null>(null);
+  useWinConfetti(state === "PENDING" ? winnerId : null);
 
   const claim = (substitute: { productId: string; variantId: string | null } | null, key: string) => {
     setPendingKey(key);
@@ -48,7 +49,10 @@ export function ClaimPanel({ winnerId, state, block, prizeValue, claimDeadline, 
   };
 
   return (
-    <section aria-labelledby="won-title" className="space-y-4 rounded-3xl border-2 border-primary bg-primary/10 p-5 sm:p-6">
+    <section
+      aria-labelledby="won-title"
+      className="space-y-4 rounded-3xl border-2 border-primary bg-primary/10 p-5 duration-500 animate-in fade-in zoom-in-95 motion-reduce:animate-none sm:p-6"
+    >
       <h2 id="won-title" className="flex items-center gap-2 text-lg font-semibold">
         <PartyPopper className="size-5 text-brand-strong" aria-hidden /> {t("won.title")}
       </h2>
@@ -105,6 +109,36 @@ export function ClaimPanel({ winnerId, state, block, prizeValue, claimDeadline, 
       )}
     </section>
   );
+}
+
+/** Brand-palette confetti, once per win on this device; skipped under reduced motion. Loaded only for winners. */
+function useWinConfetti(winnerId: string | null) {
+  useEffect(() => {
+    if (!winnerId || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const seenKey = `giveaway-confetti:${winnerId}`;
+    try {
+      if (localStorage.getItem(seenKey)) return;
+    } catch {
+      // Storage blocked: celebrate anyway.
+    }
+    let cancelled = false;
+    void import("canvas-confetti").then(({ default: confetti }) => {
+      if (cancelled) return;
+      try {
+        localStorage.setItem(seenKey, "1");
+      } catch {
+        // Not remembered; it may play again next visit.
+      }
+      const colors = ["#f5bfd4", "#def1f6", "#fff0b8", "#e4d9fb", "#b0426b"];
+      confetti({ particleCount: 90, spread: 75, startVelocity: 38, origin: { y: 0.35 }, colors, disableForReducedMotion: true });
+      window.setTimeout(() => {
+        if (!cancelled) confetti({ particleCount: 50, spread: 110, startVelocity: 28, origin: { y: 0.3 }, colors, disableForReducedMotion: true });
+      }, 250);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [winnerId]);
 }
 
 const keyOf = (o: SubstituteOption) => `${o.productId}:${o.variantId ?? ""}`;

@@ -375,3 +375,113 @@
     display: none;
   }
 }
+
+/* ───────────── Motion ─────────────
+   Short (150–600 ms), transform/opacity only, and off under prefers-reduced-motion. */
+
+/* Category icons: each illustration moves in its own way when its tile is hovered or focused. */
+.category-tile svg * {
+  transform-box: fill-box;
+}
+.cat-brush {
+  transform-origin: 50% 90%;
+}
+.cat-paint {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 0;
+}
+.cat-peel {
+  transform-origin: 100% 100%;
+}
+.cat-spark {
+  transform-origin: center;
+}
+.cat-bob {
+  transform-origin: center;
+}
+:is(a:hover, a:focus-visible) .cat-brush {
+  animation: cat-brush 600ms ease-out;
+}
+:is(a:hover, a:focus-visible) .cat-paint {
+  animation: cat-paint 600ms ease-out;
+}
+:is(a:hover, a:focus-visible) .cat-dash {
+  animation: cat-dash 700ms linear;
+}
+:is(a:hover, a:focus-visible) .cat-lift {
+  animation: cat-lift 450ms ease-out;
+}
+:is(a:hover, a:focus-visible) .cat-peel {
+  animation: cat-peel 550ms ease-out;
+}
+:is(a:hover, a:focus-visible) .cat-bob {
+  animation: cat-bob 500ms ease-out both;
+  animation-delay: var(--d, 0ms);
+}
+:is(a:hover, a:focus-visible) .cat-spark {
+  animation: cat-spark 550ms ease-out;
+}
+@keyframes cat-brush {
+  30% { transform: rotate(-12deg); }
+  65% { transform: rotate(6deg); }
+}
+@keyframes cat-paint {
+  from { stroke-dashoffset: 24; }
+}
+@keyframes cat-dash {
+  to { stroke-dashoffset: -11.6; }
+}
+@keyframes cat-lift {
+  40% { transform: translateY(-2px) scale(1.06); }
+}
+@keyframes cat-peel {
+  40% { transform: scale(1.35); }
+}
+@keyframes cat-bob {
+  40% { transform: translateY(-3px) scale(1.08); }
+}
+@keyframes cat-spark {
+  45% { transform: rotate(45deg) scale(1.25); }
+}
+
+/* A one-off "pop" (heart toggled on, cart count changed). Re-run by remounting the element (React key). */
+.motion-pop {
+  animation: motion-pop 360ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes motion-pop {
+  0% { transform: scale(0.6); }
+  60% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+/* Ring that bursts out of the heart when a product is wishlisted. */
+.motion-burst {
+  animation: motion-burst 500ms ease-out forwards;
+}
+@keyframes motion-burst {
+  from { opacity: 0.7; transform: scale(0.4); }
+  to { opacity: 0; transform: scale(1.6); }
+}
+
+/* Sections fade up as they scroll into view (browsers without scroll timelines just show them). */
+@supports (animation-timeline: view()) {
+  .motion-reveal {
+    animation: motion-reveal linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 35%;
+  }
+}
+@keyframes motion-reveal {
+  from { opacity: 0; transform: translateY(24px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .category-tile svg *,
+  .motion-pop,
+  .motion-burst,
+  .motion-reveal {
+    animation: none !important;
+  }
+  .motion-burst {
+    display: none;
+  }
+}

@@ -19,7 +19,7 @@ export function ProductCard({ product, priority = false }: { product: ProductCar
   const tCard = useTranslations("shop.card");
   const soldOut = isSoldOut(stock) || product.variantsSoldOut;
   return (
-    <article className="group relative flex w-full flex-col gap-3 rounded-3xl bg-card p-2 pb-3 shadow-soft ring-1 ring-foreground/5 transition-shadow duration-300 hover:shadow-md motion-reduce:transition-none">
+    <article className="group relative flex w-full flex-col gap-3 rounded-3xl bg-card p-2 pb-3 shadow-soft ring-1 ring-foreground/5 transition-[box-shadow,translate] duration-300 ease-out hover:-translate-y-1 hover:shadow-md motion-reduce:transition-none motion-reduce:hover:translate-y-0">
       <div className="relative aspect-square overflow-hidden rounded-2xl bg-muted">
         {product.image ? (
           <PreviewImage
