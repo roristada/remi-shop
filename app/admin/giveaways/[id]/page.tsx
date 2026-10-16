@@ -36,6 +36,16 @@ const WINNER_LABEL: Record<WinnerState, string> = {
   FORFEITED: "สละสิทธิ์ (สุ่มแทนแล้ว)",
 };
 
+/** After the draw: why slots are open (missed deadlines vs. too few entrants) and whether a redraw can fill them. */
+function drawnSummary(slots: number, expired: number, drawable: number): string {
+  if (slots === 0) return "ผู้ชนะยืนยันรับครบแล้ว หรือยังอยู่ในเวลายืนยัน";
+  const parts: string[] = [];
+  if (expired > 0) parts.push(`ผู้ชนะ ${expired} คนไม่ยืนยันรับภายใน 7 วัน`);
+  if (slots > expired) parts.push(`อีก ${slots - expired} รางวัลยังไม่มีผู้ได้รับ`);
+  parts.push(drawable > 0 ? `สุ่มแทนได้จากผู้ลงทะเบียนที่เหลือ ${drawable} คน` : "ไม่มีผู้ลงทะเบียนเหลือให้สุ่ม");
+  return parts.join(" · ");
+}
+
 export default async function EditGiveawayPage({ params, searchParams }: PageProps<"/admin/giveaways/[id]">) {
   await requireAdmin();
   const { id } = await params;
@@ -63,6 +73,7 @@ export default async function EditGiveawayPage({ params, searchParams }: PagePro
       ),
     0,
   );
+  const expired = winners.filter((w) => winnerState(w, now) === "EXPIRED").length;
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -92,14 +103,12 @@ export default async function EditGiveawayPage({ params, searchParams }: PagePro
             <div>
               <h2 className="font-semibold">ผลการสุ่ม</h2>
               <p className="text-sm text-muted-foreground">
-                {phase === "CLOSED"
-                  ? `ปิดลงทะเบียนแล้ว · พร้อมสุ่ม ${slots} รางวัลจากผู้ลงทะเบียน ${drawable} คน`
-                  : slots > 0
-                    ? `มี ${slots} รางวัลที่ต้องสุ่มแทน (ผู้ชนะไม่ยืนยันรับภายใน 7 วัน)`
-                    : "ผู้ชนะยืนยันรับครบแล้ว หรือยังอยู่ในเวลายืนยัน"}
+                {phase === "CLOSED" ? `ปิดลงทะเบียนแล้ว · พร้อมสุ่ม ${slots} รางวัลจากผู้ลงทะเบียน ${drawable} คน` : drawnSummary(slots, expired, drawable)}
               </p>
             </div>
-            {(phase === "CLOSED" || slots > 0) && <DrawButton id={g.id} redraw={phase === "DRAWN"} slots={slots} candidates={drawable} />}
+            {(phase === "CLOSED" || (slots > 0 && drawable > 0)) && (
+              <DrawButton id={g.id} redraw={phase === "DRAWN"} slots={slots} candidates={drawable} />
+            )}
           </div>
           {winners.length > 0 && (
             <div className="overflow-x-auto">

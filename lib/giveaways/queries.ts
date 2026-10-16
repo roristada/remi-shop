@@ -117,9 +117,13 @@ export async function getPublicGiveaway(slug: string, locale: string, userId: st
   ]);
 
   const fallbackName = locale === "en" ? "Customer" : "ลูกค้า";
+  const prizeLabel = (id: string) => {
+    const p = prizeById.get(id);
+    return p ? (p.variantName ? `${p.name} · ${p.variantName}` : p.name) : "";
+  };
   const winners = winnerRows.map((w) => ({
     id: w.id,
-    prizeName: prizeById.get(w.prizeId)?.name ?? "",
+    prizeName: prizeLabel(w.prizeId),
     name: maskWinnerName(entrantName(w.entry.user.displayName, w.entry.user.email), fallbackName),
     state: winnerState(w, now),
   }));
