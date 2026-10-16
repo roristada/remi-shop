@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { useTranslations } from "next-intl";
 import { Download as DownloadIcon, Loader2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { InAppBrowserNotice } from "@/components/downloads/in-app-browser-notice";
 
 /** A selectable product (or order line) with the file ids "download all" fetches for it. */
 export type BulkItem = { id: string; fileIds: string[] };
@@ -106,6 +107,7 @@ export function BulkDownloadProvider({
 
   return (
     <BulkSelectionContext.Provider value={{ enabled, selected, toggle }}>
+      <InAppBrowserNotice />
       {enabled && (
         <div className="space-y-2 rounded-3xl border bg-background/80 p-4 sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">

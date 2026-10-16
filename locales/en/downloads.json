@@ -23,5 +23,13 @@
     "done": "Started {count, plural, one {# download} other {# downloads}}",
     "failed": "{count, plural, one {# file} other {# files}} failed. Please download them one by one",
     "hint": "Downloads each file separately. If your browser asks, allow multiple downloads"
+  },
+  "inAppBrowser": {
+    "title": "You are browsing inside an app (e.g. Facebook / Messenger), which can’t download files",
+    "hintAndroid": "Please open this page in Chrome before downloading: tap the button below, or tap ⋮ at the top right and choose \"Open in browser\".",
+    "hintIos": "Please open this page in Safari before downloading: tap ⋯ at the top right and choose \"Open in external browser\", or copy the link and paste it into Safari.",
+    "openInChrome": "Open in Chrome",
+    "copyLink": "Copy link",
+    "copied": "Copied"
   }
 }
