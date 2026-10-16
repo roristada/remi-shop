@@ -96,10 +96,10 @@ export async function getOrderReviewStates(
 const ADMIN_PAGE_SIZE = 20;
 
 /** Admin moderation list. Text search is case-insensitive over product, reviewer and review text. */
-export async function listReviewsForAdmin({ q, rating, visibility, page }: AdminReviewFilters) {
+export async function listReviewsForAdmin({ q, ratings, visibility, page }: AdminReviewFilters) {
   const where: Prisma.ReviewWhereInput = {
     ...(visibility === "hidden" ? { isHidden: true } : visibility === "visible" ? { isHidden: false } : {}),
-    ...(rating ? { rating } : {}),
+    ...(ratings.length > 0 ? { rating: { in: ratings } } : {}),
     ...(q
       ? {
           OR: [

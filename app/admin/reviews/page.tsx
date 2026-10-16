@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SelectInput } from "@/components/admin/form-controls";
+import { MultiSelectFilter } from "@/components/admin/multi-select-filter";
 import { adminReviewFilterParams, parseAdminReviewFilters } from "@/lib/reviews/rules";
 import { Pagination } from "@/components/shared/pagination";
 import { ReviewVisibilityButton } from "@/components/admin/review-visibility-button";
@@ -15,7 +16,7 @@ export default async function AdminReviewsPage({ searchParams }: PageProps<"/adm
   await requireAdmin();
   const filters = parseAdminReviewFilters(await searchParams);
   const { rows, total, pageCount } = await listReviewsForAdmin(filters);
-  const filtered = Boolean(filters.q || filters.rating || filters.visibility !== "all");
+  const filtered = Boolean(filters.q || filters.ratings.length > 0 || filters.visibility !== "all");
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -40,16 +41,13 @@ export default async function AdminReviewsPage({ searchParams }: PageProps<"/adm
           />
         </label>
         {/* "all" is a sentinel: it fails validation, i.e. "no filter". */}
-        <SelectInput
+        <MultiSelectFilter
           label="คะแนน"
-          hideLabel
+          allLabel="ทุกคะแนน"
           name="rating"
-          defaultValue={filters.rating ? String(filters.rating) : "all"}
-          options={[
-            { value: "all", label: "ทุกคะแนน" },
-            ...[5, 4, 3, 2, 1].map((n) => ({ value: String(n), label: `${n} ดาว` })),
-          ]}
-          wrapperClassName="w-36 space-y-0"
+          defaultValue={filters.ratings.map(String)}
+          options={[5, 4, 3, 2, 1].map((n) => ({ value: String(n), label: `${n} ดาว` }))}
+          className="w-36"
         />
         <SelectInput
           label="การแสดงผล"

@@ -8,11 +8,25 @@ export const ADMIN_ORDERS_PAGE_SIZE = 20;
 /** Hard cap for one CSV download; narrow the date range for more. */
 export const ORDER_EXPORT_LIMIT = 5000;
 
+/** Orders with a line (or a license) for a product in any of the folders; "none" = a product in no folder. */
+function folderWhere(folders: string[]): Prisma.OrderWhereInput {
+  const ids = folders.filter((f) => f !== "none");
+  const product: Prisma.ProductWhereInput = {
+    OR: [...(ids.length > 0 ? [{ folderId: { in: ids } }] : []), ...(folders.includes("none") ? [{ folderId: null }] : [])],
+  };
+  return { OR: [{ items: { some: { product } } }, { licenseRequest: { product } }] };
+}
+
 function orderWhere(f: AdminOrderFilters): Prisma.OrderWhereInput {
+  const and: Prisma.OrderWhereInput[] = [];
+  if (f.delivery) and.push({ items: { some: lineWithoutFilesWhere() } });
+  if (f.folders.length > 0) and.push(folderWhere(f.folders));
+  // Under AND so it narrows a picked status list instead of replacing it.
+  if (f.delivery === "emailPending") and.push({ status: "COMPLETED", filesEmailedAt: null });
   return {
-    ...(f.status ? { status: f.status } : {}),
-    ...(f.delivery ? { kind: "PRODUCT" as const, AND: [{ items: { some: lineWithoutFilesWhere() } }] } : {}),
-    ...(f.delivery === "emailPending" ? { status: "COMPLETED" as const, filesEmailedAt: null } : {}),
+    ...(f.statuses.length > 0 ? { status: { in: f.statuses } } : {}),
+    ...(f.delivery ? { kind: "PRODUCT" as const } : {}),
+    ...(and.length > 0 ? { AND: and } : {}),
     ...(f.delivery === "emailSent" ? { filesEmailedAt: { not: null } } : {}),
     ...(f.from || f.to ? { createdAt: { ...(f.from ? { gte: f.from } : {}), ...(f.to ? { lte: f.to } : {}) } } : {}),
     ...(f.q

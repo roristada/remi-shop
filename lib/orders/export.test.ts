@@ -24,14 +24,22 @@ test("toCsv starts with a BOM and uses CRLF rows", () => {
 
 test("parseAdminOrderFilters reads Bangkok day bounds and ignores junk", () => {
   const f = parseAdminOrderFilters({ status: "COMPLETED", q: "  RS26 ", from: "2026-09-01", to: "2026-09-30", page: "2" });
-  assert.equal(f.status, "COMPLETED");
+  assert.deepEqual(f.statuses, ["COMPLETED"]);
   assert.equal(f.q, "RS26");
   assert.equal(f.from?.toISOString(), "2026-08-31T17:00:00.000Z");
   assert.equal(f.to?.toISOString(), "2026-09-30T16:59:59.999Z");
   assert.equal(f.page, 2);
 
   const bad = parseAdminOrderFilters({ status: "HACKED", from: "yesterday", page: "-4" });
-  assert.equal(bad.status, undefined);
+  assert.deepEqual(bad.statuses, []);
   assert.equal(bad.from, undefined);
   assert.equal(bad.page, 1);
+});
+
+test("parseAdminOrderFilters reads several statuses and folders, dropping junk", () => {
+  const id = "0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b";
+  const f = parseAdminOrderFilters({ status: ["WAITING_REVIEW", "HACKED", "PENDING_PAYMENT"], folder: [id, "none", "x' OR 1=1"] });
+  assert.deepEqual(f.statuses, ["WAITING_REVIEW", "PENDING_PAYMENT"]);
+  assert.deepEqual(f.folders, [id, "none"]);
+  assert.deepEqual(parseAdminOrderFilters({ folder: "all" }).folders, []);
 });

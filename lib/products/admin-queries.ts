@@ -9,7 +9,8 @@ export const ADMIN_PAGE_SIZE = 20;
 
 export type AdminProductFilters = {
   q?: string;
-  categoryId?: string;
+  /** Any of these categories; empty = all. */
+  categoryIds: string[];
   publishStatus?: PublishStatus;
   /** A folder id, or "none" for products in no folder. */
   folder?: string;
@@ -19,9 +20,9 @@ export type AdminProductFilters = {
   page: number;
 };
 
-export async function listAdminProducts({ q, categoryId, publishStatus, folder, delivery, sort, page }: AdminProductFilters) {
+export async function listAdminProducts({ q, categoryIds, publishStatus, folder, delivery, sort, page }: AdminProductFilters) {
   const where: Prisma.ProductWhereInput = {
-    ...(categoryId ? { categoryId } : {}),
+    ...(categoryIds.length > 0 ? { categoryId: { in: categoryIds } } : {}),
     ...(folder ? { folderId: folder === "none" ? null : folder } : {}),
     ...(publishStatus ? { publishStatus } : {}),
     // Both this and the search use OR, so this one is nested under AND.

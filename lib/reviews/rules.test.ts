@@ -58,19 +58,23 @@ test("reviewerName shows a first name only", () => {
 });
 
 test("parseAdminReviewFilters: defaults and valid values", () => {
-  assert.deepEqual(parseAdminReviewFilters({}), { q: undefined, rating: undefined, visibility: "all", page: 1 });
+  assert.deepEqual(parseAdminReviewFilters({}), { q: undefined, ratings: [], visibility: "all", page: 1 });
   assert.deepEqual(parseAdminReviewFilters({ q: "  brush ", rating: "4", visibility: "visible", page: "2" }), {
     q: "brush",
-    rating: 4,
+    ratings: [4],
     visibility: "visible",
     page: 2,
   });
 });
 
+test("parseAdminReviewFilters: several ratings at once", () => {
+  assert.deepEqual(parseAdminReviewFilters({ rating: ["1", "2", "9"] }).ratings, [1, 2]);
+});
+
 test("parseAdminReviewFilters: rejects bad values and keeps the old ?filter=hidden link", () => {
   assert.deepEqual(parseAdminReviewFilters({ rating: "6", visibility: "x", page: "-1" }), {
     q: undefined,
-    rating: undefined,
+    ratings: [],
     visibility: "all",
     page: 1,
   });
@@ -82,7 +86,7 @@ test("adminReviewFilterParams omits defaults", () => {
   assert.deepEqual(adminReviewFilterParams(parseAdminReviewFilters({})), { q: undefined, rating: undefined, visibility: undefined });
   assert.deepEqual(adminReviewFilterParams(parseAdminReviewFilters({ rating: "1", visibility: "hidden" })), {
     q: undefined,
-    rating: "1",
+    rating: ["1"],
     visibility: "hidden",
   });
 });

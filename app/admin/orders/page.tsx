@@ -4,6 +4,7 @@ import { Download, Mail, Search } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/guards";
 import { formatBangkokDateTime } from "@/lib/datetime";
 import { formatTHB, toHundredths } from "@/lib/pricing/calculate";
+import { listFolderOptions } from "@/lib/products/admin-queries";
 import { listAdminOrders, orderLines, ORDER_EXPORT_LIMIT, type AdminOrderListRow } from "@/lib/orders/admin-queries";
 import { adminOrderParams, ORDER_STATUSES, ORDER_STATUS_LABEL_TH, parseAdminOrderFilters } from "@/lib/orders/export";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +14,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { previewImageSrc } from "@/lib/storage/public-url";
 import { Pagination } from "@/components/shared/pagination";
 import { SelectInput } from "@/components/admin/form-controls";
+import { MultiSelectFilter } from "@/components/admin/multi-select-filter";
+import { toQueryString } from "@/lib/search-params";
 import { ORDER_STATUS_STYLES } from "@/components/cart/order-status-badge";
 import { cn } from "@/lib/utils";
 import { lineHasFiles } from "@/lib/downloads/rules";
@@ -81,11 +84,11 @@ export default async function AdminOrdersPage({ searchParams }: PageProps<"/admi
   const sp = await searchParams;
   const filters = parseAdminOrderFilters(sp);
   const params = adminOrderParams(sp);
-  const { rows, total, pageCount } = await listAdminOrders(filters);
-  const exportQuery = new URLSearchParams(
-    Object.entries(params).filter((e): e is [string, string] => Boolean(e[1])),
-  ).toString();
-  const filtered = Boolean(filters.status || filters.q || filters.from || filters.to || filters.delivery);
+  const [{ rows, total, pageCount }, folders] = await Promise.all([listAdminOrders(filters), listFolderOptions()]);
+  const exportQuery = toQueryString(params);
+  const filtered = Boolean(
+    filters.statuses.length > 0 || filters.q || filters.from || filters.to || filters.delivery || filters.folders.length > 0,
+  );
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -111,13 +114,13 @@ export default async function AdminOrdersPage({ searchParams }: PageProps<"/admi
           <Input name="q" defaultValue={params.q} placeholder="เลขที่คำสั่งซื้อ อีเมล หรือชื่อสินค้า" className="h-10 rounded-xl pl-9" />
         </label>
         {/* "all" is a sentinel: it fails validation, i.e. "no filter". */}
-        <SelectInput
+        <MultiSelectFilter
           label="สถานะ"
-          hideLabel
+          allLabel="ทุกสถานะ"
           name="status"
-          defaultValue={filters.status ?? "all"}
-          options={[{ value: "all", label: "ทุกสถานะ" }, ...ORDER_STATUSES.map((s) => ({ value: s, label: ORDER_STATUS_LABEL_TH[s] }))]}
-          wrapperClassName="w-40 space-y-0"
+          defaultValue={filters.statuses}
+          options={ORDER_STATUSES.map((s) => ({ value: s, label: ORDER_STATUS_LABEL_TH[s] }))}
+          className="w-44"
         />
         <SelectInput
           label="การส่งไฟล์"
@@ -126,11 +129,19 @@ export default async function AdminOrdersPage({ searchParams }: PageProps<"/admi
           defaultValue={filters.delivery ?? "all"}
           options={[
             { value: "all", label: "ทุกการส่งไฟล์" },
-            { value: "email", label: "มีไฟล์ส่งทางอีเมล" },
-            { value: "emailPending", label: "รอส่งไฟล์ทางอีเมล" },
+            { value: "email", label: "ออเดอร์ส่งไฟล์ทางอีเมล (ทั้งหมด)" },
+            { value: "emailPending", label: "ชำระแล้ว · รอส่งไฟล์ทางอีเมล" },
             { value: "emailSent", label: "ส่งไฟล์ทางอีเมลแล้ว" },
           ]}
-          wrapperClassName="w-48 space-y-0"
+          wrapperClassName="w-60 space-y-0"
+        />
+        <MultiSelectFilter
+          label="โฟลเดอร์"
+          allLabel="ทุกโฟลเดอร์"
+          name="folder"
+          defaultValue={filters.folders}
+          options={[...folders.map((f) => ({ value: f.id, label: f.nameTH })), { value: "none", label: "ไม่มีโฟลเดอร์" }]}
+          className="w-48"
         />
         <label className="flex flex-col gap-1 text-xs text-muted-foreground">
           ตั้งแต่วันที่

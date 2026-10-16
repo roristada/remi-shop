@@ -1,4 +1,5 @@
 import type { OrderStatus } from "@/lib/generated/prisma/enums";
+import { isUuid, manyParam, oneParam as one, type SearchParams } from "@/lib/search-params";
 
 // Pure helpers for the admin order list and its CSV export (no DB).
 
@@ -22,7 +23,8 @@ export const DELIVERY_FILTERS = ["email", "emailPending", "emailSent"] as const;
 export type DeliveryFilter = (typeof DELIVERY_FILTERS)[number];
 
 export type AdminOrderFilters = {
-  status?: OrderStatus;
+  /** Any of these statuses; empty = all. */
+  statuses: OrderStatus[];
   /** Order number or customer email (contains, case-insensitive). */
   q?: string;
   /** Inclusive bounds of the Bangkok calendar days picked in the form. */
@@ -33,13 +35,15 @@ export type AdminOrderFilters = {
    * "emailPending" / "emailSent": of those, paid ones not yet / already marked as emailed.
    */
   delivery?: DeliveryFilter;
+  /** Folder ids: orders with a product currently filed in any of them ("none": a product in no folder). Empty = all. */
+  folders: string[];
   page: number;
 };
 
-type SearchParams = Record<string, string | string[] | undefined>;
-
-const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+const isOrderStatus = (v: string): v is OrderStatus => (ORDER_STATUSES as readonly string[]).includes(v);
+const isFolderFilter = (v: string): v is string => v === "none" || isUuid(v);
 
 /** `<input type="date">` value as the start or end of that day in Asia/Bangkok. */
 function bangkokDay(value: string | undefined, edge: "start" | "end"): Date | undefined {
@@ -49,17 +53,25 @@ function bangkokDay(value: string | undefined, edge: "start" | "end"): Date | un
 }
 
 export function parseAdminOrderFilters(sp: SearchParams): AdminOrderFilters {
-  const status = ORDER_STATUSES.find((s) => s === one(sp.status));
+  const statuses = manyParam(sp.status, isOrderStatus);
   const q = one(sp.q)?.trim().slice(0, 100) || undefined;
   const page = Math.max(1, Math.min(10_000, Number.parseInt(one(sp.page) ?? "1", 10) || 1));
   const delivery = DELIVERY_FILTERS.find((d) => d === one(sp.delivery));
-  return { status, q, from: bangkokDay(one(sp.from), "start"), to: bangkokDay(one(sp.to), "end"), delivery, page };
+  const folders = manyParam(sp.folder, isFolderFilter);
+  return { statuses, q, from: bangkokDay(one(sp.from), "start"), to: bangkokDay(one(sp.to), "end"), delivery, folders, page };
 }
 
 /** Filters as query params (for pagination and the export link). */
-export function adminOrderParams(sp: SearchParams): Record<string, string | undefined> {
+export function adminOrderParams(sp: SearchParams): Record<string, string | string[] | undefined> {
   const keep = (k: string) => one(sp[k]) || undefined;
-  return { status: keep("status"), q: keep("q"), from: keep("from"), to: keep("to"), delivery: keep("delivery") };
+  return {
+    status: manyParam(sp.status, isOrderStatus),
+    q: keep("q"),
+    from: keep("from"),
+    to: keep("to"),
+    delivery: keep("delivery"),
+    folder: manyParam(sp.folder, isFolderFilter),
+  };
 }
 
 const FORMULA_START = /^[=+\-@\t\r]/;

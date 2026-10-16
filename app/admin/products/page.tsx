@@ -10,6 +10,8 @@ import { calculateProductPrice, formatTHB } from "@/lib/pricing/calculate";
 import { formatBangkokDateTime } from "@/lib/datetime";
 import { previewImageSrc } from "@/lib/storage/public-url";
 import { idSchema } from "@/lib/validation/product";
+import { isUuid, manyParam, toQueryString } from "@/lib/search-params";
+import { MultiSelectFilter } from "@/components/admin/multi-select-filter";
 import { lineHasFiles } from "@/lib/downloads/rules";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,7 +52,7 @@ export default async function AdminProductsPage({ searchParams }: PageProps<"/ad
 
   // Filters come from the URL — validate before they reach the query.
   const q = one(sp.q)?.trim().slice(0, 100) || undefined;
-  const categoryId = idSchema.safeParse(one(sp.category)).success ? one(sp.category) : undefined;
+  const categoryIds = manyParam(sp.category, isUuid);
   const status = PUBLISH_FILTERS.find((f) => f.value === one(sp.status))?.value;
   const view: ProductListView = one(sp.view) === "grid" ? "grid" : "list";
   const page = Math.max(1, Math.min(10_000, Number.parseInt(one(sp.page) ?? "1", 10) || 1));
@@ -62,7 +64,7 @@ export default async function AdminProductsPage({ searchParams }: PageProps<"/ad
   const folderPanelCollapsed = (await cookies()).get(FOLDER_PANEL_COOKIE)?.value === "collapsed";
 
   const [{ items, total, pageCount }, categories, folderCounts, softwareTags] = await Promise.all([
-    listAdminProducts({ q, categoryId, publishStatus: status, folder, delivery, sort, page }),
+    listAdminProducts({ q, categoryIds, publishStatus: status, folder, delivery, sort, page }),
     listCategoryOptions(),
     listFolderCounts(),
     listSoftwareTagOptions(),
@@ -70,7 +72,7 @@ export default async function AdminProductsPage({ searchParams }: PageProps<"/ad
   const now = new Date();
   const params = {
     q,
-    category: categoryId,
+    category: categoryIds,
     status,
     folder,
     delivery,
@@ -115,9 +117,7 @@ export default async function AdminProductsPage({ searchParams }: PageProps<"/ad
   });
 
   const hrefWith = (patch: Partial<typeof params>) => {
-    const qs = new URLSearchParams();
-    for (const [k, val] of Object.entries({ ...params, ...patch })) if (val) qs.set(k, val);
-    const str = qs.toString();
+    const str = toQueryString({ ...params, ...patch });
     return str ? `/admin/products?${str}` : "/admin/products";
   };
   const viewHref = (v: ProductListView) => hrefWith({ view: v === "grid" ? v : undefined });
@@ -212,13 +212,13 @@ export default async function AdminProductsPage({ searchParams }: PageProps<"/ad
             <Input name="q" defaultValue={q} placeholder="ค้นหาชื่อหรือ slug" className="h-10 rounded-xl pl-9" />
           </label>
           {/* "all" is a sentinel: it fails the validation above, i.e. "no filter". */}
-          <SelectInput
+          <MultiSelectFilter
             label="หมวดหมู่"
-            hideLabel
+            allLabel="ทุกหมวดหมู่"
             name="category"
-            defaultValue={categoryId ?? "all"}
-            options={[{ value: "all", label: "ทุกหมวดหมู่" }, ...categories.map((c) => ({ value: c.id, label: c.nameTH }))]}
-            wrapperClassName="w-44 space-y-0"
+            defaultValue={categoryIds}
+            options={categories.map((c) => ({ value: c.id, label: c.nameTH }))}
+            className="w-44"
           />
           <SelectInput
             label="สถานะ"
@@ -271,7 +271,7 @@ export default async function AdminProductsPage({ searchParams }: PageProps<"/ad
           <div className="rounded-2xl border border-dashed bg-card p-12 text-center">
             <p className="font-medium">ไม่พบสินค้า</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              {q || categoryId || status || delivery ? "ลองเปลี่ยนตัวกรอง" : "เริ่มจากเพิ่มสินค้าชิ้นแรก"}
+              {q || categoryIds.length > 0 || status || delivery ? "ลองเปลี่ยนตัวกรอง" : "เริ่มจากเพิ่มสินค้าชิ้นแรก"}
             </p>
           </div>
         ) : (

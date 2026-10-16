@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { formatBangkokDateTime } from "@/lib/datetime";
 import { listOrdersForExport, orderLines } from "@/lib/orders/admin-queries";
 import { ORDER_STATUS_LABEL_TH, parseAdminOrderFilters, toCsv } from "@/lib/orders/export";
+import { toSearchParams } from "@/lib/search-params";
 import { toHundredths } from "@/lib/pricing/calculate";
 
 const HEADER = [
@@ -24,7 +25,7 @@ const baht = (v: { toString(): string }) => toHundredths(v) / 100;
 /** CSV of the orders matching the admin list filters: one row per product in each order. */
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin();
-  const sp = Object.fromEntries(request.nextUrl.searchParams);
+  const sp = toSearchParams(request.nextUrl.searchParams);
   const orders = await listOrdersForExport(parseAdminOrderFilters(sp));
 
   const rows = orders.flatMap((o) => {
