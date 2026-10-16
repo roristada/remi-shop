@@ -161,6 +161,8 @@ enum NotificationType {
   ADMIN_LICENSE_RESPONDED
   REVIEW_REMINDER
   PRODUCT_AVAILABLE
+  /// Drawn as a giveaway winner; must claim before the deadline.
+  GIVEAWAY_WON
 }
 
 // ───────────────────────────── Users ─────────────────────────────
@@ -186,6 +188,7 @@ model Profile {
   reviews          Review[]
   notifications    Notification[]
   waitlist         WaitlistEntry[]
+  giveawayEntries  GiveawayEntry[]
 
   @@map("profiles")
 }
@@ -306,6 +309,7 @@ model Product {
   softwareTags    ProductSoftwareTag[]
   reviews         Review[]
   variants        ProductVariant[]
+  giveawayPrizes  GiveawayPrize[]
 
   @@index([categoryId])
   @@index([folderId, folderSortOrder])
@@ -391,10 +395,11 @@ model ProductVariant {
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  product    Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
-  files      ProductVersionFile[]
-  cartItems  CartItem[]
-  orderItems OrderItem[]
+  product        Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+  files          ProductVersionFile[]
+  cartItems      CartItem[]
+  orderItems     OrderItem[]
+  giveawayPrizes GiveawayPrize[]
 
   @@index([productId, sortOrder])
   @@map("product_variants")
@@ -582,6 +587,8 @@ model Order {
   downloads      Download[]
   licenseRequest LicenseRequest?
   adminNote      OrderAdminNote?
+  /// Set when this 0-baht order delivered a giveaway prize.
+  giveawayWinner GiveawayWinner?
 
   @@index([userId, createdAt(sort: Desc)])
   @@index([status, createdAt(sort: Desc)])
@@ -1018,6 +1025,101 @@ model Review {
   @@index([userId])
   @@index([isHidden, createdAt(sort: Desc)])
   @@map("reviews")
+}
+
+// ──────────────────────────── Giveaways ────────────────────────────
+
+/// A prize draw: signed-in customers register (free, one entry each) between startsAt and endsAt,
+/// then the admin draws winners. Phase is derived (lib/giveaways/rules.ts), never stored.
+model Giveaway {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  slug          String    @unique
+  titleTH       String    @map("title_th")
+  titleEN       String    @map("title_en")
+  descriptionTH String    @default("") @map("description_th")
+  descriptionEN String    @default("") @map("description_en")
+  /// Object key inside `product-previews` (public).
+  imagePath     String?   @map("image_path")
+  startsAt      DateTime  @map("starts_at") @db.Timestamptz(6)
+  endsAt        DateTime  @map("ends_at") @db.Timestamptz(6)
+  /// false = draft, visible to the admin only.
+  isPublished   Boolean   @default(false) @map("is_published")
+  /// First draw. Prizes are locked from then on.
+  drawnAt       DateTime? @map("drawn_at") @db.Timestamptz(6)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  prizes  GiveawayPrize[]
+  entries GiveawayEntry[]
+  winners GiveawayWinner[]
+
+  @@index([isPublished, endsAt])
+  @@map("giveaways")
+}
+
+/// One prize line: a product (or one of its variants) given to `winnerCount` winners.
+model GiveawayPrize {
+  id          String  @id @default(uuid(7)) @db.Uuid
+  giveawayId  String  @map("giveaway_id") @db.Uuid
+  productId   String  @map("product_id") @db.Uuid
+  variantId   String? @map("variant_id") @db.Uuid
+  winnerCount Int     @default(1) @map("winner_count")
+  sortOrder   Int     @default(0) @map("sort_order")
+
+  giveaway Giveaway         @relation(fields: [giveawayId], references: [id], onDelete: Cascade)
+  /// Restrict: a product used as a prize cannot be hard-deleted.
+  product  Product          @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variant  ProductVariant?  @relation(fields: [variantId], references: [id], onDelete: Restrict)
+  winners  GiveawayWinner[]
+
+  @@index([giveawayId, sortOrder])
+  @@index([productId])
+  @@index([variantId])
+  @@map("giveaway_prizes")
+}
+
+/// A customer's registration. One per customer per giveaway.
+model GiveawayEntry {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  giveawayId     String    @map("giveaway_id") @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// Removed from the draw by the admin (rule breaking); the row is kept as a record.
+  disqualifiedAt DateTime? @map("disqualified_at") @db.Timestamptz(6)
+
+  giveaway Giveaway        @relation(fields: [giveawayId], references: [id], onDelete: Cascade)
+  user     Profile         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  winner   GiveawayWinner?
+
+  @@unique([giveawayId, userId])
+  @@index([userId])
+  @@map("giveaway_entries")
+}
+
+/// A drawn winner. Kept after a forfeit as the draw's record; one win per entry, so one prize per customer.
+model GiveawayWinner {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  giveawayId    String    @map("giveaway_id") @db.Uuid
+  prizeId       String    @map("prize_id") @db.Uuid
+  entryId       String    @unique @map("entry_id") @db.Uuid
+  /// The prize's regular price when drawn: the most a substitute product may cost.
+  prizeValue    Decimal   @map("prize_value") @db.Decimal(10, 2)
+  drawnAt       DateTime  @map("drawn_at") @db.Timestamptz(6)
+  claimDeadline DateTime  @map("claim_deadline") @db.Timestamptz(6)
+  claimedAt     DateTime? @map("claimed_at") @db.Timestamptz(6)
+  /// Set when the admin redrew this slot after the deadline passed unclaimed.
+  forfeitedAt   DateTime? @map("forfeited_at") @db.Timestamptz(6)
+  /// The 0-baht order that delivered the prize (or the substitute the winner picked).
+  orderId       String?   @unique @map("order_id") @db.Uuid
+
+  giveaway Giveaway      @relation(fields: [giveawayId], references: [id], onDelete: Cascade)
+  prize    GiveawayPrize @relation(fields: [prizeId], references: [id], onDelete: Cascade)
+  entry    GiveawayEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  order    Order?        @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([giveawayId, drawnAt])
+  @@index([prizeId])
+  @@map("giveaway_winners")
 }
 
 // ──────────────────────────── Notifications ────────────────────────────

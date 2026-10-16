@@ -18,6 +18,8 @@ export type NotificationParams = {
   update?: string;
   /** License notifications: which request the link opens. */
   requestId?: string;
+  /** GIVEAWAY_WON: the giveaway page the winner claims on. */
+  giveawaySlug?: string;
 };
 
 const PARAM_KEYS = [
@@ -31,6 +33,7 @@ const PARAM_KEYS = [
   "productSlug",
   "update",
   "requestId",
+  "giveawaySlug",
 ] as const;
 
 /** Reads a stored params value defensively: unknown keys and non-strings are dropped. */
@@ -74,6 +77,10 @@ export function notificationTarget(
       return params.productSlug
         ? { path: `/product/${encodeURIComponent(params.productSlug)}`, localized: true }
         : { path: "/shop", localized: true };
+    case "GIVEAWAY_WON":
+      return params.giveawaySlug
+        ? { path: `/giveaways/${encodeURIComponent(params.giveawaySlug)}`, localized: true }
+        : { path: "/giveaways", localized: true };
     case "LICENSE_APPROVED":
     case "LICENSE_REJECTED":
     case "LICENSE_CHANGES_REQUESTED":

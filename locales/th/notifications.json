@@ -21,6 +21,7 @@
     "PRODUCT_AVAILABLE": "{product} เปิดขายแล้ว สั่งซื้อได้เลย",
     "PRODUCT_FILES_UPDATED": "{product} อัปเดตไฟล์แล้ว ดาวน์โหลดได้เลย",
     "LICENSE_CHANGES_REQUESTED": "ร้านขอข้อมูลเพิ่มเติมหรือเสนอราคาใหม่สำหรับคำขอ License ของ {product}",
+    "GIVEAWAY_WON": "ยินดีด้วย! คุณได้รับรางวัล {product} จากกิจกรรม กดยืนยันรับรางวัลภายใน 7 วัน",
     "ADMIN_LICENSE_RESPONDED": "ลูกค้าตอบกลับคำขอ License: {product}"
   }
 }
