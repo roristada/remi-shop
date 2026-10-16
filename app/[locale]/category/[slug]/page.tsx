@@ -53,7 +53,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps<"
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 py-8 sm:py-12">
       <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
-        <Link href="/category" className="hover:text-foreground hover:underline">
+        <Link href={{ pathname: "/", hash: "categories" }} className="hover:text-foreground hover:underline">
           {tNav("categories")}
         </Link>
       </nav>

@@ -272,6 +272,21 @@
 .dark .banner-card[data-banner-theme="SKY"] { --banner-bg: #1d4558; }
 .dark .banner-card[data-banner-theme="BUTTER"] { --banner-bg: #4d4020; }
 .dark .banner-card[data-banner-theme="MINT"] { --banner-bg: #1f4636; }
+
+/* Home page category icons: a pale tint of the matching banner preset behind each illustration. */
+.category-tile { background: #f4f2f6; }
+.category-tile[data-tone="pink"] { background: #fdeef4; }
+.category-tile[data-tone="sky"] { background: #e6f6fc; }
+.category-tile[data-tone="lilac"] { background: #f1ecfd; }
+.category-tile[data-tone="mint"] { background: #e5f7ee; }
+.category-tile[data-tone="butter"] { background: #fff7d6; }
+/* Dark: muted pastels rather than dark tints, so the ink outline of each illustration stays readable. */
+.dark .category-tile { background: #d9d5de; }
+.dark .category-tile[data-tone="pink"] { background: #e9cdd8; }
+.dark .category-tile[data-tone="sky"] { background: #c9e0e8; }
+.dark .category-tile[data-tone="lilac"] { background: #d6cfec; }
+.dark .category-tile[data-tone="mint"] { background: #c8e2d5; }
+.dark .category-tile[data-tone="butter"] { background: #ece0b6; }
 .banner-card-image {
   mix-blend-mode: multiply;
   user-select: none;

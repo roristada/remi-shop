@@ -17,7 +17,6 @@ export async function SiteFooter() {
       title: t("footer.shop"),
       links: [
         { href: "/shop", label: t("nav.shop") },
-        { href: "/category", label: t("nav.categories") },
       ],
     },
     // Help (FAQ, about) and legal (terms, privacy, refund) columns return

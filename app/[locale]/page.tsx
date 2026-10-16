@@ -10,6 +10,7 @@ import { TrustBar } from "@/components/shop/trust-bar";
 import { BannerSlot } from "@/components/shop/banner-slot";
 import { BannerCarousel, type CarouselBanner } from "@/components/shop/banner-carousel";
 import { AnnouncementBar } from "@/components/shop/announcement-bar";
+import { CategoryIcon } from "@/components/shop/category-icon";
 import { getAnnouncementBar, getRandomBannerSettings, listLiveBanners } from "@/lib/banners/queries";
 import type { BannerTheme } from "@/lib/generated/prisma/enums";
 import { resolveLink } from "@/lib/banners/display";
@@ -52,7 +53,6 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
     ? await listRandomBannerProducts(locale, randomSettings.count, randomSettings.folderId, now)
     : [];
   const tBanner = await getTranslations("home.banner");
-  const shownCategories = categories.filter((c) => c._count.products > 0);
   const banners: CarouselBanner[] = liveBanners.map((b) => {
     const link = resolveLink(b.link);
     return {
@@ -129,7 +129,7 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
               <Link href="/shop">{t("hero.cta")}</Link>
             </Button>
             <Button asChild size="lg" variant="ghost" className="h-12 rounded-full px-5 text-base">
-              <Link href="/category">{t("hero.secondary")}</Link>
+              <a href="#categories">{t("hero.secondary")}</a>
             </Button>
           </div>
         </div>
@@ -143,17 +143,22 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
         </div>
       </section>
 
-      {shownCategories.length > 0 && (
-        <nav aria-label={t("browseByType")} className="mx-auto max-w-6xl px-4 pt-10">
-          <ul className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
-            {shownCategories.map((c) => (
+      {categories.length > 0 && (
+        <nav id="categories" aria-label={t("browseByType")} className="mx-auto max-w-6xl scroll-mt-24 px-4 pt-10">
+          <ul className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:gap-3">
+            {categories.map((c) => (
               <li key={c.id} className="shrink-0">
                 <Link
                   href={`/category/${c.slug}`}
-                  className="inline-flex h-10 items-center gap-2 rounded-full border bg-background px-4 text-sm transition-colors hover:border-foreground/20 hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  className="group flex w-20 flex-col items-center gap-2 rounded-2xl py-1 text-center focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:w-24"
                 >
-                  {localized(locale, c.nameTH, c.nameEN)}
-                  <span className="text-xs text-muted-foreground tabular-nums">{c._count.products}</span>
+                  <CategoryIcon
+                    slug={c.slug}
+                    className="size-16 rounded-[1.25rem] transition duration-200 group-hover:-translate-y-0.5 group-hover:shadow-soft motion-reduce:transition-none motion-reduce:group-hover:translate-y-0 sm:size-[4.5rem]"
+                  />
+                  <span className="line-clamp-2 text-xs leading-snug font-medium sm:text-sm">
+                    {localized(locale, c.nameTH, c.nameEN)}
+                  </span>
                 </Link>
               </li>
             ))}

@@ -19,7 +19,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   return [
     entry(""),
     entry("/shop"),
-    entry("/category"),
     entry("/contact"),
     ...categories.map((c) => entry(`/category/${c.slug}`)),
     ...products.map((p) => entry(`/product/${p.slug}`, p.updatedAt)),
