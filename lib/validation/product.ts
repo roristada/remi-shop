@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { parseBangkokDateTimeLocal } from "@/lib/datetime";
+import { isCategoryIconKey } from "@/lib/categories/icons";
 
 // Admin is Thai-only, so messages are Thai strings (not translation keys).
 
@@ -136,6 +137,11 @@ export const categorySchema = z.object({
   descriptionEN: optionalText(500),
   status: z.enum(["ACTIVE", "HIDDEN"]),
   sortOrder: z.coerce.number().int("ต้องเป็นจำนวนเต็ม").min(0).max(9999),
+  /** "" = guess from the slug. */
+  iconKey: z
+    .string()
+    .refine((v) => v === "" || isCategoryIconKey(v), "ไอคอนไม่ถูกต้อง")
+    .transform((v) => (v === "" ? null : v)),
 });
 
 export const versionSchema = z.object({

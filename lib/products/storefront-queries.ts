@@ -463,6 +463,8 @@ export function listShopCategories(now: Date = new Date(), facetFilters: FacetFi
       nameEN: true,
       descriptionTH: true,
       descriptionEN: true,
+      iconKey: true,
+      imagePath: true,
       _count: { select: { products: { where: facetBaseWhere(now, facetFilters) } } },
     },
   });

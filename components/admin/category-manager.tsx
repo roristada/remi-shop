@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useTransition, type FormEvent, type ReactNode } from "react";
+import { useRef, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { ImagePlus, Loader2, Pencil, Plus, Trash2, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -17,8 +17,19 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { runWithToast, SelectInput, TextArea, TextInput } from "@/components/admin/form-controls";
-import { deleteCategory, saveCategory } from "@/lib/categories/actions";
+import { useDirectUpload } from "@/components/admin/use-direct-upload";
+import { CategoryIcon } from "@/components/shop/category-icon";
+import {
+  confirmCategoryImageUpload,
+  deleteCategory,
+  removeCategoryImage,
+  requestCategoryImageUpload,
+  saveCategory,
+} from "@/lib/categories/actions";
+import { CATEGORY_ICON_KEYS, CATEGORY_ICON_LABEL_TH, guessIconKey, type CategoryIconKey } from "@/lib/categories/icons";
+import { acceptAttribute, IMAGE_FILE_TYPES } from "@/lib/storage/file-types";
 import type { ActionResult } from "@/lib/actions/result";
+import { cn } from "@/lib/utils";
 
 export type ManagedCategory = {
   id: string;
@@ -30,6 +41,10 @@ export type ManagedCategory = {
   status: "ACTIVE" | "HIDDEN";
   sortOrder: number;
   productCount: number;
+  /** null = guessed from the slug. */
+  iconKey: string | null;
+  /** Uploaded icon picture (replaces the drawn icon). */
+  imageUrl: string | null;
 };
 
 export function CategoryManager({ categories }: { categories: ManagedCategory[] }) {
@@ -58,6 +73,9 @@ export function CategoryManager({ categories }: { categories: ManagedCategory[] 
             <TableHeader className="bg-muted/50">
               <TableRow className="hover:bg-transparent [&>th]:h-11 [&>th]:text-xs [&>th]:font-medium [&>th]:text-muted-foreground">
                 <TableHead className="w-16 pl-4">ลำดับ</TableHead>
+                <TableHead className="w-14">
+                  <span className="sr-only">ไอคอน</span>
+                </TableHead>
                 <TableHead>ชื่อ</TableHead>
                 <TableHead className="hidden w-36 sm:table-cell">Slug</TableHead>
                 <TableHead className="w-20 pr-6 text-right">สินค้า</TableHead>
@@ -71,6 +89,9 @@ export function CategoryManager({ categories }: { categories: ManagedCategory[] 
               {categories.map((c) => (
                 <TableRow key={c.id} className="hover:bg-muted/40">
                   <TableCell className="pl-4 text-muted-foreground tabular-nums">{c.sortOrder}</TableCell>
+                  <TableCell>
+                    <CategoryIcon slug={c.slug} iconKey={c.iconKey} imageUrl={c.imageUrl} className="size-10 rounded-xl" />
+                  </TableCell>
                   <TableCell className="max-w-0">
                     <p className="font-medium">
                       {c.nameTH} <span className="font-normal text-muted-foreground">· {c.nameEN}</span>
@@ -179,7 +200,11 @@ function CategoryDialog({ title, trigger, category }: { title: string; trigger: 
       }}
     >
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent
+        className="max-h-[90vh] overflow-y-auto sm:max-w-2xl"
+        // The file picker for the icon upload takes focus away; that must not close the form.
+        onFocusOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>หมวดหมู่ที่ซ่อนจะไม่แสดงในหน้าร้าน</DialogDescription>
@@ -204,6 +229,7 @@ function CategoryDialog({ title, trigger, category }: { title: string; trigger: 
               error={err("sortOrder")}
             />
           </div>
+          <IconPicker category={category} />
           <TextArea label="คำอธิบาย (ไทย)" name="descriptionTH" rows={2} maxLength={500} defaultValue={category?.descriptionTH} error={err("descriptionTH")} />
           <TextArea label="คำอธิบาย (English)" name="descriptionEN" rows={2} maxLength={500} defaultValue={category?.descriptionEN} error={err("descriptionEN")} />
           <SelectInput
@@ -225,5 +251,118 @@ function CategoryDialog({ title, trigger, category }: { title: string; trigger: 
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Drawn icon for the home page (or "auto": guessed from the slug), plus an optional uploaded picture
+ * that replaces it. The picture uploads right away, so it needs a saved category (its id).
+ */
+function IconPicker({ category }: { category?: ManagedCategory }) {
+  const [picked, setPicked] = useState<CategoryIconKey | "">((category?.iconKey as CategoryIconKey | null) ?? "");
+  const autoKey = guessIconKey(category?.slug ?? "");
+
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-sm font-medium">ไอคอนบนหน้าแรก</legend>
+      <input type="hidden" name="iconKey" value={picked} />
+      <div role="radiogroup" aria-label="ไอคอน" className="grid grid-cols-5 gap-2 sm:grid-cols-8">
+        <IconChoice selected={picked === ""} label={`อัตโนมัติจาก slug (${CATEGORY_ICON_LABEL_TH[autoKey]})`} onSelect={() => setPicked("")}>
+          <span className="relative">
+            <CategoryIcon slug={category?.slug ?? ""} className="size-12 rounded-xl" />
+            <Wand2 className="absolute -right-1 -bottom-1 size-4 rounded-full bg-background p-0.5 text-brand-strong" aria-hidden />
+          </span>
+        </IconChoice>
+        {CATEGORY_ICON_KEYS.map((key) => (
+          <IconChoice key={key} selected={picked === key} label={CATEGORY_ICON_LABEL_TH[key]} onSelect={() => setPicked(key)}>
+            <CategoryIcon slug="" iconKey={key} className="size-12 rounded-xl" />
+          </IconChoice>
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {picked === "" ? `อัตโนมัติ: ตอนนี้ได้ ${CATEGORY_ICON_LABEL_TH[autoKey]} (เดาจาก slug)` : `เลือก: ${CATEGORY_ICON_LABEL_TH[picked]}`}
+      </p>
+      {category ? (
+        <CategoryImageControls categoryId={category.id} imageUrl={category.imageUrl} />
+      ) : (
+        <p className="text-xs text-muted-foreground">อัปโหลดรูปไอคอนเองได้หลังบันทึกหมวดหมู่</p>
+      )}
+    </fieldset>
+  );
+}
+
+function IconChoice({ selected, label, onSelect, children }: { selected: boolean; label: string; onSelect: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      aria-label={label}
+      title={label}
+      onClick={onSelect}
+      className={cn(
+        "grid place-items-center rounded-2xl p-1 ring-2 ring-transparent transition-shadow hover:bg-muted focus-visible:ring-ring focus-visible:outline-none",
+        selected && "bg-muted ring-brand-strong",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function CategoryImageControls({ categoryId, imageUrl }: { categoryId: string; imageUrl: string | null }) {
+  const router = useRouter();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [current, setCurrent] = useState(imageUrl);
+  const { upload, uploading } = useDirectUpload(
+    (input) => requestCategoryImageUpload(categoryId, input),
+    (input) => confirmCategoryImageUpload(categoryId, input),
+  );
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-dashed p-3">
+      {current && <CategoryIcon slug="" imageUrl={current} className="size-12 rounded-xl" />}
+      <p className="min-w-0 flex-1 text-xs text-muted-foreground">
+        {current
+          ? "ใช้รูปที่อัปโหลดแทนไอคอนวาด (ไม่มีแอนิเมชัน)"
+          : "หรืออัปโหลดรูปไอคอนเองแทนไอคอนวาด · JPG, PNG, WEBP ไม่เกิน 5 MB · แนะนำรูปสี่เหลี่ยมจัตุรัส"}
+      </p>
+      <input
+        ref={fileRef}
+        type="file"
+        accept={acceptAttribute(IMAGE_FILE_TYPES)}
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (file && (await upload([file]))) {
+            setCurrent(URL.createObjectURL(file));
+            router.refresh();
+          }
+        }}
+      />
+      <Button type="button" variant="outline" size="sm" className="rounded-full" disabled={Boolean(uploading)} onClick={() => fileRef.current?.click()}>
+        {uploading ? <Loader2 className="animate-spin" aria-hidden /> : <ImagePlus aria-hidden />}
+        {current ? "เปลี่ยนรูป" : "อัปโหลดรูป"}
+      </Button>
+      {current && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="rounded-full text-destructive"
+          onClick={async () => {
+            if (await runWithToast(() => removeCategoryImage(categoryId))) {
+              setCurrent(null);
+              router.refresh();
+            }
+          }}
+        >
+          <Trash2 aria-hidden /> ใช้ไอคอนวาด
+        </Button>
+      )}
+    </div>
   );
 }

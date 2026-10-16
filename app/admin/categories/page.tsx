@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/lib/auth/guards";
 import { listAdminCategories } from "@/lib/products/admin-queries";
 import { CategoryManager } from "@/components/admin/category-manager";
+import { previewImageUrl } from "@/lib/storage/public-url";
 
 export default async function AdminCategoriesPage() {
   await requireAdmin();
@@ -23,6 +24,8 @@ export default async function AdminCategoriesPage() {
           status: c.status,
           sortOrder: c.sortOrder,
           productCount: c._count.products,
+          iconKey: c.iconKey,
+          imageUrl: c.imagePath ? previewImageUrl(c.imagePath) : null,
         }))}
       />
     </div>

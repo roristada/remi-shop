@@ -145,24 +145,29 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
 
       {categories.length > 0 && (
         <nav id="categories" aria-label={t("browseByType")} className="mx-auto max-w-6xl scroll-mt-24 px-4 pt-10">
-          <ul className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:gap-3">
-            {categories.map((c) => (
-              <li key={c.id} className="shrink-0">
-                <Link
-                  href={`/category/${c.slug}`}
-                  className="group flex w-20 flex-col items-center gap-2 rounded-2xl py-1 text-center focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:w-24"
-                >
-                  <CategoryIcon
-                    slug={c.slug}
-                    className="size-16 rounded-[1.25rem] transition duration-200 group-hover:-translate-y-0.5 group-hover:shadow-soft motion-reduce:transition-none motion-reduce:group-hover:translate-y-0 sm:size-[4.5rem]"
-                  />
-                  <span className="line-clamp-2 text-xs leading-snug font-medium sm:text-sm">
-                    {localized(locale, c.nameTH, c.nameEN)}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          {/* Centred while it fits; w-max + auto margins fall back to scrolling from the start when it overflows. */}
+          <div className="-mx-4 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
+            <ul className="mx-auto flex w-max gap-1 sm:gap-3">
+              {categories.map((c) => (
+                <li key={c.id} className="shrink-0">
+                  <Link
+                    href={`/category/${c.slug}`}
+                    className="group flex w-20 flex-col items-center gap-2 rounded-2xl py-1 text-center focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:w-24"
+                  >
+                    <CategoryIcon
+                      slug={c.slug}
+                      iconKey={c.iconKey}
+                      imageUrl={c.imagePath ? previewImageUrl(c.imagePath) : null}
+                      className="size-16 rounded-[1.25rem] transition duration-200 group-hover:-translate-y-0.5 group-hover:shadow-soft motion-reduce:transition-none motion-reduce:group-hover:translate-y-0 sm:size-[4.5rem]"
+                    />
+                    <span className="line-clamp-2 text-xs leading-snug font-medium sm:text-sm">
+                      {localized(locale, c.nameTH, c.nameEN)}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
         </nav>
       )}
 

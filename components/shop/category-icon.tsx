@@ -1,5 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { PreviewImage } from "@/components/shared/preview-image";
+import { resolveIconKey, type CategoryIconKey } from "@/lib/categories/icons";
 
 // Hand-drawn REMI category icons: pastel fills with one soft ink outline (round caps and joins), drawn on a 48×48 grid.
 // Colours come from the banner presets so the icons sit with the rest of the storefront.
@@ -10,6 +12,7 @@ const BUTTER = "#fff0b8";
 const LILAC = "#e4d9fb";
 const PAPER = "#ffffff";
 const BRAND = "#b0426b";
+const MINT = "#c8ecd8";
 
 export type CategoryTone =
   "pink" | "sky" | "lilac" | "mint" | "butter" | "neutral";
@@ -168,28 +171,236 @@ const FALLBACK: Art = {
   ),
 };
 
-// Matched on the slug, so a renamed category keeps its icon; a new kind of category gets the generic file.
-const MATCHERS: [RegExp, Art][] = [
-  [/brush/, BRUSH],
-  [/base/, BASE],
-  [/template|layout/, TEMPLATE],
-  [/sticker|emote/, STICKER],
-  [/asset|element/, ASSETS],
-];
+const d = (ms: number) => ({ "--d": `${ms}ms` }) as CSSProperties;
 
-function artFor(slug: string): Art {
-  return MATCHERS.find(([re]) => re.test(slug))?.[1] ?? FALLBACK;
-}
+const TEXTURE: Art = {
+  tone: "sky",
+  art: (
+    <>
+      <rect x="8" y="8" width="32" height="32" rx="6" fill={PAPER} />
+      <g className="cat-lift" strokeLinecap="butt">
+        <path d="M8 20 20 8M12 40 40 12" stroke={PINK} strokeWidth="4" />
+        <path d="M8 32 32 8M24 40 40 24" stroke={SKY} strokeWidth="4" />
+      </g>
+      <rect x="8" y="8" width="32" height="32" rx="6" />
+    </>
+  ),
+};
 
-/** A category's illustrated icon on its pastel tile. Decorative: the visible name labels it. */
+const FONT: Art = {
+  tone: "pink",
+  art: (
+    <>
+      <g className="cat-bob">
+        <path d="M7 39 16.2 11h1.6L27 39M10.6 29.5h12.8" strokeWidth="2.6" />
+      </g>
+      <g className="cat-bob" style={d(90)}>
+        <circle cx="35" cy="32.5" r="6" fill={PINK} />
+        <path d="M41 25v14" strokeWidth="2.6" />
+      </g>
+    </>
+  ),
+};
+
+const PALETTE: Art = {
+  tone: "butter",
+  art: (
+    <>
+      <path
+        d="M24 7C13.5 7 6 14.5 6 24s7.5 17 16.5 17c2.9 0 4-2 3.1-4.2-1-2.5.6-4.8 3.3-4.8H34c5 0 8-3.5 8-8C42 14 34 7 24 7z"
+        fill={PAPER}
+      />
+      <circle className="cat-bob" cx="15" cy="21" r="3.2" fill={PINK} />
+      <circle
+        className="cat-bob"
+        style={d(60)}
+        cx="22.5"
+        cy="14"
+        r="3.2"
+        fill={SKY}
+      />
+      <circle
+        className="cat-bob"
+        style={d(120)}
+        cx="31.5"
+        cy="15.5"
+        r="3.2"
+        fill={BUTTER}
+      />
+      <circle
+        className="cat-bob"
+        style={d(180)}
+        cx="15.5"
+        cy="31"
+        r="3.2"
+        fill={LILAC}
+      />
+    </>
+  ),
+};
+
+const FRAME: Art = {
+  tone: "lilac",
+  art: (
+    <>
+      <rect x="7" y="9" width="34" height="30" rx="3" fill={BUTTER} />
+      <rect x="13" y="15" width="22" height="18" rx="2" fill={PAPER} />
+      <circle cx="7.5" cy="9.5" r="2.4" fill={PAPER} />
+      <circle cx="40.5" cy="9.5" r="2.4" fill={PAPER} />
+      <circle cx="7.5" cy="38.5" r="2.4" fill={PAPER} />
+      <circle cx="40.5" cy="38.5" r="2.4" fill={PAPER} />
+      <path
+        className="cat-spark"
+        d="M24 29s-5.2-3.1-5.2-6.6a2.8 2.8 0 0 1 5.2-1.5 2.8 2.8 0 0 1 5.2 1.5c0 3.5-5.2 6.6-5.2 6.6z"
+        fill={PINK}
+        strokeWidth="1.8"
+      />
+    </>
+  ),
+};
+
+const BACKGROUND: Art = {
+  tone: "sky",
+  art: (
+    <>
+      <rect
+        x="6"
+        y="8"
+        width="36"
+        height="32"
+        rx="5"
+        fill={SKY}
+        stroke="none"
+      />
+      <circle className="cat-bob" cx="32" cy="17.5" r="4" fill={BUTTER} />
+      <path
+        d="M6 35 16 23.5l8 9 5-5 13 7.5a5 5 0 0 1-5 5H11a5 5 0 0 1-5-5z"
+        fill={MINT}
+      />
+      <rect x="6" y="8" width="36" height="32" rx="5" />
+    </>
+  ),
+};
+
+const MODEL: Art = {
+  tone: "lilac",
+  art: (
+    <g className="cat-lift">
+      <path d="M24 6 39 14.5v19L24 42 9 33.5v-19z" fill={LILAC} />
+      <path d="M24 6 39 14.5 24 23 9 14.5z" fill={PAPER} />
+      <path d="M24 23v19" />
+    </g>
+  ),
+};
+
+const BUBBLE: Art = {
+  tone: "mint",
+  art: (
+    <g className="cat-brush">
+      <path
+        d="M11 9h26a5 5 0 0 1 5 5v14a5 5 0 0 1-5 5H23l-8.5 7v-7H11a5 5 0 0 1-5-5V14a5 5 0 0 1 5-5z"
+        fill={PAPER}
+      />
+      <circle
+        className="cat-bob"
+        cx="16.5"
+        cy="21"
+        r="2.2"
+        fill={INK}
+        stroke="none"
+      />
+      <circle
+        className="cat-bob"
+        style={d(80)}
+        cx="24"
+        cy="21"
+        r="2.2"
+        fill={INK}
+        stroke="none"
+      />
+      <circle
+        className="cat-bob"
+        style={d(160)}
+        cx="31.5"
+        cy="21"
+        r="2.2"
+        fill={INK}
+        stroke="none"
+      />
+    </g>
+  ),
+};
+
+const BUNDLE: Art = {
+  tone: "pink",
+  art: (
+    <>
+      <rect x="9" y="21" width="30" height="19" rx="3" fill={PINK} />
+      <path d="M24 22v18" />
+      <g className="cat-lift">
+        <rect x="7" y="14" width="34" height="8" rx="2.5" fill={PAPER} />
+        <path d="M24 14v8" />
+        <path
+          d="M24 14c-2-5-8.5-6-8.5-2.4S21 14 24 14zm0 0c2-5 8.5-6 8.5-2.4S27 14 24 14z"
+          fill={BUTTER}
+        />
+      </g>
+    </>
+  ),
+};
+
+const ARTS: Record<CategoryIconKey, Art> = {
+  brush: BRUSH,
+  base: BASE,
+  template: TEMPLATE,
+  sticker: STICKER,
+  assets: ASSETS,
+  texture: TEXTURE,
+  font: FONT,
+  palette: PALETTE,
+  frame: FRAME,
+  background: BACKGROUND,
+  model: MODEL,
+  bubble: BUBBLE,
+  bundle: BUNDLE,
+  file: FALLBACK,
+};
+
+/**
+ * A category's icon on its pastel tile: an uploaded picture when there is one, else the drawn icon
+ * the admin picked (or the one guessed from the slug). Decorative: the visible name labels it.
+ */
 export function CategoryIcon({
   slug,
+  iconKey,
+  imageUrl,
   className,
 }: {
   slug: string;
+  iconKey?: string | null;
+  imageUrl?: string | null;
   className?: string;
 }) {
-  const { tone, art } = artFor(slug);
+  if (imageUrl) {
+    return (
+      <span
+        data-tone="neutral"
+        className={cn(
+          "category-tile relative grid place-items-center overflow-hidden",
+          className,
+        )}
+      >
+        <PreviewImage
+          src={imageUrl}
+          alt=""
+          fill
+          sizes="80px"
+          className="object-cover"
+        />
+      </span>
+    );
+  }
+  const { tone, art } = ARTS[resolveIconKey(iconKey, slug)];
   return (
     <span
       data-tone={tone}

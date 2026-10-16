@@ -202,7 +202,10 @@ model Category {
   nameEN        String         @map("name_en")
   descriptionTH String?        @map("description_th")
   descriptionEN String?        @map("description_en")
+  /// Uploaded icon in `product-previews`; when set it replaces the drawn icon on the home page.
   imagePath     String?        @map("image_path")
+  /// Drawn icon picked by the admin (lib/categories/icons.ts); null = guessed from the slug.
+  iconKey       String?        @map("icon_key")
   status        CategoryStatus @default(ACTIVE)
   sortOrder     Int            @default(0) @map("sort_order")
   createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
