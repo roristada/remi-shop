@@ -12,6 +12,14 @@ export type GiveawayPhase = "DRAFT" | "UPCOMING" | "OPEN" | "CLOSED" | "DRAWN";
 
 export type GiveawayPhaseInput = { isPublished: boolean; startsAt: Date; endsAt: Date; drawnAt: Date | null };
 
+export const GIVEAWAY_PHASE_LABEL_TH: Record<GiveawayPhase, string> = {
+  DRAFT: "ฉบับร่าง",
+  UPCOMING: "รอเปิดลงทะเบียน",
+  OPEN: "เปิดลงทะเบียน",
+  CLOSED: "ปิดแล้ว · รอสุ่ม",
+  DRAWN: "ประกาศผลแล้ว",
+};
+
 export function giveawayPhase(g: GiveawayPhaseInput, now: Date): GiveawayPhase {
   if (g.drawnAt) return "DRAWN";
   if (!g.isPublished) return "DRAFT";

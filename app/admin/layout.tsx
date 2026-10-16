@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BadgeCheck, Calculator, Stamp, FolderOpen, GalleryHorizontal, LayoutDashboard, MessageSquareText, Package, Receipt, Settings, Tags, Users } from "lucide-react";
+import { BadgeCheck, Calculator, Stamp, FolderOpen, GalleryHorizontal, Gift, LayoutDashboard, MessageSquareText, Package, Receipt, Settings, Tags, Users } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/guards";
 import { fontVariables } from "@/app/fonts";
 import { NextIntlClientProvider } from "next-intl";
@@ -25,6 +25,7 @@ const ADMIN_NAV = [
   { href: "/admin/profit", label: "ต้นทุนและกำไร", icon: Calculator },
   { href: "/admin/reviews", label: "รีวิว", icon: MessageSquareText },
   { href: "/admin/banners", label: "แบนเนอร์และประกาศ", icon: GalleryHorizontal },
+  { href: "/admin/giveaways", label: "กิจกรรมแจกของ", icon: Gift },
   { href: "/admin/customers", label: "ลูกค้า", icon: Users },
   { href: "/admin/settings", label: "ตั้งค่า", icon: Settings },
 ];
