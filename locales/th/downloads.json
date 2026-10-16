@@ -31,5 +31,15 @@
     "openInChrome": "เปิดใน Chrome",
     "copyLink": "คัดลอกลิงก์",
     "copied": "คัดลอกแล้ว"
+  },
+  "view": {
+    "label": "มุมมอง",
+    "list": "รายการ",
+    "gallery": "แกลเลอรี"
+  },
+  "gallery": {
+    "fileCount": "{count} ไฟล์",
+    "downloadProduct": "ดาวน์โหลดไฟล์ทั้งหมดของ {name}",
+    "failed": "ไม่สำเร็จ {count} ไฟล์ ลองดาวน์โหลดทีละไฟล์ในมุมมองรายการ"
   }
 }

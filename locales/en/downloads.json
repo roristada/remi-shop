@@ -31,5 +31,15 @@
     "openInChrome": "Open in Chrome",
     "copyLink": "Copy link",
     "copied": "Copied"
+  },
+  "view": {
+    "label": "View",
+    "list": "List",
+    "gallery": "Gallery"
+  },
+  "gallery": {
+    "fileCount": "{count, plural, one {# file} other {# files}}",
+    "downloadProduct": "Download all files of {name}",
+    "failed": "{count, plural, one {# file} other {# files}} failed. Try one by one in list view"
   }
 }
