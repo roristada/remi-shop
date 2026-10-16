@@ -1,0 +1,79 @@
+{
+  "title": "Giveaways",
+  "subtitle": "Free to join, one entry per person. Winners are drawn when registration closes",
+  "running": "Running now",
+  "past": "Results",
+  "empty": "No giveaways right now",
+  "emptyHint": "Check back here for the next giveaway",
+  "phase": {
+    "UPCOMING": "Coming soon",
+    "OPEN": "Open",
+    "CLOSED": "Closed · results soon",
+    "DRAWN": "Results out"
+  },
+  "entries": "{count, plural, one {# entry} other {# entries}}",
+  "winnersCount": "{count, plural, one {# winner} other {# winners}}",
+  "opensAt": "Opens {date}",
+  "closesAt": "Closes {date}",
+  "closedAt": "Closed {date}",
+  "countdownOpen": "Closes in",
+  "countdownUpcoming": "Opens in",
+  "countdownEnded": "Time's up",
+  "prizes": "Prizes",
+  "prizeWinners": "{count, plural, one {# winner} other {# winners}}",
+  "details": "Details and rules",
+  "rules": "Free to join, one entry per account · one prize per person · winners must claim within 7 days or a new winner is drawn",
+  "enter": "Join the giveaway",
+  "entering": "Joining…",
+  "entered": "You're in",
+  "enteredHint": "Results come after registration closes. Winners get a notification on the site",
+  "loginToEnter": "Log in to join",
+  "notOpenYet": "Not open yet",
+  "closed": "Registration closed",
+  "disqualified": "Your entry in this giveaway was cancelled",
+  "enterErrors": {
+    "LOGIN_REQUIRED": "Please log in first",
+    "EMAIL_UNVERIFIED": "Please verify your email before joining",
+    "NOT_OPEN": "This giveaway is no longer open",
+    "ERROR": "Could not join. Please try again"
+  },
+  "results": "Winners",
+  "resultsEmpty": "Nobody entered this giveaway",
+  "winnerState": {
+    "PENDING": "Awaiting claim",
+    "CLAIMED": "Claimed",
+    "EXPIRED": "Claim expired",
+    "FORFEITED": "Forfeited"
+  },
+  "won": {
+    "title": "Congratulations! You won",
+    "claimBy": "Claim your prize within",
+    "claim": "Claim prize",
+    "claiming": "Claiming…",
+    "claimed": "You claimed this prize",
+    "openDownloads": "Go to downloads",
+    "openOrder": "View order {orderNumber}",
+    "expired": "The claim deadline has passed. A new winner will be drawn",
+    "block": {
+      "OWNED": "You already own this. Pick another product up to {value} instead",
+      "IN_ORDER": "This is in one of your unpaid orders. Pick another product up to {value} instead",
+      "SOLD_OUT": "This prize is sold out. Pick another product up to {value} instead",
+      "GONE": "This prize is no longer available. Pick another product up to {value} instead"
+    },
+    "pickTitle": "Pick a product instead",
+    "pickSearch": "Search products",
+    "pickEmpty": "Nothing can be picked right now. Please contact the shop",
+    "pick": "Take this",
+    "free": "Free"
+  },
+  "claimErrors": {
+    "LOGIN_REQUIRED": "Please log in first",
+    "NOT_FOUND": "Prize not found",
+    "NOT_CLAIMABLE": "This prize can no longer be claimed. Please refresh",
+    "PRIZE_UNAVAILABLE": "This prize can no longer go to you. Refresh to pick another product",
+    "SUBSTITUTE_NOT_ALLOWED": "That product can't be picked (price or stock changed). Please pick again",
+    "ERROR": "Could not claim. Please try again"
+  },
+  "viewProduct": "View product",
+  "back": "All giveaways"
+}

@@ -3,6 +3,7 @@
   "nav": {
     "home": "Home",
     "shop": "Shop",
+    "giveaways": "Giveaways",
     "categories": "Categories",
     "about": "About",
     "faq": "FAQ",
@@ -28,6 +29,7 @@
   "footer": {
     "tagline": "Digital files for artists. Download once your payment is confirmed.",
     "shop": "Shop",
+    "giveaways": "Giveaways",
     "help": "Help",
     "legal": "Policies",
     "terms": "Terms of Service",
