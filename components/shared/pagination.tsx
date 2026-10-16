@@ -48,14 +48,14 @@ function href(basePath: string, params: Props["params"], page: number) {
 export function Pagination({ page, pageCount, params, basePath, labels = THAI_LABELS, className }: Props) {
   if (pageCount <= 1) return null;
   return (
-    <nav aria-label={labels.nav} className={className ?? "flex flex-wrap items-center justify-end gap-2 text-sm"}>
+    <nav aria-label={labels.nav} className={className ?? "flex flex-wrap items-center justify-center gap-2 text-sm"}>
       <Button asChild={page > 1} variant="outline" size="sm" disabled={page <= 1}>
         {page > 1 ? (
           <Link href={href(basePath, params, page - 1)} rel="prev" prefetch={false}>
             <ChevronLeft aria-hidden /> {labels.previous}
           </Link>
         ) : (
-          <span>
+          <span className="inline-flex items-center gap-1">
             <ChevronLeft aria-hidden /> {labels.previous}
           </span>
         )}
@@ -91,7 +91,7 @@ export function Pagination({ page, pageCount, params, basePath, labels = THAI_LA
             {labels.next} <ChevronRight aria-hidden />
           </Link>
         ) : (
-          <span>
+          <span className="inline-flex items-center gap-1">
             {labels.next} <ChevronRight aria-hidden />
           </span>
         )}
