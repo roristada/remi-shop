@@ -8,6 +8,7 @@ import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeScript } from "@/components/layout/theme-script";
+import { activeSeason } from "@/lib/seasonal";
 import "../globals.css";
 
 export function generateStaticParams() {
@@ -30,12 +31,14 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
   if (!hasLocale(routing.locales, locale)) notFound();
   setRequestLocale(locale);
   const t = await getTranslations("common.header");
+  const season = activeSeason();
 
   return (
     // The theme script sets the `dark` class before React hydrates, hence suppressHydrationWarning.
-    <html lang={locale} className={`${fontVariables} h-full antialiased`} suppressHydrationWarning>
+    <html lang={locale} className={`${fontVariables} h-full antialiased ${season ?? ""}`} suppressHydrationWarning>
       <head>
         <ThemeScript />
+        {season === "halloween" && <link rel="icon" href="/seasonal/halloween-icon.svg" type="image/svg+xml" sizes="any" />}
       </head>
       <body className="flex min-h-full flex-col">
         <NextIntlClientProvider>

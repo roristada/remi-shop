@@ -16,6 +16,8 @@ import { PageHeading } from "@/components/shop/page-heading";
 import { CheckoutButton, RemoveFromCartButton } from "@/components/cart/cart-controls";
 import { BackLink } from "@/components/shared/back-link";
 import { lineKey } from "@/lib/orders/rules";
+import { activeSeason } from "@/lib/seasonal";
+import { HalloweenGhost } from "@/components/layout/seasonal-decor";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/cart">): Promise<Metadata> {
   const { locale } = await params;
@@ -121,12 +123,18 @@ export default async function CartPage({ params }: PageProps<"/[locale]/cart">) 
   const hasProblem = lines.some((l) => l.problem);
 
   if (lines.length === 0) {
+    const halloween = activeSeason() === "halloween";
+    const tSeason = await getTranslations("common.halloween");
     return (
       <div className="mx-auto flex max-w-md flex-col items-center gap-4 px-4 py-24 text-center">
-        <span className="grid size-14 place-items-center rounded-full bg-secondary">
-          <ShoppingBag className="size-6" aria-hidden />
-        </span>
-        <h1 className="text-2xl">{t("cart.empty")}</h1>
+        {halloween ? (
+          <HalloweenGhost />
+        ) : (
+          <span className="grid size-14 place-items-center rounded-full bg-secondary">
+            <ShoppingBag className="size-6" aria-hidden />
+          </span>
+        )}
+        <h1 className="text-2xl">{halloween ? tSeason("cartEmpty") : t("cart.empty")}</h1>
         <p className="text-muted-foreground">{t("cart.emptyHint")}</p>
         <Button asChild className="h-11 rounded-full px-6">
           <Link href="/shop">{t("cart.browse")}</Link>

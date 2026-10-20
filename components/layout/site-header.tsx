@@ -11,10 +11,13 @@ import { HeaderCartButton } from "@/components/cart/header-cart-button";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { NAV_LINKS } from "./nav-links";
 import { hasSessionCookie } from "@/lib/auth/guards";
+import { activeSeason } from "@/lib/seasonal";
+import { HalloweenHeaderBats, Pumpkin } from "./seasonal-decor";
 
 export async function SiteHeader() {
   const [t, locale, hasSession] = await Promise.all([getTranslations("common"), getLocale(), hasSessionCookie()]);
   const searchAction = getPathname({ href: "/search", locale });
+  const halloween = activeSeason() === "halloween";
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
@@ -25,6 +28,7 @@ export async function SiteHeader() {
           <Image src="/brand/remi-mark.png" alt="" width={44} height={44} priority className="size-9 sm:size-11" />
           {/* Very narrow phones keep only the mark; the name stays for screen readers. */}
           <span className="font-heading sr-only text-base min-[380px]:not-sr-only sm:text-lg">{t("brand")}</span>
+          {halloween && <Pumpkin className="hidden size-5 -rotate-12 sm:block" />}
         </Link>
 
         <nav aria-label={t("header.mainNav")} className="hidden items-center gap-1 md:flex">
@@ -55,6 +59,8 @@ export async function SiteHeader() {
             />
           </div>
         </form>
+
+        {halloween && <HalloweenHeaderBats />}
 
         <div className="ml-auto flex items-center gap-0.5">
           <Button asChild variant="ghost" size="icon-xl" className="rounded-full lg:hidden">

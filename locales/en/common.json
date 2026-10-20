@@ -76,5 +76,10 @@
       "PHONE": "Phone",
       "WEBSITE": "Website"
     }
+  },
+  "halloween": {
+    "cartEmpty": "Your cart is empty... boo!",
+    "wishlistEmpty": "Our little ghost hasn't found a favourite yet",
+    "notFound": "This page vanished on Halloween night"
   }
 }

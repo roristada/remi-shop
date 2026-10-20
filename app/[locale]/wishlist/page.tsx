@@ -6,6 +6,8 @@ import { listWishlistProducts } from "@/lib/products/storefront-queries";
 import { PageHeading } from "@/components/shop/page-heading";
 import { ProductGrid } from "@/components/shop/product-grid";
 import { ShopPagination } from "@/components/shop/shop-pagination";
+import { HalloweenGhost } from "@/components/layout/seasonal-decor";
+import { activeSeason } from "@/lib/seasonal";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/wishlist">): Promise<Metadata> {
   const { locale } = await params;
@@ -20,18 +22,20 @@ export default async function WishlistPage({ params, searchParams }: PageProps<"
   const sp = await searchParams;
   const page = Math.max(1, Math.min(10_000, Number.parseInt(typeof sp.page === "string" ? sp.page : "1", 10) || 1));
 
-  const [t, { items, total, pageCount }] = await Promise.all([
+  const [t, tSeason, { items, total, pageCount }] = await Promise.all([
     getTranslations("shop.wishlist"),
+    getTranslations("common.halloween"),
     listWishlistProducts(user.id, locale, page),
   ]);
+  const halloween = activeSeason() === "halloween";
 
   return (
     <div className="space-y-6">
       <PageHeading title={t("title")} subtitle={t("resultCount", { count: total })} />
       {items.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-3xl bg-background/80 px-4 py-16 text-center">
-          <Heart className="size-6 text-muted-foreground" aria-hidden />
-          <p className="font-medium">{t("empty")}</p>
+          {halloween ? <HalloweenGhost /> : <Heart className="size-6 text-muted-foreground" aria-hidden />}
+          <p className="font-medium">{halloween ? tSeason("wishlistEmpty") : t("empty")}</p>
           <p className="max-w-sm text-sm text-muted-foreground">{t("emptyHint")}</p>
         </div>
       ) : (
