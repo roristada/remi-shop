@@ -146,6 +146,14 @@ export function checkFileSignature(
   return null;
 }
 
+/** The first extension in `rules` whose signature matches the bytes; null when none does. */
+export function detectExtension(rules: Record<string, FileRule>, head: Uint8Array): string | null {
+  for (const [ext, rule] of Object.entries(rules)) {
+    if (rule.signatures?.some((sig) => matches(head, sig))) return ext;
+  }
+  return null;
+}
+
 export function mimeFor(rules: Record<string, FileRule>, fileName: string): string {
   return rules[getExtension(fileName)]?.mime ?? "application/octet-stream";
 }

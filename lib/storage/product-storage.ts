@@ -121,6 +121,15 @@ export async function verifyUploadedObject(
   else error = head ? checkFileSignature(rules, fileName, head) : "signature_mismatch";
 
   if (error) {
+    if (error === "signature_mismatch") {
+      // Leading bytes only (no content), to tell a misnamed format from an unreadable object.
+      console.warn("[storage] signature mismatch", {
+        bucket,
+        ext: getExtension(fileName),
+        typeMatches: info.typeMatches,
+        head: head ? Buffer.from(head.slice(0, 16)).toString("hex") : null,
+      });
+    }
     await removeObjects(bucket, [path]);
     return { ok: false, error };
   }

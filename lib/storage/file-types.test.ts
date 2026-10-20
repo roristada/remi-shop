@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { checkFileMeta, checkFileSignature, DIGITAL_FILE_TYPES, IMAGE_FILE_TYPES } from "./file-types";
+import { checkFileMeta, checkFileSignature, detectExtension, DIGITAL_FILE_TYPES, IMAGE_FILE_TYPES } from "./file-types";
 
 const bytes = (...b: number[]) => new Uint8Array(b);
 const text = (s: string) => new TextEncoder().encode(s);
@@ -31,4 +31,11 @@ test("signature: executables and HTML are rejected even for opaque formats", () 
   assert.equal(checkFileSignature(DIGITAL_FILE_TYPES, "x.svg", text("  <!DOCTYPE html><p>")), "signature_mismatch");
   assert.equal(checkFileSignature(DIGITAL_FILE_TYPES, "x.cube", text("#!/bin/sh")), "signature_mismatch");
   assert.equal(checkFileSignature(DIGITAL_FILE_TYPES, "x.cube", text("TITLE \"Warm\"\nLUT_3D_SIZE 33")), null);
+});
+
+test("detectExtension: names an image by its bytes", () => {
+  assert.equal(detectExtension(IMAGE_FILE_TYPES, bytes(0xff, 0xd8, 0xff, 0xe0)), "jpg");
+  assert.equal(detectExtension(IMAGE_FILE_TYPES, bytes(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)), "png");
+  assert.equal(detectExtension(IMAGE_FILE_TYPES, text("RIFF\x10\x00\x00\x00WEBPVP8 ")), "webp");
+  assert.equal(detectExtension(IMAGE_FILE_TYPES, text("\x00\x00\x00\x18ftypheic")), null);
 });

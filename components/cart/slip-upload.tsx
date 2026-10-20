@@ -10,6 +10,7 @@ import { putSignedUpload } from "@/lib/storage/upload-client";
 import type { SignedUpload } from "@/lib/storage/product-storage";
 import { confirmSlipUpload, reportSlipClientFailure, requestSlipUpload } from "@/lib/payments/customer-actions";
 import { MAX_FILE_SIZE } from "@/lib/storage/buckets";
+import { detectExtension, getExtension, IMAGE_FILE_TYPES, mimeFor, SIGNATURE_BYTES } from "@/lib/storage/file-types";
 
 const ACCEPT = ".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp";
 const EXTENSIONS = /\.(jpe?g|png|webp)$/i;
@@ -26,14 +27,24 @@ function slipFileName(file: File): string | null {
   return ext ? `slip.${ext}` : null;
 }
 
+/**
+ * Extension matching the file's real bytes. Banking apps and galleries sometimes save a PNG or
+ * WEBP under a `.jpg` name, which the server rejects; null for formats it does not accept (HEIC…).
+ */
+async function contentExtension(blob: Blob): Promise<string | null> {
+  const head = new Uint8Array(await blob.slice(0, SIGNATURE_BYTES).arrayBuffer());
+  return detectExtension(IMAGE_FILE_TYPES, head);
+}
+
 /** Max edge of a redrawn slip; plenty for the bank QR, keeps the JPEG well under the size limit. */
 const REDRAW_MAX_EDGE = 2000;
 
 /**
- * Fallback when the file's bytes cannot be read but the browser can still display it: decode it
- * as an image, draw it on a canvas and re-encode as JPEG. Returns null when that fails too.
+ * Fallback when the file's bytes cannot be read or are in an unaccepted format but the browser can
+ * still display it: decode it as an image, draw it on a canvas and re-encode as JPEG. Returns null
+ * when that fails too.
  */
-async function redrawImage(source: File): Promise<Blob | null> {
+async function redrawImage(source: Blob): Promise<Blob | null> {
   const url = URL.createObjectURL(source);
   try {
     const img = new Image();
@@ -133,6 +144,7 @@ export function SlipUpload({ orderNumber }: { orderNumber: string }) {
     // NotReadableError even though the preview showed.
     let copy: Blob | null;
     let uploadName = name;
+    let redrawn = false;
     try {
       copy = new Blob([await next.arrayBuffer()], { type: next.type || "image/jpeg" });
     } catch (e) {
@@ -144,6 +156,24 @@ export function SlipUpload({ orderNumber }: { orderNumber: string }) {
         return report(next, "redraw", "failed");
       }
       uploadName = "slip.jpg";
+      redrawn = true;
+    }
+    if (!redrawn) {
+      const ext = await contentExtension(copy).catch(() => null);
+      if (ext && getExtension(uploadName) !== ext) {
+        report(next, "pick", `renamed ${getExtension(uploadName)} -> ${ext}`);
+        copy = new Blob([copy], { type: mimeFor(IMAGE_FILE_TYPES, `slip.${ext}`) });
+        uploadName = `slip.${ext}`;
+      } else if (!ext) {
+        report(next, "pick", "unknown format, redrawn");
+        const jpeg = await redrawImage(copy);
+        if (!jpeg) {
+          setError(t("errors.signature_mismatch"));
+          return report(next, "redraw", "failed");
+        }
+        copy = jpeg;
+        uploadName = "slip.jpg";
+      }
     }
     if (previewRef.current) URL.revokeObjectURL(previewRef.current);
     previewRef.current = URL.createObjectURL(copy);
