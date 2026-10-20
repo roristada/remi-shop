@@ -44,3 +44,6 @@ next-env.d.ts
 
 # Impeccable runtime (live server)
 .impeccable/live/
+
+# Local Netlify folder
+.netlify
