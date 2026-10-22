@@ -27,11 +27,16 @@ export function maskIp(ip: string | null | undefined): string | null {
 export type ClientMeta = { ip: string | null; country: string | null; ua: string | null };
 
 /**
- * Cloudflare (proxied DNS) sets `cf-connecting-ip` / `cf-ipcountry`; Railway's edge sets `x-real-ip`;
- * `x-forwarded-for` covers other hosts. Log-only: a client could forge these where no proxy rewrites them.
+ * DigitalOcean App Platform sets `do-connecting-ip` (its `x-forwarded-for` holds the ingress, not the client);
+ * Cloudflare (proxied DNS) sets `cf-connecting-ip` / `cf-ipcountry`; `x-real-ip` / `x-forwarded-for` cover
+ * other hosts. Log-only: a client could forge these where no proxy rewrites them.
  */
 export function clientMeta(headers: Headers): ClientMeta {
-  const ip = headers.get("cf-connecting-ip") ?? headers.get("x-real-ip") ?? headers.get("x-forwarded-for");
+  const ip =
+    headers.get("do-connecting-ip") ??
+    headers.get("cf-connecting-ip") ??
+    headers.get("x-real-ip") ??
+    headers.get("x-forwarded-for");
   return {
     ip: maskIp(ip),
     country: headers.get("cf-ipcountry"),

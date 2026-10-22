@@ -29,6 +29,13 @@ test("reads Cloudflare client headers first", () => {
   assert.deepEqual(meta, { ip: "198.51.100.0/24", country: "TH", ua: "curl/8" });
 });
 
+test("reads DigitalOcean's do-connecting-ip first", () => {
+  const meta = clientMeta(
+    new Headers({ "do-connecting-ip": "198.51.100.9", "cf-connecting-ip": "203.0.113.1", "x-forwarded-for": "10.0.0.5" }),
+  );
+  assert.equal(meta.ip, "198.51.100.0/24");
+});
+
 test("falls back to Railway's x-real-ip, then x-forwarded-for", () => {
   assert.equal(clientMeta(new Headers({ "x-real-ip": "203.0.113.7", "x-forwarded-for": "192.0.2.1" })).ip, "203.0.113.0/24");
   assert.deepEqual(clientMeta(new Headers({ "x-forwarded-for": "192.0.2.1, 10.0.0.1" })), { ip: "192.0.2.0/24", country: null, ua: null });
