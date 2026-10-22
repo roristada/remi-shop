@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { renderAppSpec } from "./app-spec";
+import { envLookup, renderAppSpec } from "./app-spec";
 
 const from = (vars: Record<string, string>) => (key: string) => vars[key];
 
@@ -24,4 +24,15 @@ test("treats an empty value as missing", () => {
 
 test("leaves text without placeholders alone", () => {
   assert.equal(renderAppSpec("name: remi-shop\n", from({})), "name: remi-shop\n");
+});
+
+test("envLookup: shell first, then files in order", () => {
+  const lookup = envLookup({ A: "shell" }, [{ A: "local", B: "local" }, { B: "base", C: "base" }], []);
+  assert.deepEqual([lookup("A"), lookup("B"), lookup("C"), lookup("D")], ["shell", "local", "base", undefined]);
+});
+
+test("envLookup: shell-only keys never fall back to .env files", () => {
+  const lookup = envLookup({}, [{ NEXT_PUBLIC_SITE_URL: "http://localhost:3000" }], ["NEXT_PUBLIC_SITE_URL"]);
+  assert.equal(lookup("NEXT_PUBLIC_SITE_URL"), undefined);
+  assert.throws(() => renderAppSpec("value: ${NEXT_PUBLIC_SITE_URL}", lookup), /NEXT_PUBLIC_SITE_URL/);
 });
