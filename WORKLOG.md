@@ -21,7 +21,8 @@ setup and commands live in `README.md`. Newest entries first.
 
 Business rules agreed with the owner. Follow these over the defaults in `CLAUDE.md`.
 
-- Supabase cloud project in Singapore; the app runs on Railway in Singapore (moved from Netlify, 2026-10).
+- Supabase cloud project in Singapore; the app is moving from Netlify to a long-running Node server in Singapore
+  (host not decided yet; see "Hosting move" below).
 - All data access goes through the server (Prisma + `requireAdmin` / `requireUser`).
   RLS is on for every table as a second layer; there are no client write grants.
 - Buyers get **all versions** of a product, including future ones.
@@ -42,6 +43,37 @@ Business rules agreed with the owner. Follow these over the defaults in `CLAUDE.
   (the admin only approves or rejects); a license can be requested only while the product is on sale.
 - Uploads go browser → Supabase Storage using a signed upload token, then the server verifies
   the stored object. Vercel caps function request bodies at 4.5 MB, so files cannot pass through the server.
+
+## Hosting move: Netlify → Singapore server (in progress, 2026-10-23)
+
+**Why:** Netlify credits ran out, and the Personal plan cannot pick a function region (Supabase is in `ap-southeast-1`).
+**Outage:** `remii.cc` cannot reach the database. The DB password was reset on 2026-10-22 and Netlify still holds the old one
+in `DATABASE_URL` / `DIRECT_URL`. Either fix those on Netlify or finish the move.
+
+**Done (branch `chore/railway-deploy`, pushed)**
+- Node 24 pinned (`engines` + `.nvmrc`): Prisma 7 rejects Node 23.
+- `clientMeta` reads `cf-connecting-ip` → `x-real-ip` → `x-forwarded-for`, country from `cf-ipcountry`; Netlify headers dropped.
+- Docs and UAT guide point at `remii.cc`. Plan: `docs/plans/2026-10-22-netlify-to-railway.md`.
+
+**Host decision (2026-10-23):** the client chose DigitalOcean App Platform, SGP, `apps-s-1vcpu-1gb-fixed` ($10/mo).
+Railway was dropped (platform outage + security incident since 2026-10-21, status incident `QH8L8B3E`).
+Plan: `docs/plans/2026-10-23-netlify-to-digitalocean.md`.
+
+**Before deploying to a single long-running server**
+- Run `sharp` jobs one at a time (`sharp.concurrency(1)`, `sharp.cache(false)`, queue `/api/admin/images/optimize`):
+  the admin fires one request per picture at once and a long GIF can take ~800 MB decoded, which would OOM a 1 GiB box.
+- Raise `DB_POOL_MAX` from 3 (sized for serverless) to ~10.
+- Scale up, not out: `unstable_cache` / `revalidateTag` are per instance, so a second instance would serve stale products.
+- Turn on the Cloudflare proxy for `remii.cc` with Cache Rules for `/_next/image*` and `/_next/static*`.
+
+**Usage snapshot (2026-10-23, shop live since 2026-10-03)**
+- Supabase: DB 24 MB; Storage 62 MB (payment slips 57 MB, license artwork 5 MB); 263 users, 220 active in 30 days;
+  JWT signing key ES256 (`getClaims()` verifies locally). Product files and previews are no longer in Supabase.
+- R2: `remi-shop` (previews) 514 MB, 1,256 objects; `remi-shop-files` 2.15 GB, 222 objects.
+- Orders: 298 (267 completed), peak 38/day at launch, ~10–24/day since; 1,480 downloads in 30 days.
+
+**Open: backups.** The Supabase plan is not confirmed. On Free there are no automatic backups. Options:
+a scheduled `pg_dump` to R2 (free) or Supabase Pro ($25/mo, daily backups). Waiting on the client.
 
 ## Phase 7b: Commercial license (done)
 

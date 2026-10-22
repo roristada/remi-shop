@@ -1,3 +1,5 @@
+> **ถูกแทนที่แล้ว (2026-10-23):** ใช้ `docs/plans/2026-10-23-netlify-to-digitalocean.md` แทน — ลูกค้าเลือก DigitalOcean
+
 # แผนย้าย deploy: Netlify → Railway
 
 **วันที่:** 2026-10-22
