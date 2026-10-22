@@ -5,8 +5,8 @@ const ANIMATED = /\.gif(?:$|[?#])/i;
 const PRE_OPTIMIZED = /\.(?:card|detail)\.webp(?:$|[?#])/i;
 
 /**
- * next/image for product preview art. Animated GIFs skip the optimizer: the Netlify image CDN
- * rounds each frame's height when resizing, so the frames drift and the art bobs up and down.
+ * next/image for product preview art. Animated GIFs skip the optimizer: resizing rounds each
+ * frame's height, so the frames drift and the art bobs up and down (seen on Netlify's image CDN).
  * Pre-optimized WebP copies are served as they are (already small, and may be animated).
  */
 export function PreviewImage({ alt, ...props }: ImageProps) {

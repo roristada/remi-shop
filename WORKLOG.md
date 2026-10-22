@@ -21,7 +21,7 @@ setup and commands live in `README.md`. Newest entries first.
 
 Business rules agreed with the owner. Follow these over the defaults in `CLAUDE.md`.
 
-- Supabase cloud project in Singapore; deploy Vercel functions to `sin1`.
+- Supabase cloud project in Singapore; the app runs on Railway in Singapore (moved from Netlify, 2026-10).
 - All data access goes through the server (Prisma + `requireAdmin` / `requireUser`).
   RLS is on for every table as a second layer; there are no client write grants.
 - Buyers get **all versions** of a product, including future ones.

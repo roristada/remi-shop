@@ -12,6 +12,14 @@ Stack: Next.js 16 (App Router, `proxy.ts`) · TypeScript strict · Tailwind v4 �
 4. `npm run db:deploy` (uses `DIRECT_URL`)
 5. `npm run dev`
 
+## Deploy
+
+Railway, region Southeast Asia (Singapore, next to the Supabase project), domain `remii.cc`.
+Railpack builds with `npm run build` and starts with `npm run start`; Node comes from `engines` / `.nvmrc` (24).
+Set every variable from `.env.example` on the service before the first build (`NEXT_PUBLIC_*` are inlined at build time).
+Migrations are not run on deploy: run `npm run db:deploy` by hand. Logs: `railway logs`.
+Migration notes: `docs/plans/2026-10-22-netlify-to-railway.md`.
+
 ## Scripts
 
 | Script | Purpose |
