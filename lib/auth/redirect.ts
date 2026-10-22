@@ -23,3 +23,11 @@ export function toLocale(value: unknown): Locale {
 export function siteUrl(): string {
   return (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 }
+
+/**
+ * Absolute URL on the public site for a redirect from a route handler. Behind DigitalOcean's
+ * proxy `request.nextUrl.origin` in a route handler is the server's own `https://localhost:8080`.
+ */
+export function absoluteUrl(path: string): URL {
+  return new URL(path, siteUrl());
+}

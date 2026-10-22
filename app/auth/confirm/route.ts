@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
-import { safeNextPath, toLocale } from "@/lib/auth/redirect";
+import { absoluteUrl, safeNextPath, toLocale } from "@/lib/auth/redirect";
 
 const OTP_TYPES: EmailOtpType[] = ["signup", "email", "recovery", "invite", "magiclink", "email_change"];
 
@@ -11,7 +11,7 @@ const OTP_TYPES: EmailOtpType[] = ["signup", "email", "recovery", "invite", "mag
  * and the default PKCE redirect (`?code=`, same browser only).
  */
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = request.nextUrl;
+  const { searchParams } = request.nextUrl;
   const next = safeNextPath(searchParams.get("next"), "/th/account");
   const locale = toLocale(next.split("/")[1]);
 
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 
   if (!ok) {
     const failTarget = next.includes("/reset-password") ? "forgot-password" : "login";
-    return NextResponse.redirect(new URL(`/${locale}/${failTarget}?error=link_invalid`, origin));
+    return NextResponse.redirect(absoluteUrl(`/${locale}/${failTarget}?error=link_invalid`));
   }
-  return NextResponse.redirect(new URL(next, origin));
+  return NextResponse.redirect(absoluteUrl(next));
 }

@@ -5,6 +5,7 @@ import { checkDownloadAccess, recordDownload } from "@/lib/downloads/queries";
 import { createSignedDownloadUrl } from "@/lib/storage/product-storage";
 import { BUCKETS } from "@/lib/storage/buckets";
 import { clientMeta, logSecurityEvent } from "@/lib/security/log";
+import { absoluteUrl } from "@/lib/auth/redirect";
 
 type Locale = "th" | "en";
 
@@ -12,8 +13,8 @@ function toLocale(v: string | null): Locale {
   return v === "en" ? "en" : "th";
 }
 
-function errorRedirect(origin: string, locale: Locale, code: string) {
-  return NextResponse.redirect(new URL(`/${locale}/downloads?error=${code}`, origin));
+function errorRedirect(locale: Locale, code: string) {
+  return NextResponse.redirect(absoluteUrl(`/${locale}/downloads?error=${code}`));
 }
 
 function jsonError(status: number, code: string) {
@@ -27,16 +28,16 @@ function jsonError(status: number, code: string) {
  * downloads page, which fetches one file at a time and reports failures in place.
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ fileId: string }> }) {
-  const { origin, searchParams } = request.nextUrl;
+  const { searchParams } = request.nextUrl;
   const locale = toLocale(searchParams.get("locale"));
   const { fileId } = await params;
   const json = searchParams.get("format") === "json";
-  const fail = (status: number, code: string) => (json ? jsonError(status, code) : errorRedirect(origin, locale, code));
+  const fail = (status: number, code: string) => (json ? jsonError(status, code) : errorRedirect(locale, code));
 
   const user = await getCurrentUser();
   if (!user) {
     if (json) return jsonError(401, "unauthenticated");
-    return NextResponse.redirect(new URL(`/${locale}/login?next=${encodeURIComponent(`/${locale}/downloads`)}`, origin));
+    return NextResponse.redirect(absoluteUrl(`/${locale}/login?next=${encodeURIComponent(`/${locale}/downloads`)}`));
   }
   if (!idSchema.safeParse(fileId).success) return fail(404, "not_found");
 
