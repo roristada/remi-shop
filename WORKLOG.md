@@ -21,8 +21,8 @@ setup and commands live in `README.md`. Newest entries first.
 
 Business rules agreed with the owner. Follow these over the defaults in `CLAUDE.md`.
 
-- Supabase cloud project in Singapore; the app is moving from Netlify to a long-running Node server in Singapore
-  (host not decided yet; see "Hosting move" below).
+- Supabase cloud project in Singapore; the app is moving from Netlify to DigitalOcean App Platform in Singapore
+  (see "Hosting move" below).
 - All data access goes through the server (Prisma + `requireAdmin` / `requireUser`).
   RLS is on for every table as a second layer; there are no client write grants.
 - Buyers get **all versions** of a product, including future ones.
@@ -50,21 +50,24 @@ Business rules agreed with the owner. Follow these over the defaults in `CLAUDE.
 **Outage:** `remii.cc` cannot reach the database. The DB password was reset on 2026-10-22 and Netlify still holds the old one
 in `DATABASE_URL` / `DIRECT_URL`. Either fix those on Netlify or finish the move.
 
-**Done (branch `chore/railway-deploy`, pushed)**
-- Node 24 pinned (`engines` + `.nvmrc`): Prisma 7 rejects Node 23.
-- `clientMeta` reads `cf-connecting-ip` → `x-real-ip` → `x-forwarded-for`, country from `cf-ipcountry`; Netlify headers dropped.
-- Docs and UAT guide point at `remii.cc`. Plan: `docs/plans/2026-10-22-netlify-to-railway.md`.
-
 **Host decision (2026-10-23):** the client chose DigitalOcean App Platform, SGP, `apps-s-1vcpu-1gb-fixed` ($10/mo).
 Railway was dropped (platform outage + security incident since 2026-10-21, status incident `QH8L8B3E`).
 Plan: `docs/plans/2026-10-23-netlify-to-digitalocean.md`.
 
-**Before deploying to a single long-running server**
-- Run `sharp` jobs one at a time (`sharp.concurrency(1)`, `sharp.cache(false)`, queue `/api/admin/images/optimize`):
-  the admin fires one request per picture at once and a long GIF can take ~800 MB decoded, which would OOM a 1 GiB box.
-- Raise `DB_POOL_MAX` from 3 (sized for serverless) to ~10.
+**Done (branch `chore/digitalocean-deploy`, pushed; code reviewed, not deployed yet)**
+- Node 24 pinned (`engines` + `.nvmrc`): Prisma 7 rejects Node 23.
+- `clientMeta` reads `do-connecting-ip` (DigitalOcean puts its ingress in `x-forwarded-for`) → `cf-connecting-ip` →
+  `x-real-ip` → `x-forwarded-for`. Country is no longer logged (DNS-only Cloudflare sends no `cf-ipcountry`).
+- `sharp` jobs run one at a time (`createSerialQueue`, `sharp.concurrency(1)`, `sharp.cache(false)`): the admin fires one
+  optimize request per picture at once. An image over 600 MiB decoded is not optimized (original served):
+  1000×1000×120 frames took ~320 MB extra to encode, 1500×1500×120 crashed the process.
+- `DB_POOL_MAX` 3 → 10 (one server shares the pool).
+- App spec `.do/app.template.yaml`, rendered by `npm run do:spec` (shell must set `DEPLOY_BRANCH` and `NEXT_PUBLIC_SITE_URL`).
+
+**Rules for the DigitalOcean setup**
 - Scale up, not out: `unstable_cache` / `revalidateTag` are per instance, so a second instance would serve stale products.
-- Turn on the Cloudflare proxy for `remii.cc` with Cache Rules for `/_next/image*` and `/_next/static*`.
+- Keep `remii.cc` / `www` **DNS only** (grey cloud) in Cloudflare. DigitalOcean forbids proxying a domain added in
+  App Platform (certificate renewal fails), and a proxy that rewrites Host would send Next.js redirects to `*.ondigitalocean.app`.
 
 **Usage snapshot (2026-10-23, shop live since 2026-10-03)**
 - Supabase: DB 24 MB; Storage 62 MB (payment slips 57 MB, license artwork 5 MB); 263 users, 220 active in 30 days;
