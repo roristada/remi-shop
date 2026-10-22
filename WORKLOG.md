@@ -44,17 +44,29 @@ Business rules agreed with the owner. Follow these over the defaults in `CLAUDE.
 - Uploads go browser → Supabase Storage using a signed upload token, then the server verifies
   the stored object. Vercel caps function request bodies at 4.5 MB, so files cannot pass through the server.
 
-## Hosting move: Netlify → Singapore server (in progress, 2026-10-23)
+## Hosting move: Netlify → DigitalOcean Singapore (done, 2026-10-23)
 
 **Why:** Netlify credits ran out, and the Personal plan cannot pick a function region (Supabase is in `ap-southeast-1`).
-**Outage:** `remii.cc` cannot reach the database. The DB password was reset on 2026-10-22 and Netlify still holds the old one
-in `DATABASE_URL` / `DIRECT_URL`. Either fix those on Netlify or finish the move.
+**Live:** DigitalOcean App Platform app `23d5be37-de02-4cf7-9292-be7f4710089b` (`remi-shop`, sgp), deploys `master` on push.
+`remii.cc` and `www.remii.cc` are CNAMEs to `remi-shop-b6hon.ondigitalocean.app` (Cloudflare, DNS only). Netlify builds are
+stopped and the Netlify site is paused (out of credits); deleting it is the client's call.
+Supabase Site URL `https://remii.cc`; Redirect URLs `localhost:3000`, `remii.cc`, `www.remii.cc`. R2 CORS origins: the same three.
+
+**Found during the move (fixed)**
+- `netlify env:list` returns masked values for secret variables: R2 secret, Resend and SlipOK keys had to be re-issued
+  (new R2 token `remi-shop-app`). Never copy secrets out of Netlify with the CLI.
+- Server-side R2 PUTs (optimized WebP copies) got 411 under Next's server `fetch`; `r2Upload` now signs, then sends the bytes.
+- Route handlers saw `request.nextUrl.origin` as `https://localhost:8080`; `/auth/confirm` and `/api/download` now redirect
+  with `absoluteUrl()` (built on `NEXT_PUBLIC_SITE_URL`).
+- Tested on the live DB without test orders (client's choice): admin pages, CSV export, uploads + WebP jobs with 4 large GIFs at
+  once (no restarts, storefront 119/119 OK), reset-password link. Not tested: order → slip → SlipOK → approval email →
+  customer download; check the first real order after the move.
 
 **Host decision (2026-10-23):** the client chose DigitalOcean App Platform, SGP, `apps-s-1vcpu-1gb-fixed` ($10/mo).
 Railway was dropped (platform outage + security incident since 2026-10-21, status incident `QH8L8B3E`).
 Plan: `docs/plans/2026-10-23-netlify-to-digitalocean.md`.
 
-**Done (branch `chore/digitalocean-deploy`, pushed; code reviewed, not deployed yet)**
+**Code changes (merged to `master` 2026-10-23)**
 - Node 24 pinned (`engines` + `.nvmrc`): Prisma 7 rejects Node 23.
 - `clientMeta` reads `do-connecting-ip` (DigitalOcean puts its ingress in `x-forwarded-for`) → `cf-connecting-ip` →
   `x-real-ip` → `x-forwarded-for`. Country is no longer logged (DNS-only Cloudflare sends no `cf-ipcountry`).
