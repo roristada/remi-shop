@@ -25,7 +25,7 @@ const LOG_TEXT_MAX = 200;
 
 /**
  * Warn-level `[slip]` log for every failed attempt, so a customer report ("it took several tries")
- * can be traced with `netlify logs -l warn`. No file contents, emails or tokens.
+ * can be traced with `railway logs` (filter on `[slip]`). No file contents, emails or tokens.
  */
 async function logSlipFailure(details: Record<string, unknown>): Promise<void> {
   console.warn("[slip] upload failed", { ...details, ...clientMeta(await headers()) });

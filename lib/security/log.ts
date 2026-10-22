@@ -1,6 +1,6 @@
 /**
  * Structured `[security]` warn logs for rejected or suspicious requests, so they show up in
- * `netlify logs -l warn` (function logs carry no path/IP/status on their own).
+ * `railway logs` (filter on `[security]`).
  * The client IP is masked (IPv4 /24, IPv6 /48) — enough to spot one source hammering the site
  * without storing a full personal identifier. Never pass emails, tokens or passwords here.
  */
@@ -26,12 +26,20 @@ export function maskIp(ip: string | null | undefined): string | null {
 
 export type ClientMeta = { ip: string | null; country: string | null; ua: string | null };
 
-/** Netlify sets `x-nf-client-connection-ip`; `x-forwarded-for` covers other hosts. */
+/**
+ * DigitalOcean App Platform sets `do-connecting-ip` (its `x-forwarded-for` holds the ingress, not the client);
+ * Cloudflare (proxied DNS) sets `cf-connecting-ip` / `cf-ipcountry`; `x-real-ip` / `x-forwarded-for` cover
+ * other hosts. Log-only: a client could forge these where no proxy rewrites them.
+ */
 export function clientMeta(headers: Headers): ClientMeta {
-  const ip = headers.get("x-nf-client-connection-ip") ?? headers.get("x-forwarded-for");
+  const ip =
+    headers.get("do-connecting-ip") ??
+    headers.get("cf-connecting-ip") ??
+    headers.get("x-real-ip") ??
+    headers.get("x-forwarded-for");
   return {
     ip: maskIp(ip),
-    country: headers.get("x-country"),
+    country: headers.get("cf-ipcountry"),
     ua: headers.get("user-agent")?.slice(0, MAX_UA_LENGTH) ?? null,
   };
 }

@@ -12,6 +12,20 @@ Stack: Next.js 16 (App Router, `proxy.ts`) · TypeScript strict · Tailwind v4 �
 4. `npm run db:deploy` (uses `DIRECT_URL`)
 5. `npm run dev`
 
+## Deploy
+
+DigitalOcean App Platform, region `sgp` (Singapore, next to the Supabase project), one `apps-s-1vcpu-1gb-fixed`
+instance, domain `remii.cc` (Cloudflare DNS, DNS only). The Node.js buildpack runs `npm run build` and
+`npm run start`; Node comes from `engines` (24).
+
+- App spec: `.do/app.template.yaml`. Render it with real values into the gitignored `.do/app.yaml`:
+  `$env:DEPLOY_BRANCH='master'; $env:NEXT_PUBLIC_SITE_URL='https://remii.cc'; npm run do:spec`,
+  then `doctl apps update <app-id> --spec .do/app.yaml`.
+- Keep one instance: `unstable_cache` / `revalidateTag` are per instance. Scale up, not out.
+- Migrations are not run on deploy: run `npm run db:deploy` by hand.
+- Logs: `doctl apps logs <app-id> web --type run --follow` (build logs: `--type build`).
+- Requests are cut at 100 s by the platform.
+
 ## Scripts
 
 | Script | Purpose |

@@ -124,11 +124,16 @@ export async function r2Download(key: string): Promise<Buffer> {
 }
 
 export async function r2Upload(key: string, body: Buffer, contentType: string): Promise<void> {
-  const res = await client().fetch(objectUrl("previews", key), {
+  const bytes = new Uint8Array(body);
+  const init = {
     method: "PUT",
     headers: { "content-type": contentType, "cache-control": PREVIEW_CACHE_CONTROL },
-    body: new Uint8Array(body),
-  });
+    body: bytes,
+  };
+  // Sign, then send the bytes ourselves: `client().fetch` hands fetch a Request whose body is a
+  // stream, which Next's server fetch sends without Content-Length, and R2 answers 411.
+  const signed = await client().sign(objectUrl("previews", key), init);
+  const res = await fetch(signed.url, { ...init, headers: signed.headers });
   if (!res.ok) throw new Error(`R2 upload failed: ${res.status}`);
 }
 

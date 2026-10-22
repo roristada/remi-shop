@@ -1,0 +1,59 @@
+# DigitalOcean App Platform spec. Values are $-brace placeholders: render with `npm run do:spec`
+# into .do/app.yaml (gitignored) and apply that file. Never put real values in this file.
+name: remi-shop
+region: sgp
+alerts:
+  - rule: DEPLOYMENT_FAILED
+  - rule: DOMAIN_FAILED
+domains:
+  - domain: remii.cc
+    type: PRIMARY
+    minimum_tls_version: "1.2"
+  - domain: www.remii.cc
+    type: ALIAS
+    minimum_tls_version: "1.2"
+services:
+  - name: web
+    github:
+      repo: roristada/remi-shop
+      branch: ${DEPLOY_BRANCH}
+      deploy_on_push: true
+    environment_slug: node-js
+    build_command: npm run build
+    run_command: npm run start
+    # Keep ONE instance: unstable_cache / revalidateTag are per instance. Scale up, not out.
+    instance_size_slug: apps-s-1vcpu-1gb-fixed
+    instance_count: 1
+    http_port: 8080
+    health_check:
+      http_path: /th
+      initial_delay_seconds: 20
+      period_seconds: 10
+      timeout_seconds: 5
+      failure_threshold: 3
+    alerts:
+      - rule: MEM_UTILIZATION
+        operator: GREATER_THAN
+        value: 85
+        window: FIVE_MINUTES
+      - rule: RESTART_COUNT
+        operator: GREATER_THAN
+        value: 2
+        window: TEN_MINUTES
+    envs:
+      - { key: NEXT_PUBLIC_SITE_URL, value: ${NEXT_PUBLIC_SITE_URL}, scope: RUN_AND_BUILD_TIME, type: GENERAL }
+      - { key: NEXT_PUBLIC_SUPABASE_URL, value: ${NEXT_PUBLIC_SUPABASE_URL}, scope: RUN_AND_BUILD_TIME, type: GENERAL }
+      - { key: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, value: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}, scope: RUN_AND_BUILD_TIME, type: GENERAL }
+      - { key: NEXT_PUBLIC_PREVIEW_IMAGE_URL, value: ${NEXT_PUBLIC_PREVIEW_IMAGE_URL}, scope: RUN_AND_BUILD_TIME, type: GENERAL }
+      - { key: SUPABASE_SERVICE_ROLE_KEY, value: ${SUPABASE_SERVICE_ROLE_KEY}, scope: RUN_AND_BUILD_TIME, type: SECRET }
+      - { key: DATABASE_URL, value: ${DATABASE_URL}, scope: RUN_AND_BUILD_TIME, type: SECRET }
+      - { key: DIRECT_URL, value: ${DIRECT_URL}, scope: RUN_AND_BUILD_TIME, type: SECRET }
+      - { key: RESEND_API_KEY, value: ${RESEND_API_KEY}, scope: RUN_AND_BUILD_TIME, type: SECRET }
+      - { key: EMAIL_FROM, value: ${EMAIL_FROM}, scope: RUN_AND_BUILD_TIME, type: GENERAL }
+      - { key: SLIPOK_BRANCH_ID, value: ${SLIPOK_BRANCH_ID}, scope: RUN_AND_BUILD_TIME, type: SECRET }
+      - { key: SLIPOK_API_KEY, value: ${SLIPOK_API_KEY}, scope: RUN_AND_BUILD_TIME, type: SECRET }
+      - { key: R2_ACCOUNT_ID, value: ${R2_ACCOUNT_ID}, scope: RUN_AND_BUILD_TIME, type: SECRET }
+      - { key: R2_ACCESS_KEY_ID, value: ${R2_ACCESS_KEY_ID}, scope: RUN_AND_BUILD_TIME, type: SECRET }
+      - { key: R2_SECRET_ACCESS_KEY, value: ${R2_SECRET_ACCESS_KEY}, scope: RUN_AND_BUILD_TIME, type: SECRET }
+      - { key: R2_BUCKET, value: ${R2_BUCKET}, scope: RUN_AND_BUILD_TIME, type: GENERAL }
+      - { key: R2_FILES_BUCKET, value: ${R2_FILES_BUCKET}, scope: RUN_AND_BUILD_TIME, type: GENERAL }

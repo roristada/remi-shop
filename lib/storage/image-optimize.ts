@@ -4,9 +4,23 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { BUCKETS } from "@/lib/storage/buckets";
 import { previewsOnR2 } from "@/lib/storage/public-url";
 import { r2Download, r2Upload } from "@/lib/storage/r2";
-import { optimizedPath, pickServedPath, toWebp, worthEncoding, type PreviewSize } from "@/lib/storage/webp";
+import {
+  fitsDecodeBudget,
+  optimizedPath,
+  pickServedPath,
+  toWebp,
+  worthEncoding,
+  type PreviewSize,
+} from "@/lib/storage/webp";
+import { createSerialQueue } from "@/lib/storage/serial-queue";
 
 export { previewObjectPaths, type PreviewSize } from "@/lib/storage/webp";
+
+// One long-running server (not one function per request): a long GIF can take hundreds of MB once
+// decoded, so jobs run one at a time and libvips keeps no cache between them.
+sharp.concurrency(1);
+sharp.cache(false);
+const runExclusive = createSerialQueue();
 
 /**
  * Builds the requested WebP copies of a stored preview image and uploads them next to it.
@@ -14,14 +28,31 @@ export { previewObjectPaths, type PreviewSize } from "@/lib/storage/webp";
  * when the image could not be processed (callers then keep serving the original).
  *
  * Slow for long animations, so it never runs inside a save: see app/api/admin/images/optimize.
+ * Jobs are queued: one runs at a time per server.
  */
-export async function optimizePreviewImage(
+export function optimizePreviewImage(
   path: string,
   sizes: PreviewSize[] = ["card", "detail"],
+): Promise<Partial<Record<PreviewSize, string>> | null> {
+  return runExclusive(() => optimizeNow(path, sizes));
+}
+
+async function optimizeNow(
+  path: string,
+  sizes: PreviewSize[],
 ): Promise<Partial<Record<PreviewSize, string>> | null> {
   try {
     const original = await downloadPreview(path);
     const meta = await sharp(original, { animated: true, limitInputPixels: 2_000_000_000 }).metadata();
+    if (!fitsDecodeBudget({ width: meta.width ?? 0, height: meta.height ?? 0 })) {
+      console.warn("[storage] image too large to optimize; serving the original", {
+        path,
+        width: meta.width,
+        height: meta.height,
+        frames: meta.pages,
+      });
+      return null;
+    }
     const image = { width: meta.width ?? 0, frames: meta.pages ?? 1 };
 
     const out: Partial<Record<PreviewSize, string>> = {};

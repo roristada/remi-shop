@@ -47,3 +47,9 @@ next-env.d.ts
 
 # Local Netlify folder
 .netlify
+
+# supabase cli
+/supabase/.temp/
+
+# rendered App Platform spec (holds secrets)
+/.do/app.yaml
