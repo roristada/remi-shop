@@ -51,3 +51,15 @@ export function pickServedPath(original: { path: string; bytes: number }, copy: 
 export function worthEncoding(image: { width: number; frames: number }, size: PreviewSize): boolean {
   return image.frames <= 1 || image.width > SIZES[size].width;
 }
+
+/** RGBA bytes of every decoded frame we let one job hold. Encoding peaks near 0.7× this on top of the server. */
+const MAX_DECODED_BYTES = 600 * 1024 * 1024;
+
+/**
+ * Whether an image can be encoded without risking the 1 GiB server: a 1000×1000 GIF of 120 frames
+ * (~460 MB decoded) took ~320 MB extra to encode; 1500×1500×120 crashed the process.
+ * `height` is every frame stacked, as sharp reports it with `animated: true`.
+ */
+export function fitsDecodeBudget(image: { width: number; height: number }): boolean {
+  return image.width * image.height * 4 <= MAX_DECODED_BYTES;
+}

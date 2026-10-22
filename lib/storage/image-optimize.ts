@@ -4,7 +4,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { BUCKETS } from "@/lib/storage/buckets";
 import { previewsOnR2 } from "@/lib/storage/public-url";
 import { r2Download, r2Upload } from "@/lib/storage/r2";
-import { optimizedPath, pickServedPath, toWebp, worthEncoding, type PreviewSize } from "@/lib/storage/webp";
+import {
+  fitsDecodeBudget,
+  optimizedPath,
+  pickServedPath,
+  toWebp,
+  worthEncoding,
+  type PreviewSize,
+} from "@/lib/storage/webp";
 import { createSerialQueue } from "@/lib/storage/serial-queue";
 
 export { previewObjectPaths, type PreviewSize } from "@/lib/storage/webp";
@@ -37,6 +44,15 @@ async function optimizeNow(
   try {
     const original = await downloadPreview(path);
     const meta = await sharp(original, { animated: true, limitInputPixels: 2_000_000_000 }).metadata();
+    if (!fitsDecodeBudget({ width: meta.width ?? 0, height: meta.height ?? 0 })) {
+      console.warn("[storage] image too large to optimize; serving the original", {
+        path,
+        width: meta.width,
+        height: meta.height,
+        frames: meta.pages,
+      });
+      return null;
+    }
     const image = { width: meta.width ?? 0, frames: meta.pages ?? 1 };
 
     const out: Partial<Record<PreviewSize, string>> = {};

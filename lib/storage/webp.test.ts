@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import sharp from "sharp";
-import { optimizedPath, pickServedPath, toWebp, worthEncoding } from "./webp";
+import { optimizedPath, pickServedPath, toWebp, worthEncoding, fitsDecodeBudget } from "./webp";
 
 async function animatedGif(width: number, height: number, frames: number) {
   const raw = await Promise.all(
@@ -45,4 +45,16 @@ test("worthEncoding skips animations that are already small enough", () => {
   assert.equal(worthEncoding({ width: 900, frames: 75 }, "card"), true);
   assert.equal(worthEncoding({ width: 500, frames: 10 }, "card"), false);
   assert.equal(worthEncoding({ width: 900, frames: 1 }, "detail"), true);
+});
+
+test("fitsDecodeBudget: a long 1000px animation fits, a 1500px one does not", () => {
+  // `height` is every frame stacked, as sharp reports it with `animated: true`.
+  assert.equal(fitsDecodeBudget({ width: 1000, height: 1000 * 120 }), true);
+  assert.equal(fitsDecodeBudget({ width: 1500, height: 1500 * 120 }), false);
+});
+
+test("fitsDecodeBudget: the limit is 600 MiB of RGBA", () => {
+  const limitRows = (600 * 1024 * 1024) / 4 / 1024;
+  assert.equal(fitsDecodeBudget({ width: 1024, height: limitRows }), true);
+  assert.equal(fitsDecodeBudget({ width: 1024, height: limitRows + 1 }), false);
 });
