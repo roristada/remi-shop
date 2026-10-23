@@ -13,6 +13,7 @@ import { OrderNote } from "@/components/admin/order-note";
 import type { SlipCheckResult } from "@/lib/generated/prisma/enums";
 import { RETRYABLE_RESULTS } from "@/lib/payments/slip-check";
 import { RecheckSlipButton } from "@/components/admin/recheck-slip-button";
+import { SlipSystemTest } from "@/components/admin/slip-system-test";
 
 function one(v: string | string[] | undefined) {
   return typeof v === "string" ? v : undefined;
@@ -27,9 +28,12 @@ export default async function AdminPaymentsPage({ searchParams }: PageProps<"/ad
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <div>
-        <h1 className="text-2xl">ตรวจสลิป</h1>
-        <p className="text-sm text-muted-foreground">รอตรวจ {pendingCount.toLocaleString("th-TH")} รายการ</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl">ตรวจสลิป</h1>
+          <p className="text-sm text-muted-foreground">รอตรวจ {pendingCount.toLocaleString("th-TH")} รายการ</p>
+        </div>
+        <SlipSystemTest />
       </div>
 
       <nav aria-label="สถานะสลิป" className="flex gap-1 rounded-full bg-card p-1 shadow-soft sm:w-fit">

@@ -30,6 +30,39 @@ export function isSlipOkConfigured(): boolean {
   return slipOkConfig() !== null;
 }
 
+const quotaSchema = z.object({ quota: z.number(), overQuota: z.number().optional() });
+
+export type SlipOkQuotaResponse =
+  | { ok: true; quota: number; overQuota: number }
+  | { ok: false; reason: "NOT_CONFIGURED" | "UNREACHABLE" }
+  | { ok: false; reason: "REJECTED"; errorCode: number | null; status: number };
+
+/**
+ * Asks SlipOK for the branch's remaining quota: proves the branch id and API key work without
+ * sending a slip (https://slipok.com/api-documentation/check-slip-quota/).
+ */
+export async function checkSlipOkQuota(): Promise<SlipOkQuotaResponse> {
+  const config = slipOkConfig();
+  if (!config) return { ok: false, reason: "NOT_CONFIGURED" };
+
+  try {
+    const res = await fetch(`${ENDPOINT}/${encodeURIComponent(config.branchId)}/quota`, {
+      headers: { "x-authorization": config.apiKey },
+      cache: "no-store",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    const body = bodySchema.safeParse(await res.json().catch(() => null));
+    const quota = quotaSchema.safeParse(body.success ? body.data.data : null);
+    if (res.ok && body.success && body.data.success && quota.success) {
+      return { ok: true, quota: quota.data.quota, overQuota: quota.data.overQuota ?? 0 };
+    }
+    return { ok: false, reason: "REJECTED", errorCode: body.success ? (body.data.code ?? null) : null, status: res.status };
+  } catch (error) {
+    console.error("[slipok] quota request failed", { message: (error as Error).message });
+    return { ok: false, reason: "UNREACHABLE" };
+  }
+}
+
 /** ISO timestamp when present, else yyyyMMdd + HH:mm:ss (bank time, Asia/Bangkok). */
 function transferTime(slip: z.infer<typeof slipSchema>): Date | null {
   const iso = slip.transTimestamp ? new Date(slip.transTimestamp) : null;

@@ -20,6 +20,15 @@ export function isSlipPath(path: string, orderId: string): boolean {
   return new RegExp(`^\\d{4}/\\d{2}/${orderId}/${UUID}\\.(jpe?g|png|webp)$`).test(path);
 }
 
+// payment-slips (private): admin-test/{uuid}.{ext}. The admin's system test; deleted right after.
+export function newTestSlipPath(fileName: string): string {
+  return `admin-test/${crypto.randomUUID()}.${getExtension(fileName)}`;
+}
+
+export function isTestSlipPath(path: string): boolean {
+  return new RegExp(`^admin-test/${UUID}\\.(jpe?g|png|webp)$`).test(path);
+}
+
 // license-artworks (private): {userId}/{uuid}.{ext}. Uploaded before the request exists,
 // so the key is scoped to the customer and checked against them on submit.
 export function newArtworkPath(userId: string, fileName: string): string {
