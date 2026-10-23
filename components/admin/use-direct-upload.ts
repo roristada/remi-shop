@@ -3,8 +3,23 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import type { ActionResult } from "@/lib/actions/result";
+import { detectExtension, getExtension, mimeFor, SIGNATURE_BYTES, type FileRule } from "@/lib/storage/file-types";
 import type { SignedUpload } from "@/lib/storage/product-storage";
 import { putSignedUpload } from "@/lib/storage/upload-client";
+
+/**
+ * Renames a file whose extension does not match its bytes (chat apps often save a JPEG or GIF as
+ * `.png`), which the server would reject. Unknown bytes keep the name; the server still checks them.
+ */
+export async function withContentExtension(rules: Record<string, FileRule>, file: File): Promise<File> {
+  const head = new Uint8Array(await file.slice(0, SIGNATURE_BYTES).arrayBuffer());
+  const ext = detectExtension(rules, head);
+  const current = getExtension(file.name);
+  if (!ext || ext === current || (ext === "jpg" && current === "jpeg")) return file;
+  const base = file.name.slice(0, file.name.length - current.length - (current ? 1 : 0)) || "image";
+  const name = `${base}.${ext}`;
+  return new File([file], name, { type: mimeFor(rules, name), lastModified: file.lastModified });
+}
 
 type Request = (input: { fileName: string; size: number }) => Promise<ActionResult<SignedUpload>>;
 type Confirm = (input: { path: string; fileName: string }) => Promise<ActionResult>;

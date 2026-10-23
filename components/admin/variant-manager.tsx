@@ -18,7 +18,7 @@ import { TextInput } from "@/components/admin/form-controls";
 import { DateTimeInput } from "@/components/admin/date-time-input";
 import { PreviewImage } from "@/components/shared/preview-image";
 import { newId, useEditorSection, useEditorVariants, type SaveContext } from "@/components/admin/product-editor";
-import { requestImageOptimize, uploadToStorage } from "@/components/admin/use-direct-upload";
+import { requestImageOptimize, uploadToStorage, withContentExtension } from "@/components/admin/use-direct-upload";
 import {
   confirmVariantImage,
   createVariant,
@@ -254,7 +254,8 @@ function VariantRow({
   const imageUrl = row.image === "removed" ? null : row.image ? row.image.url : (v?.imageUrl ?? null);
   const pending = !v || changedValues(row) || row.image !== null || (v && v.isActive !== row.isActive);
 
-  function pickImage(file: File) {
+  async function pickImage(picked: File) {
+    const file = await withContentExtension(PRODUCT_IMAGE_FILE_TYPES, picked);
     const error = checkFileMeta(PRODUCT_IMAGE_FILE_TYPES, file.name, file.size, MAX_PRODUCT_FILE_SIZE);
     if (error) return void toast.error(`${file.name}: ${FILE_TYPE_ERROR_TH[error]}`);
     onChange({ image: { file, url: URL.createObjectURL(file) } });
@@ -269,7 +270,7 @@ function VariantRow({
         accept={acceptAttribute(PRODUCT_IMAGE_FILE_TYPES)}
         onChange={(e) => {
           const file = e.currentTarget.files?.[0];
-          if (file) pickImage(file);
+          if (file) void pickImage(file);
           e.currentTarget.value = "";
         }}
       />

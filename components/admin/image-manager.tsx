@@ -23,7 +23,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { ImagePlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEditorSection } from "@/components/admin/product-editor";
-import { requestImageOptimize, uploadToStorage } from "@/components/admin/use-direct-upload";
+import { requestImageOptimize, uploadToStorage, withContentExtension } from "@/components/admin/use-direct-upload";
 import { confirmImageUpload, requestImageUpload, saveImageChanges } from "@/lib/products/image-actions";
 import { acceptAttribute, checkFileMeta, FILE_TYPE_ERROR_TH, PRODUCT_IMAGE_FILE_TYPES } from "@/lib/storage/file-types";
 import { MAX_PRODUCT_FILE_SIZE } from "@/lib/storage/buckets";
@@ -117,10 +117,13 @@ export function ImageManager({ images }: { images: ManagedImage[] }) {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  function addFiles(files: File[]) {
+  async function addFiles(picked: File[]) {
     const room = MAX_IMAGES - items.length;
-    if (files.length > room) toast.error(`รูปภาพได้สูงสุด ${MAX_IMAGES} รูป`);
-    const accepted = files.slice(0, Math.max(0, room)).filter((file) => {
+    if (picked.length > room) toast.error(`รูปภาพได้สูงสุด ${MAX_IMAGES} รูป`);
+    const files = await Promise.all(
+      picked.slice(0, Math.max(0, room)).map((file) => withContentExtension(PRODUCT_IMAGE_FILE_TYPES, file)),
+    );
+    const accepted = files.filter((file) => {
       const error = checkFileMeta(PRODUCT_IMAGE_FILE_TYPES, file.name, file.size, MAX_PRODUCT_FILE_SIZE);
       if (error) toast.error(`${file.name}: ${FILE_TYPE_ERROR_TH[error]}`);
       return !error;
@@ -158,7 +161,7 @@ export function ImageManager({ images }: { images: ManagedImage[] }) {
         hidden
         onChange={(e) => {
           const input = e.currentTarget;
-          if (input.files?.length) addFiles(Array.from(input.files));
+          if (input.files?.length) void addFiles(Array.from(input.files));
           input.value = "";
         }}
       />
